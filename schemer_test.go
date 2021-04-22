@@ -16,85 +16,57 @@ func TestShowIntSize(t *testing.T) {
 	}
 }
 
-// TestCreateSchemaForFixedLenInt tests schemer's ability to correctly generate
-// a schema for a fixed length signed or unsigned integer
-func TestCreateSchemaForFixedLenInt(t *testing.T) {
-
-	var v1 int
-	var v2 int8
-	var v3 int16
-	var v4 int32
-	var v5 int64
-	var v6 uint
-	var v7 uint8
-	var v8 uint16
-	var v9 uint32
-	var v10 uint64
+// TestFixedIntegerSchema tests Schemer's FixedIntegerSchema function, making sure that it creates schemas as expected
+func TestFixedIntegerSchema(t *testing.T) {
 
 	var bs BasicSchema
-	var err error
 
-	// don't forget ints can either be 32 or 64 bits wide, based on the architecture
-	bs.Header, err = bs.FixedSizeInt(v1)
-	if ArchitectureIs64Bits() {
-		if bs.Header != 7 || err != nil {
-			t.Errorf("invalid schema for go type: int")
-		}
-	} else {
-		if bs.Header != 5 || err != nil {
-			t.Errorf("invalid schema for go type: int")
-		}
+	//----------------------------------------------------------
+	// signed values
+	//----------------------------------------------------------
+
+	bs = FixedIntegerSchema(true, 8).(BasicSchema)
+	if bs.Header != 1 {
+		t.Errorf("invalid schema for signed 8 bit value")
 	}
 
-	bs.Header, err = bs.FixedSizeInt(v2)
-	if bs.Header != 1 || err != nil {
-		t.Errorf("invalid schema for go type: int8")
+	bs = FixedIntegerSchema(true, 16).(BasicSchema)
+	if bs.Header != 3 {
+		t.Errorf("invalid schema for signed 16 bit value")
 	}
 
-	bs.Header, err = bs.FixedSizeInt(v3)
-	if bs.Header != 3 || err != nil {
-		t.Errorf("invalid schema for go type: int16")
+	bs = FixedIntegerSchema(true, 32).(BasicSchema)
+	if bs.Header != 5 {
+		t.Errorf("invalid schema for signed 32 bit value")
 	}
 
-	bs.Header, err = bs.FixedSizeInt(v4)
-	if bs.Header != 5 || err != nil {
-		t.Errorf("invalid schema for go type: int32")
+	bs = FixedIntegerSchema(true, 64).(BasicSchema)
+	if bs.Header != 7 {
+		t.Errorf("invalid schema for signed 64 bit value")
 	}
 
-	bs.Header, err = bs.FixedSizeInt(v5)
-	if bs.Header != 7 || err != nil {
-		t.Errorf("invalid schema for go type: int64")
+	//----------------------------------------------------------
+	// unsigned values
+	//----------------------------------------------------------
+
+	bs = FixedIntegerSchema(false, 8).(BasicSchema)
+	if bs.Header != 0 {
+		t.Errorf("invalid schema for unsigned 8 bit value")
 	}
 
-	bs.Header, err = bs.FixedSizeInt(v6)
-	if ArchitectureIs64Bits() {
-		if bs.Header != 6 || err != nil {
-			t.Errorf("invalid schema for go type: uint")
-		}
-	} else {
-		if bs.Header != 4 || err != nil {
-			t.Errorf("invalid schema for go type: uint")
-		}
+	bs = FixedIntegerSchema(false, 16).(BasicSchema)
+	if bs.Header != 2 {
+		t.Errorf("invalid schema for unsigned 16 bit value")
 	}
 
-	bs.Header, err = bs.FixedSizeInt(v7)
-	if bs.Header != 0 || err != nil {
-		t.Errorf("invalid schema for go type: uint8")
+	bs = FixedIntegerSchema(false, 32).(BasicSchema)
+	if bs.Header != 4 {
+		t.Errorf("invalid schema for unsigned 32 bit value")
 	}
 
-	bs.Header, err = bs.FixedSizeInt(v8)
-	if bs.Header != 2 || err != nil {
-		t.Errorf("invalid schema for go type: uint16")
-	}
-
-	bs.Header, err = bs.FixedSizeInt(v9)
-	if bs.Header != 4 || err != nil {
-		t.Errorf("invalid schema for go type: uint32")
-	}
-
-	bs.Header, err = bs.FixedSizeInt(v10)
-	if bs.Header != 6 || err != nil {
-		t.Errorf("invalid schema for go type: uint64")
+	bs = FixedIntegerSchema(false, 64).(BasicSchema)
+	if bs.Header != 6 {
+		t.Errorf("invalid schema for unsigned 64 bit value")
 	}
 
 }
@@ -117,56 +89,28 @@ func TestEncodeFixedLenInt(t *testing.T) {
 	fmt.Println("---------------------------------------")
 	fmt.Println("Testing encoding for go type int")
 
-	var v1 int = 100
+	var valueToEncode1 int64 = 1000
+	buf.Reset()
 
-	bs.Header, err = bs.FixedSizeInt(v1)
+	bs = FixedIntegerSchema(true, 64).(BasicSchema)
+	bytesWritten, err := bs.Encode(&buf, valueToEncode1)
 	if err != nil {
-		t.Errorf("cannot create schema for go type int")
-	}
-
-	bytesWritten, err := bs.Encode(&buf, v1)
-	if err != nil {
-		t.Errorf("could not encode int: %v", err)
+		t.Errorf("could not encode signed int 64 %v", err)
 	}
 
 	dumpBuffer(bytesWritten, buf)
 
-	fmt.Println("---------------------------------------")
+	r := bytes.NewReader(buf.Bytes())
 
-	fmt.Println("Testing encoding for go type int8")
-
-	var v2 int8 = 101
-
-	bs.Header, err = bs.FixedSizeInt(v2)
+	fmt.Println("Testing decoding for go type int")
+	var decodedValue1 int64
+	err = bs.Decode(r, &decodedValue1)
 	if err != nil {
-		t.Errorf("cannot create schema for go type int8")
+		t.Errorf("could not decode signed int 64: %v", err)
 	}
 
-	bytesWritten, err = bs.Encode(&buf, v2)
-	if err != nil {
-		t.Errorf("could not encode int: %v", err)
+	if valueToEncode1 != decodedValue1 {
+		t.Errorf("unexpected decoded value for 64 bit signed value. Expected value: %d; Decoded value: %d", valueToEncode1, decodedValue1)
 	}
-
-	dumpBuffer(bytesWritten, buf)
-
-	fmt.Println("---------------------------------------")
-
-	fmt.Println("Testing encoding for go type int16")
-
-	var v3 int16 = 102
-
-	bs.Header, err = bs.FixedSizeInt(v3)
-	if err != nil {
-		t.Errorf("cannot create schema for go type int16")
-	}
-
-	bytesWritten, err = bs.Encode(&buf, v3)
-	if err != nil {
-		t.Errorf("could not encode int: %v", err)
-	}
-
-	dumpBuffer(bytesWritten, buf)
-
-	fmt.Println("---------------------------------------")
 
 }
