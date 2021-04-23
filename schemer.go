@@ -1,6 +1,7 @@
 package schemer
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -29,9 +30,37 @@ type Schema interface {
 	SetNullable(n bool)
 }
 
+// types that we can support encoding
+const (
+	FixedSizeInteger_Type = iota
+	VariableSizeInteger_Type
+	FloatingPointNumber_Type
+	ComplexNumber_Type
+	Boolean_Type
+	Enum_Type
+	FixedLengthString_Type
+	VariableLengthString_Type
+	FixedLengthArray_Type
+	VariableLengthArray_Type
+	ObjectWithfixedFields_Type
+	ObjectWithvariableFields_Type
+)
+
 // basicSchema represents a simple basic type like a number or boolean
 type BasicSchema struct {
 	Header byte
+}
+
+// headerByteToConst function needs to be filled in!
+func headerByteToConst(headerByte byte) int {
+
+	if headerByte&0xF0 == 0 {
+		return FixedSizeInteger_Type
+	}
+
+	// fixme
+	return 0
+
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
@@ -44,7 +73,7 @@ func (s BasicSchema) Encode(w io.Writer, v interface{}) (int, error) {
 	//nullable := hb&0x80 > 0
 	if hb&0x20 > 0 {
 		// string, array, object, or variant
-	} else if hb&0xF0 == 0 {
+	} else if headerByteToConst(hb) == FixedSizeInteger_Type {
 		// fixed-size integer
 		tmp := hb & 0x0F
 		signed := tmp&0x01 > 0
@@ -266,35 +295,83 @@ func checkforPtrToInt(v interface{}, intType reflect.Kind) bool {
 	return false
 }
 
+func sizeAndSignOfFixedLenInt(headerByte byte) (bool, int) {
+
+	tmp := (headerByte & 14) >> 1
+	sizeInBits := 8 << tmp
+	signed := headerByte&0x01 > 0
+
+	return signed, sizeInBits
+}
+
 func (s BasicSchema) Decode(r io.Reader, v interface{}) error {
 
+	var va reflect.Value
 	hb := s.Header
 
-	// does the schema indicate a fixed length integer??
-	if hb&0xF0 == 0 {
+	if headerByteToConst(hb) == FixedSizeInteger_Type {
 
 		// determine the size of the fixed-length integer
-		tmp := (hb & 14) >> 1
-		sizeInBits := 8 << tmp
-		signed := tmp&0x01 > 0
+		signed, sizeInBits := sizeAndSignOfFixedLenInt(hb)
 
 		if signed {
 			switch sizeInBits {
-			//case 8:
-			//case 16:
-			//case 32:
+			case 8:
+				// does the value that the caller of this routine passed in make sense?
+				if checkforPtrToInt(v, reflect.Int8) {
+
+					buf := make([]byte, 1)
+					lr := io.LimitReader(r, 1)
+					lr.Read(buf)
+
+					var ValueToWrite int8 = int8(buf[0])
+
+					va = reflect.ValueOf(ValueToWrite)
+					reflect.ValueOf(v).Elem().Set(va)
+				} else {
+					return fmt.Errorf("cannot decode signed int8 into passed in destination")
+				}
+			case 16:
+				// does the value that the caller of this routine passed in make sense?
+				if checkforPtrToInt(v, reflect.Int16) {
+
+					buf := make([]byte, 2)
+					lr := io.LimitReader(r, 2)
+					lr.Read(buf)
+
+					var ValueToWrite int16 = int16(buf[0]) |
+						int16(buf[1])<<8
+
+					va = reflect.ValueOf(ValueToWrite)
+					reflect.ValueOf(v).Elem().Set(va)
+				} else {
+					return fmt.Errorf("cannot decode signed int16 into passed in destination")
+				}
+			case 32:
+				// does the value that the caller of this routine passed in make sense?
+				if checkforPtrToInt(v, reflect.Int32) {
+
+					buf := make([]byte, 4)
+					lr := io.LimitReader(r, 4)
+					lr.Read(buf)
+
+					var ValueToWrite int32 = int32(buf[0]) |
+						int32(buf[1])<<8 |
+						int32(buf[2])<<16 |
+						int32(buf[3])<<24
+
+					va = reflect.ValueOf(ValueToWrite)
+					reflect.ValueOf(v).Elem().Set(va)
+				} else {
+					return fmt.Errorf("cannot decode signed int32 into passed in destination")
+				}
 			case 64:
 				// does the value that the caller of this routine passed in make sense?
 				if checkforPtrToInt(v, reflect.Int64) {
 
 					buf := make([]byte, 8)
 					lr := io.LimitReader(r, 8)
-					bytesRead, _ := lr.Read(buf)
-
-					fmt.Printf("total bytes read: %d \n", bytesRead)
-					for i := 0; i < bytesRead; i++ {
-						fmt.Printf("byte%d: %d\n", i, buf[i])
-					}
+					lr.Read(buf)
 
 					var ValueToWrite int64 = int64(buf[0]) |
 						int64(buf[1])<<8 |
@@ -305,10 +382,10 @@ func (s BasicSchema) Decode(r io.Reader, v interface{}) error {
 						int64(buf[6])<<48 |
 						int64(buf[7])<<56
 
-					va := reflect.ValueOf(ValueToWrite)
+					va = reflect.ValueOf(ValueToWrite)
 					reflect.ValueOf(v).Elem().Set(va)
 				} else {
-					return fmt.Errorf("cannot decode signed int64 into passed in passed in destination")
+					return fmt.Errorf("cannot decode signed int64 into passed in destination")
 				}
 			}
 		} else {
@@ -331,7 +408,28 @@ func (s BasicSchema) Bytes() []byte {
 	return nil
 }
 
+func jsonForFixedSizeInt(header byte) ([]byte, error) {
+
+	type fixedIntInfo struct {
+		TypeName string
+		Signed   bool
+		Bits     int
+	}
+
+	// determine the size of the fixed-length integer
+	signed, sizeInBits := sizeAndSignOfFixedLenInt(header)
+
+	m := fixedIntInfo{"int", signed, sizeInBits}
+	return json.Marshal(m)
+
+}
+
 func (s BasicSchema) MarshalJSON() ([]byte, error) {
+
+	if headerByteToConst(s.Header) == FixedSizeInteger_Type {
+		return jsonForFixedSizeInt(s.Header)
+	}
+
 	return nil, nil
 }
 
