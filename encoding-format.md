@@ -23,6 +23,7 @@ The first byte of a schema encodes the most important type information as follow
 | Array                 | 0b10 010f              | where f indicates that the array is of fixed length          |
 | Object                | 0b10 100f              | where f indicates that the object has fixed number of fields |
 | Variant               | 0b10 1100              |                                                              |
+| Schema                | 0b10 1101              |                                                              |
 | Custom Type           | 0b11 1111              | next 16 bytes is a UUID for the custom type followed by the raw schema |
 
 ## Values
@@ -43,7 +44,8 @@ The following table describes how schemer encodes different values. Nullable val
 | Variable-Length Array    | Length of array encoded much like a string above. Arrays of boolean and/or nullable values may be optimized. | Length of the array is encoded as a **signed** variable-size integer, and sign bit indicates null if set. |
 | Object w/fixed fields    | Encoded values for each field in the order specified by the schema. | Preceded by 1 byte. 0 indicates not null. Many nullable fields may be optimized to fit snugly into a bit map. |
 | Object w/variable fields | Number of entries encoded much like a string above. Key-value pairs are encoded using the types specified by the schema | Number of entries is encoded as a **signed** variable-size integer, and sign bit indicates null if set. |
-| Variant                  | TODO: Unsure how to encode variant values at this time…<br /><br />Variable-size unsigned integer indicating the schema ID to use to decode this value. The actual value then follows. | Variants themselves are not nullable.                        |
+| Schema                   | An encoded schemer schema. If the schema is larger than 17 bytes, a custom type schema UUID is usually written rather than the entire schema. | If null, the encoded schema will indicate a nullable schema. |
+| Variant                  | Schema for the written value followed by the actual value. If the schema is larger than 17 bytes, a custom type schema UUID is usually written rather than the entire schema. | If null, the encoded schema will indicate a nullable variant. |
 
 [^1]: If the value is null, only 1 byte is written.
 
@@ -54,3 +56,4 @@ The following optimizations modify the above rules for encoding values:
 * For objects with a fixed number of nullable or boolean fields, a single bit map is placed a the start of the object
 * For arrays of a nullable type, each group of 8 elements is preceded by the corresponding null bit map
 * Arrays of type boolean are encoded as bit maps. The final byte's least significant bits are padded with zeros.
+* Variable-length arrays and objects w/variable fields may be stored in blocks, where each block indicates the number of elements or key-value pairs. A block size of 0 indicates the end of the array or object. A negative block size indicates that the block size is followed by the number of bytes in the block.

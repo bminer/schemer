@@ -2,27 +2,41 @@
 
 Lightweight and robust data encoding library for [Go](https://golang.org/)
 
-Schemer provides an API to construct schemata that describe data structures; the schema is then used to encode and decode values.
+Schemer provides an API to construct schemata that describe data structures; a schema is then used to encode and decode values into sequences of bytes to be sent over the network or written to a file.
 
-Schemer seeks to be an alternative to [protobuf](https://github.com/protocolbuffers/protobuf), but it can also be used as a substitute for [JSON](https://www.json.org/) or [XML](https://en.wikipedia.org/wiki/XML).
+Schemer seeks to be an alternative to [protobuf](https://github.com/protocolbuffers/protobuf) or [Avro](https://avro.apache.org/), but it can also be used as a substitute for [JSON](https://www.json.org/).
 
 ## Features
 
 - Compact binary data format
 - High-speed encoding and decoding
 - Forward and backward compatibility
-- No code generation and no new language to learn
-- Supports user-defined data types
+- No code generation and no [new language](https://en.wikipedia.org/wiki/Interface_description_language) to learn
 - Simple and lightweight library with no external dependencies
+- Supports custom encoding for user-defined data types
 - JavaScript library for web browser interoperability (coming soon!)
 
 ## Why?
 
-[protobuf](https://github.com/protocolbuffers/protobuf) has several drawbacks that schemer addresses:
+Schemer is an attempt to further simplify data encoding. Unlike other encoding libraries that use [interface description languages](https://en.wikipedia.org/wiki/Interface_description_language) (i.e. protobuf), schemer allows developers to construct schemata programmatically with an API. Rather than generating code from a schema, a schema can be constructed from code. In Go, schemata can be generated from Go types using the reflection library. This subtlety adds a surprising amount of flexibility and extensibility to the encoding library.
 
-* protobuf uses [manually-assigned field identifiers](https://developers.google.com/protocol-buffers/docs/proto3#assigning_field_numbers) to ensure backward compatibility, but some may find this approach to be cumbersome and verbose. Much like [Avro](https://avro.apache.org/docs/current/), schemer ensures forward and backward compatibility by encoding values along with the writer's schema. During decoding, discrepancies between the reader schema and writer schema can be easily resolved.
-* Schemer allows the schema and encoded values to be written separately; thus, each datum is written with no per-value overheads. This reduces the size of the encoded data and improves performance.
-* Schemer relies on [Go's reflect package](https://golang.org/pkg/reflect/), so no code generation is needed. Schemata can be generated from vanilla Go data structures without writing a separate schema document. There is no new language to learn.
+Here's how schemer stacks up against other encoding formats:
+
+| Property                               | JSON               | XML                | MessagePack        | Protobuf           | Thrift             | Avro               | Gob                | Schemer            |
+| -------------------------------------- | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ |
+| Human-Readable                         | :heavy_check_mark: | :neutral_face:     | :x:                | :x:                | :x:                | :x:                | :x:                | :x:                |
+| Support for Many Programming Languages | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: |
+| Widely Adopted                         | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: | :x:                | :x:                | :x:                | :x:                |
+| Precise Encoding of Numbers            | :neutral_face:     | :x:                | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| Binary Strings                         | :x:                | :x:                | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| Compact Encoded Payload                | :x::x:             | :x::x:             | :x:                | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| Fast Encoding / Decoding               | :x:                | :x:                | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :neutral_face:     | :neutral_face:     | :grey_question:    |
+| Backward Compatibility                 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :neutral_face:     | :neutral_face:     | :heavy_check_mark: | :neutral_face:     | :heavy_check_mark: |
+| Forward Compatibility                  | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :neutral_face:     | :neutral_face:     | :heavy_check_mark: | :neutral_face:     | :heavy_check_mark: |
+| No Language To Learn                   | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                | :neutral_face:     | :heavy_check_mark: | :heavy_check_mark: |
+| Schema Support                         | :neutral_face:     | :neutral_face:     | :question:         | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: |
+| Supports Fixed-field Objects           | :x:                | :x:                | :x:                | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| Works on Web Browser                   | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :neutral_face:     | :heavy_check_mark: | :x:                | :calendar: soon…   |
 
 ## Types
 
@@ -37,18 +51,19 @@ schemer uses type information provided by the schema to encode values. The follo
 - Boolean
 - Enumeration
 - String
-	- UTF-8 encoded
+	- Can support any encoding, including UTF-8 and binary
 	- Fixed-size or variable-size [^2]
 - Array
 	- Fixed-size or variable-size
 - Object w/fixed fields (i.e. struct)
 - Object w/variable fields (i.e. map)
+- Schema (i.e. a schemer schema)
 - Dynamically-typed value (i.e. variant)
 - User-defined types
-	- A few common types are provided for representing date/time values, IP addresses, etc.
+	- A few common types are provided for representing timestamps, time durations, IP addresses, UUIDs, regular expressions, etc.
 
 [^1]: By default, integer types are encoded as variable integers, as this format will most likely generate the smallest encoded values.
-[^2]: By default, string types are encoded as variable-size strings. Fixed-size strings are padded with trailing space characters.
+[^2]: By default, string types are encoded as variable-size strings. Fixed-size strings are padded with trailing null bytes / zeros.
 
 ## Schema JSON Specification
 
@@ -108,7 +123,7 @@ As a general rule, types are only compatible with themselves (i.e. boolean value
 
 |                 | Destination           |                       |                        |                        |                       |                        |                        |                       |
 | --------------- | --------------------- | --------------------- | ---------------------- | ---------------------- | --------------------- | ---------------------- | ---------------------- | --------------------- |
-| **Source**      | int                   | float                 | complex                | bool                   | enum                  | string                 | array                  | object                |
+| **Source**      | int                   | float                 | complex                | bool                   | enum                  | string                 | array (see #12)        | object                |
 | int             | :heavy_check_mark: #1 | :heavy_check_mark: #1 | :heavy_check_mark: #1  | :grey_exclamation: #6  | :grey_exclamation: #7 | :grey_exclamation: #9  | :x:                    | :x:                   |
 | float           | :heavy_check_mark: #1 | :heavy_check_mark: #1 | :heavy_check_mark: #1  | :x:                    | :x:                   | :grey_exclamation: #9  | :x:                    | :x:                   |
 | complex         | :heavy_check_mark: #1 | :heavy_check_mark: #1 | :heavy_check_mark: #1  | :x:                    | :x:                   | :grey_exclamation: #9  | :grey_exclamation: #11 | :x:                   |
@@ -142,7 +157,7 @@ The following compatibility rules apply for weak decoding only:
 6. Numbers are always encoded to strings in base 10.
 6. Boolean values `true` and `false` are converted to string values `"true"` and `"false"` respectively. Strings `"1"`, `"t"`, `"T"`, `"TRUE"`, `"true"`, and `"True"` can be converted to the boolean value `true`. Strings `"0"`, `"f"`, `"F"`, `"FALSE"`, `"false"`, and `"False"` can be converted to boolean value `false`.
 6. Complex numbers may be converted into 2-element arrays of floating-point numbers and vice-versa. The real part of the complex number will be matched with array element 0, and the complex part will be matched with array element 1.
-6. Single-element arrays can be decoded to a destination that is compatible with the array element.
+6. Single-element arrays can be decoded to a destination that is compatible with the array element and vice-versa.
 
 #### String to number decoding:
 
