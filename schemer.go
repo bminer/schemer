@@ -304,101 +304,310 @@ func sizeAndSignOfFixedLenInt(headerByte byte) (bool, int) {
 	return signed, sizeInBits
 }
 
-func (s BasicSchema) Decode(r io.Reader, v interface{}) error {
+func isPtrToSignedInt(v interface{}) bool {
+	return checkforPtrToInt(v, reflect.Int8) ||
+		checkforPtrToInt(v, reflect.Int16) ||
+		checkforPtrToInt(v, reflect.Int32) ||
+		checkforPtrToInt(v, reflect.Int64)
+}
+
+func isPtrToUnsignedInt(v interface{}) bool {
+	return checkforPtrToInt(v, reflect.Uint8) ||
+		checkforPtrToInt(v, reflect.Uint16) ||
+		checkforPtrToInt(v, reflect.Uint32) ||
+		checkforPtrToInt(v, reflect.Uint64)
+}
+
+func decodeSignedFixedSizeInt(sizeInBits int, r io.Reader, v interface{}) error {
 
 	var va reflect.Value
+
+	switch sizeInBits {
+	case 8:
+		// does the value that the caller of this routine passed in make sense?
+		if isPtrToSignedInt(v) {
+			buf := make([]byte, 1)
+			r.Read(buf)
+
+			var ValueToWrite int8 = int8(buf[0])
+
+			switch reflect.ValueOf(v).Elem().Kind() {
+			case reflect.Int8:
+				// we can always fit an 8bit integer into an 8bit integer
+				var tmp8 int8 = int8(ValueToWrite)
+				va = reflect.ValueOf(tmp8)
+				reflect.ValueOf(v).Elem().Set(va)
+			case reflect.Int16:
+				// we can always fit an 8bit integer into a 16bit integer
+				var tmp16 int16 = int16(ValueToWrite)
+				va = reflect.ValueOf(tmp16)
+				reflect.ValueOf(v).Elem().Set(va)
+			case reflect.Int32:
+				// we can always fit a 16bit integer into a 32bit integer
+				var tmp32 int32 = int32(ValueToWrite)
+				va = reflect.ValueOf(tmp32)
+				reflect.ValueOf(v).Elem().Set(va)
+			case reflect.Int64:
+				// we can always fit a 16bit integer into a 64bit integer
+				var tmp64 int64 = int64(ValueToWrite)
+				va = reflect.ValueOf(tmp64)
+				reflect.ValueOf(v).Elem().Set(va)
+			}
+
+		} else {
+			return fmt.Errorf("cannot decode signed int8 into passed in destination")
+		}
+	case 16:
+		// does the value that the caller of this routine passed in make sense?
+		if isPtrToSignedInt(v) {
+			buf := make([]byte, 2)
+			r.Read(buf)
+
+			var ValueToWrite int16 = int16(buf[0]) |
+				int16(buf[1])<<8
+
+			switch reflect.ValueOf(v).Elem().Kind() {
+			case reflect.Int8:
+				if ValueToWrite >= -128 && ValueToWrite < 127 {
+					var tmp8 int8 = int8(ValueToWrite)
+					va = reflect.ValueOf(tmp8)
+					reflect.ValueOf(v).Elem().Set(va)
+				} else {
+					return fmt.Errorf("decoded value cannot fit into destination")
+				}
+			case reflect.Int16:
+				// we can always fit a 16bit integer into a 16bit integer
+				var tmp16 int16 = int16(ValueToWrite)
+				va = reflect.ValueOf(tmp16)
+				reflect.ValueOf(v).Elem().Set(va)
+			case reflect.Int32:
+				// we can always fit a 16bit integer into a 32bit integer
+				var tmp32 int32 = int32(ValueToWrite)
+				va = reflect.ValueOf(tmp32)
+				reflect.ValueOf(v).Elem().Set(va)
+			case reflect.Int64:
+				// we can always fit a 16bit integer into a 64bit integer
+				var tmp64 int64 = int64(ValueToWrite)
+				va = reflect.ValueOf(tmp64)
+				reflect.ValueOf(v).Elem().Set(va)
+			}
+		} else {
+			return fmt.Errorf("cannot decode signed int16 into passed in destination")
+		}
+	case 32:
+		// does the value that the caller of this routine passed in make sense?
+		if isPtrToSignedInt(v) {
+			buf := make([]byte, 4)
+			r.Read(buf)
+
+			var ValueToWrite int32 = int32(buf[0]) |
+				int32(buf[1])<<8 |
+				int32(buf[2])<<16 |
+				int32(buf[3])<<24
+
+			switch reflect.ValueOf(v).Elem().Kind() {
+			case reflect.Int8:
+				if ValueToWrite >= -128 && ValueToWrite < 127 {
+					var tmp8 int8 = int8(ValueToWrite)
+					va = reflect.ValueOf(tmp8)
+					reflect.ValueOf(v).Elem().Set(va)
+				} else {
+					return fmt.Errorf("decoded value cannot fit into destination")
+				}
+			case reflect.Int16:
+				if ValueToWrite >= -32768 && ValueToWrite < 32767 {
+					var tmp16 int16 = int16(ValueToWrite)
+					va = reflect.ValueOf(tmp16)
+					reflect.ValueOf(v).Elem().Set(va)
+				} else {
+					return fmt.Errorf("decoded value cannot fit into destination")
+				}
+			case reflect.Int32:
+				// we can always fit a 32bit integer into a 32it integer
+				var tmp32 int32 = int32(ValueToWrite)
+				va = reflect.ValueOf(tmp32)
+				reflect.ValueOf(v).Elem().Set(va)
+			case reflect.Int64:
+				// we can always fit a 32bit integer into a 64bit integer
+				var tmp64 int64 = int64(ValueToWrite)
+				va = reflect.ValueOf(tmp64)
+				reflect.ValueOf(v).Elem().Set(va)
+			}
+		} else {
+			return fmt.Errorf("cannot decode signed int32 into passed in destination")
+		}
+	case 64:
+		// does the value that the caller of this routine passed in make sense?
+		if isPtrToSignedInt(v) {
+			buf := make([]byte, 8)
+			r.Read(buf)
+
+			var ValueToWrite int64 = int64(buf[0]) |
+				int64(buf[1])<<8 |
+				int64(buf[2])<<16 |
+				int64(buf[3])<<24 |
+				int64(buf[4])<<32 |
+				int64(buf[5])<<40 |
+				int64(buf[6])<<48 |
+				int64(buf[7])<<56
+
+			switch reflect.ValueOf(v).Elem().Kind() {
+			case reflect.Int8:
+				if ValueToWrite >= -128 && ValueToWrite < 127 {
+					var tmp8 int8 = int8(ValueToWrite)
+					va = reflect.ValueOf(tmp8)
+					reflect.ValueOf(v).Elem().Set(va)
+				} else {
+					return fmt.Errorf("decoded value cannot fit into destination")
+				}
+			case reflect.Int16:
+				if ValueToWrite >= -32768 && ValueToWrite < 32767 {
+					var tmp16 int16 = int16(ValueToWrite)
+					va = reflect.ValueOf(tmp16)
+					reflect.ValueOf(v).Elem().Set(va)
+				} else {
+					return fmt.Errorf("decoded value cannot fit into destination")
+				}
+			case reflect.Int32:
+				if ValueToWrite >= -2147483648 && ValueToWrite < 2147483647 {
+					var tmp32 int32 = int32(ValueToWrite)
+					va = reflect.ValueOf(tmp32)
+					reflect.ValueOf(v).Elem().Set(va)
+				} else {
+					return fmt.Errorf("decoded value cannot fit into destination")
+				}
+			case reflect.Int64:
+				// we can always fit a 64bit integer into a 64bit integer
+				var tmp64 int64 = int64(ValueToWrite)
+				va = reflect.ValueOf(tmp64)
+				reflect.ValueOf(v).Elem().Set(va)
+			}
+
+		} else {
+			return fmt.Errorf("cannot decode signed int64 into passed in destination")
+		}
+	}
+
+	return nil
+}
+
+func decodeUnsignedFixedSizeInt(sizeInBits int, r io.Reader, v interface{}) error {
+
+	var va reflect.Value
+
+	switch sizeInBits {
+	case 8:
+		// does the value that the caller of this routine passed in make sense?
+		if isPtrToUnsignedInt(v) {
+			buf := make([]byte, 1)
+			r.Read(buf)
+
+			var ValueToWrite uint8 = uint8(buf[0])
+
+			switch reflect.ValueOf(v).Elem().Kind() {
+			case reflect.Uint8:
+				// we can always fit an 8bit integer into an 8bit integer
+				var tmp8 uint8 = uint8(ValueToWrite)
+				va = reflect.ValueOf(tmp8)
+				reflect.ValueOf(v).Elem().Set(va)
+			case reflect.Uint16:
+				// we can always fit an 8bit integer into a 16bit integer
+				var tmp16 uint16 = uint16(ValueToWrite)
+				va = reflect.ValueOf(tmp16)
+				reflect.ValueOf(v).Elem().Set(va)
+			case reflect.Uint32:
+				// we can always fit a 16bit integer into a 32bit integer
+				var tmp32 uint32 = uint32(ValueToWrite)
+				va = reflect.ValueOf(tmp32)
+				reflect.ValueOf(v).Elem().Set(va)
+			case reflect.Uint64:
+				// we can always fit a 16bit integer into a 64bit integer
+				var tmp64 uint64 = uint64(ValueToWrite)
+				va = reflect.ValueOf(tmp64)
+				reflect.ValueOf(v).Elem().Set(va)
+			}
+
+		} else {
+			return fmt.Errorf("cannot decode signed int8 into passed in destination")
+		}
+
+	case 64:
+		// does the value that the caller of this routine passed in make sense?
+		if isPtrToUnsignedInt(v) {
+			buf := make([]byte, 8)
+			r.Read(buf)
+
+			var ValueToWrite uint64 = uint64(buf[0]) |
+				uint64(buf[1])<<8 |
+				uint64(buf[2])<<16 |
+				uint64(buf[3])<<24 |
+				uint64(buf[4])<<32 |
+				uint64(buf[5])<<40 |
+				uint64(buf[6])<<48 |
+				uint64(buf[7])<<56
+
+			switch reflect.ValueOf(v).Elem().Kind() {
+			case reflect.Uint8:
+				if ValueToWrite <= 255 {
+					var tmp8 uint8 = uint8(ValueToWrite)
+					va = reflect.ValueOf(tmp8)
+					reflect.ValueOf(v).Elem().Set(va)
+				} else {
+					return fmt.Errorf("decoded value cannot fit into destination")
+				}
+			case reflect.Uint16:
+				if ValueToWrite <= 65535 {
+					var tmp16 uint16 = uint16(ValueToWrite)
+					va = reflect.ValueOf(tmp16)
+					reflect.ValueOf(v).Elem().Set(va)
+				} else {
+					return fmt.Errorf("decoded value cannot fit into destination")
+				}
+			case reflect.Uint32:
+				if ValueToWrite < 2147483647 {
+					var tmp32 uint32 = uint32(ValueToWrite)
+					va = reflect.ValueOf(tmp32)
+					reflect.ValueOf(v).Elem().Set(va)
+				} else {
+					return fmt.Errorf("decoded value cannot fit into destination")
+				}
+			case reflect.Uint64:
+				// we can always fit a 64bit integer into a 64bit integer
+				var tmp64 uint64 = uint64(ValueToWrite)
+				va = reflect.ValueOf(tmp64)
+				reflect.ValueOf(v).Elem().Set(va)
+			}
+
+		} else {
+			return fmt.Errorf("cannot decode signed int64 into passed in destination")
+		}
+
+	}
+
+	return nil
+}
+
+func decodeFixedSizeInt(hb byte, r io.Reader, v interface{}) error {
+
+	// determine the size of the fixed-length integer
+	signed, sizeInBits := sizeAndSignOfFixedLenInt(hb)
+
+	if signed {
+		return decodeSignedFixedSizeInt(sizeInBits, r, v)
+	} else {
+		return decodeUnsignedFixedSizeInt(sizeInBits, r, v)
+	}
+
+	return nil
+}
+
+func (s BasicSchema) Decode(r io.Reader, v interface{}) error {
+
 	hb := s.Header
 
 	if headerByteToConst(hb) == FixedSizeInteger_Type {
-
-		// determine the size of the fixed-length integer
-		signed, sizeInBits := sizeAndSignOfFixedLenInt(hb)
-
-		if signed {
-			switch sizeInBits {
-			case 8:
-				// does the value that the caller of this routine passed in make sense?
-				if checkforPtrToInt(v, reflect.Int8) {
-
-					buf := make([]byte, 1)
-					lr := io.LimitReader(r, 1)
-					lr.Read(buf)
-
-					var ValueToWrite int8 = int8(buf[0])
-
-					va = reflect.ValueOf(ValueToWrite)
-					reflect.ValueOf(v).Elem().Set(va)
-				} else {
-					return fmt.Errorf("cannot decode signed int8 into passed in destination")
-				}
-			case 16:
-				// does the value that the caller of this routine passed in make sense?
-				if checkforPtrToInt(v, reflect.Int16) {
-
-					buf := make([]byte, 2)
-					lr := io.LimitReader(r, 2)
-					lr.Read(buf)
-
-					var ValueToWrite int16 = int16(buf[0]) |
-						int16(buf[1])<<8
-
-					va = reflect.ValueOf(ValueToWrite)
-					reflect.ValueOf(v).Elem().Set(va)
-				} else {
-					return fmt.Errorf("cannot decode signed int16 into passed in destination")
-				}
-			case 32:
-				// does the value that the caller of this routine passed in make sense?
-				if checkforPtrToInt(v, reflect.Int32) {
-
-					buf := make([]byte, 4)
-					lr := io.LimitReader(r, 4)
-					lr.Read(buf)
-
-					var ValueToWrite int32 = int32(buf[0]) |
-						int32(buf[1])<<8 |
-						int32(buf[2])<<16 |
-						int32(buf[3])<<24
-
-					va = reflect.ValueOf(ValueToWrite)
-					reflect.ValueOf(v).Elem().Set(va)
-				} else {
-					return fmt.Errorf("cannot decode signed int32 into passed in destination")
-				}
-			case 64:
-				// does the value that the caller of this routine passed in make sense?
-				if checkforPtrToInt(v, reflect.Int64) {
-
-					buf := make([]byte, 8)
-					lr := io.LimitReader(r, 8)
-					lr.Read(buf)
-
-					var ValueToWrite int64 = int64(buf[0]) |
-						int64(buf[1])<<8 |
-						int64(buf[2])<<16 |
-						int64(buf[3])<<24 |
-						int64(buf[4])<<32 |
-						int64(buf[5])<<40 |
-						int64(buf[6])<<48 |
-						int64(buf[7])<<56
-
-					va = reflect.ValueOf(ValueToWrite)
-					reflect.ValueOf(v).Elem().Set(va)
-				} else {
-					return fmt.Errorf("cannot decode signed int64 into passed in destination")
-				}
-			}
-		} else {
-			/*
-				switch sizeInBits {
-				case 8:
-				case 16:
-				case 32:
-				case 64:
-				}
-			*/
-		}
-
+		return decodeFixedSizeInt(hb, r, v)
+	} else {
 	}
 
 	return nil
