@@ -7,35 +7,41 @@ import (
 	"io"
 	"math"
 	"reflect"
+	"strconv"
 )
 
-type ComplexNumber struct {
+type ComplexNumberSchema struct {
 	Bits         uint8 // must be 64 or 128
 	WeakDecoding bool
 }
 
-func (s ComplexNumber) IsValid() bool {
-	return s.Bits == 32 || s.Bits == 64
+func (s ComplexNumberSchema) IsValid() bool {
+	return s.Bits == 64 || s.Bits == 128
 }
 
-func (s ComplexNumber) MarshalJSON() ([]byte, error) {
+func (s ComplexNumberSchema) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal(s)
 
 }
 
-func (s *ComplexNumber) UnmarshalJSON(buf []byte) error {
+func (s *ComplexNumberSchema) UnmarshalJSON(buf []byte) error {
 
 	return json.Unmarshal(buf, s)
 
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s ComplexNumber) Encode(w io.Writer, v interface{}) error {
+func (s ComplexNumberSchema) Encode(w io.Writer, v interface{}) error {
 	value := reflect.ValueOf(v)
 	t := value.Type()
 	k := t.Kind()
 	complex := value.Complex()
+
+	// just double check the schema they are using
+	if !s.IsValid() {
+		return fmt.Errorf("cannot encode using invalid ComplexNumber schema")
+	}
 
 	switch k {
 	case reflect.Complex64:
@@ -87,7 +93,7 @@ func (s ComplexNumber) Encode(w io.Writer, v interface{}) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s ComplexNumber) Decode(r io.Reader, i interface{}) error {
+func (s ComplexNumberSchema) Decode(r io.Reader, i interface{}) error {
 	v := reflect.ValueOf(i)
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
@@ -101,11 +107,13 @@ func (s ComplexNumber) Decode(r io.Reader, i interface{}) error {
 		return fmt.Errorf("decode destination is not settable")
 	}
 
-	var rPart32 float32
-	var iPart32 float32
+	// just double check the schema they are using
+	if !s.IsValid() {
+		return fmt.Errorf("cannot decode using invalid ComplexNumber schema")
+	}
 
-	var rPart64 float64
-	var iPart64 float64
+	var realPart float64
+	var imaginaryPart float64
 
 	// take a look at the schema..
 	switch s.Bits {
@@ -115,15 +123,15 @@ func (s ComplexNumber) Decode(r io.Reader, i interface{}) error {
 		if err != nil {
 			return err
 		}
-		rPart32 = math.Float32frombits(uint32(buf[0]) | uint32(buf[1])<<8 | uint32(buf[2])<<16 | uint32(buf[3])<<24)
-		iPart32 = math.Float32frombits(uint32(buf[4]) | uint32(buf[5])<<8 | uint32(buf[6])<<16 | uint32(buf[7])<<24)
+		realPart = float64(math.Float32frombits(uint32(buf[0]) | uint32(buf[1])<<8 | uint32(buf[2])<<16 | uint32(buf[3])<<24))
+		imaginaryPart = float64(math.Float32frombits(uint32(buf[4]) | uint32(buf[5])<<8 | uint32(buf[6])<<16 | uint32(buf[7])<<24))
 	case 128:
 		buf := make([]byte, 16)
 		_, err := io.ReadAtLeast(r, buf, 16)
 		if err != nil {
 			return err
 		}
-		rPart64 = math.Float64frombits(
+		realPart = math.Float64frombits(
 			uint64(buf[0]) |
 				uint64(buf[1])<<8 |
 				uint64(buf[2])<<16 |
@@ -132,7 +140,7 @@ func (s ComplexNumber) Decode(r io.Reader, i interface{}) error {
 				uint64(buf[5])<<40 |
 				uint64(buf[6])<<48 |
 				uint64(buf[7])<<56)
-		iPart64 = math.Float64frombits(
+		imaginaryPart = math.Float64frombits(
 			uint64(buf[8]) |
 				uint64(buf[9])<<8 |
 				uint64(buf[10])<<16 |
@@ -143,20 +151,94 @@ func (s ComplexNumber) Decode(r io.Reader, i interface{}) error {
 				uint64(buf[15])<<56)
 
 	}
+	var complexToWrite complex128 = complex128(complex(realPart, imaginaryPart))
 
-	// Write to destination
 	switch k {
 	case reflect.Complex64:
-		v.SetComplex(complex128(complex(rPart32, iPart32)))
-
+		fallthrough
 	case reflect.Complex128:
-		v.SetComplex(complex128(complex(rPart64, iPart64)))
+		if v.OverflowComplex(complexToWrite) {
+			return fmt.Errorf("decoded complex overflows destination %v", k)
+		}
+		v.SetComplex(complexToWrite)
+
+	case reflect.Float32:
+		fallthrough
+	case reflect.Float64:
+		// make sure there is no imaginary component
+		if imaginaryPart != 0 {
+			return fmt.Errorf("cannot decode ComplexNumber to non complex type when imaginary component is present")
+		}
+
+		if v.OverflowFloat(realPart) {
+			return fmt.Errorf("decoded value overflows destination %v", k)
+		}
+		v.SetFloat(realPart)
+
+	case reflect.Int:
+		fallthrough
+	case reflect.Int8:
+		fallthrough
+	case reflect.Int16:
+		fallthrough
+	case reflect.Int32:
+		fallthrough
+	case reflect.Int64:
+		// make sure there is no imaginary component
+		if imaginaryPart != 0 {
+			return fmt.Errorf("cannot decode ComplexNumber to non complex type when imaginary component is present")
+		}
+
+		if v.OverflowInt(int64(realPart)) {
+			return fmt.Errorf("decoded value overflows destination %v", k)
+		}
+		if s.WeakDecoding {
+			// with weak decoding, we will allow loss of decimal point values
+			v.SetInt(int64(realPart))
+		} else {
+			if realPart == math.Trunc(realPart) {
+				v.SetInt(int64(realPart))
+			} else {
+				return fmt.Errorf("loss of floating point precision not allowed w/o WeakDecoding")
+			}
+		}
+
+	case reflect.Uint:
+		fallthrough
+	case reflect.Uint8:
+		fallthrough
+	case reflect.Uint16:
+		fallthrough
+	case reflect.Uint32:
+		fallthrough
+	case reflect.Uint64:
+		// make sure there is no imaginary component
+		if imaginaryPart != 0 {
+			return fmt.Errorf("cannot decode ComplexNumber to non complex type when imaginary component is present")
+		}
+		if v.OverflowUint(uint64(realPart)) {
+			return fmt.Errorf("decoded value overflows destination %v", k)
+		}
+		if realPart < 0 {
+			return fmt.Errorf("cannot decode negative ComplexNumber to unsigned int")
+		}
+		if s.WeakDecoding {
+			// with weak decoding, we will allow loss of decimal point values
+			v.SetUint(uint64(realPart))
+		} else {
+			if realPart == math.Trunc(realPart) {
+				v.SetUint(uint64(realPart))
+			} else {
+				return fmt.Errorf("loss of floating point precision not allowed w/o WeakDecoding")
+			}
+		}
 
 	case reflect.String:
 		if !s.WeakDecoding {
 			return fmt.Errorf("weak decoding not enabled; cannot decode to string")
 		}
-		//v.SetString(strconv.FormatComplex(complex128(complex(r, i))), 'E', -1, s.Bits)
+		tmp := complex128(complex(realPart, imaginaryPart))
+		v.SetString(strconv.FormatComplex(tmp, 'E', -1, int(s.Bits)))
 
 	default:
 		return fmt.Errorf("invalid destination %v", k)

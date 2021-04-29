@@ -10,18 +10,18 @@ import (
 	"strconv"
 )
 
-type FloatingPointNumber struct {
+type FloatingPointNumberSchema struct {
 	Bits         uint8 // must be 64 or 128
 	WeakDecoding bool
 }
 
-func (s FloatingPointNumber) IsValid() bool {
+func (s FloatingPointNumberSchema) IsValid() bool {
 	return s.Bits == 32 || s.Bits == 64
 }
 
 // if this function is called MarshalJSON it seems to be called
 // recursively by the json library???
-func (s FloatingPointNumber) DoMarshalJSON() ([]byte, error) {
+func (s FloatingPointNumberSchema) DoMarshalJSON() ([]byte, error) {
 
 	if !s.IsValid() {
 		return nil, fmt.Errorf("invalid floating point schema")
@@ -33,7 +33,7 @@ func (s FloatingPointNumber) DoMarshalJSON() ([]byte, error) {
 
 // if this function is called UnmarshalJSON it seems to be called
 // recursively by the json library???
-func (s *FloatingPointNumber) DoUnmarshalJSON(buf []byte) error {
+func (s *FloatingPointNumberSchema) DoUnmarshalJSON(buf []byte) error {
 
 	return json.Unmarshal(buf, s)
 
@@ -49,7 +49,7 @@ func SetNullable(n bool) {
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s FloatingPointNumber) Encode(w io.Writer, v interface{}) error {
+func (s FloatingPointNumberSchema) Encode(w io.Writer, v interface{}) error {
 	value := reflect.ValueOf(v)
 	t := value.Type()
 	k := t.Kind()
@@ -103,7 +103,7 @@ func (s FloatingPointNumber) Encode(w io.Writer, v interface{}) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s FloatingPointNumber) Decode(r io.Reader, i interface{}) error {
+func (s FloatingPointNumberSchema) Decode(r io.Reader, i interface{}) error {
 	v := reflect.ValueOf(i)
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
@@ -202,6 +202,9 @@ func (s FloatingPointNumber) Decode(r io.Reader, i interface{}) error {
 	case reflect.Uint64:
 		if v.OverflowUint(uint64(decodedFloat64)) {
 			return fmt.Errorf("decoded value %f overflows destination %v", decodedFloat64, k)
+		}
+		if decodedFloat64 < 0 {
+			return fmt.Errorf("cannot decode negative ComplexNumber to unsigned int")
 		}
 		if s.WeakDecoding {
 			v.SetUint(uint64(decodedFloat64))

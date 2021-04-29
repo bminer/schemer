@@ -4,5 +4,5 @@ import (
 	"testing"
 )
 
-func TestSchemer(t *testing.T) {
+func TestDecodeArray(t *testing.T) {
 }

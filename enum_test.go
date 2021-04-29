@@ -4,5 +4,5 @@ import (
 	"testing"
 )
 
-func TestSchemer(t *testing.T) {
+func TestDecodeEnum(t *testing.T) {
 }
