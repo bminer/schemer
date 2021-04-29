@@ -5,21 +5,19 @@ import (
 )
 
 // https://golangbyexample.com/go-size-range-int-uint/
-const uintSize = 32 << (^uint(0) >> 32 & 1) // 32 or 64
+//const uintSize = 32 << (^uint(0) >> 32 & 1) // 32 or 64
 
 type Schema interface {
 	// Encode uses the schema to write the encoded value of v to the output stream
 	Encode(w io.Writer, v interface{}) (int, error)
 	// Decode uses the schema to read the next encoded value from the input stream and store it in v
 	Decode(r io.Reader, v interface{}) error
-	// Bytes encodes the schema in a portable binary format
-	Bytes() []byte
+	// MarshalSchemer encodes the schema in a portable binary format
+	MarshalSchemer() ([]byte, error)
 	// String returns the schema in a human-readable format
 	// String() string
 	// MarshalJSON returns the JSON encoding of the schema
 	MarshalJSON() ([]byte, error)
-	// UnmarshalJSON updates the schema by decoding the JSON-encoded schema in buf
-	UnmarshalJSON(buf []byte) error
 	// Nullable returns true if and only if the type is nullable
 	Nullable() bool
 	// SetNullable sets the nullable flag for the schema
