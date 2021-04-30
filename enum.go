@@ -2,7 +2,10 @@ package schemer
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
+	"reflect"
 )
 
 type EnumSchema struct {
@@ -27,7 +30,22 @@ func (s *EnumSchema) UnmarshalJSON(buf []byte) error {
 
 // Encode uses the schema to write the encoded value of v to the output stream
 func (s EnumSchema) Encode(w io.Writer, v interface{}) error {
-	return nil
+
+	value := reflect.ValueOf(v)
+	t := value.Type()
+	k := t.Kind()
+
+	// just double check the schema they are using
+	if !s.IsValid() {
+		return fmt.Errorf("cannot encode using invalid EnumSchema schema")
+	}
+
+	switch k {
+
+	default:
+		return errors.New("can only encode boolean types when using BoolSchema")
+	}
+
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v

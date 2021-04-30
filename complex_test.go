@@ -6,11 +6,11 @@ import (
 	"testing"
 )
 
-// make sure we can decode 64bit floating point values into each supported type
-// when weakdecoding is enabled
+// make sure we can decode complex64 numbers into both complex64 and complex128
+// this is the base case
 func TestDecodeComplex1(t *testing.T) {
 
-	ComplexSchema := ComplexNumberSchema{Bits: 64, WeakDecoding: true}
+	ComplexSchema := ComplexNumberSchema{Bits: 64, WeakDecoding: false}
 
 	var buf bytes.Buffer
 	var err error
@@ -52,7 +52,7 @@ func TestDecodeComplex1(t *testing.T) {
 
 }
 
-// make sure we can decode complex numbers into floating points and integers
+// make sure we can decode complex64 numbers into floating points and integers
 // when the imaginary component is 0
 func TestDecodeComplex2(t *testing.T) {
 
@@ -60,7 +60,7 @@ func TestDecodeComplex2(t *testing.T) {
 
 	var buf bytes.Buffer
 	var err error
-	var valueToEncode complex64 = -123 + 0
+	var valueToEncode complex64 = 123 + 0
 	buf.Reset()
 
 	ComplexSchema.Encode(&buf, valueToEncode)
@@ -107,22 +107,9 @@ func TestDecodeComplex2(t *testing.T) {
 		t.Errorf("Expected value")
 	}
 
-	fmt.Println("complex64 to uint")
-	r = bytes.NewReader(buf.Bytes())
-
-	var decodedValue4 uint
-	err = ComplexSchema.Decode(r, &decodedValue4)
-	if err != nil {
-		t.Error(err)
-	}
-
-	if valueToEncode != complex64(complex(float64(decodedValue4), 0)) {
-		t.Errorf("Expected value")
-	}
-
 }
 
-// make sure that schemer will reject converting complex numbers to floating point
+// make sure that schemer will reject converting complex64 to floating point
 // or integer types when the complex component of the complex number is not zero
 func TestDecodeComplex3(t *testing.T) {
 
@@ -130,7 +117,7 @@ func TestDecodeComplex3(t *testing.T) {
 
 	var buf bytes.Buffer
 	var err error
-	var valueToEncode complex64 = 123 + 12i
+	var valueToEncode complex64 = 123 + 12i // imaginary part is present... should not be able to decode!
 	buf.Reset()
 
 	ComplexSchema.Encode(&buf, valueToEncode)
@@ -176,8 +163,7 @@ func TestDecodeComplex3(t *testing.T) {
 
 }
 
-// make sure we can decode 64bit floating point values into each supported type
-// when weakdecoding is enabled
+// make sure we can decode complex128 into both complex128 and complex64
 func TestDecodeComplex4(t *testing.T) {
 
 	ComplexSchema := ComplexNumberSchema{Bits: 128, WeakDecoding: true}
@@ -216,6 +202,261 @@ func TestDecodeComplex4(t *testing.T) {
 	}
 
 	if valueToEncode != complex128(decodedValue2) {
+		t.Errorf("Expected value")
+	}
+
+}
+
+// make sure we can decode complex128 numbers into floating points and integers
+// when the imaginary component is 0
+func TestDecodeComplex5(t *testing.T) {
+
+	ComplexSchema := ComplexNumberSchema{Bits: 128, WeakDecoding: true}
+
+	var buf bytes.Buffer
+	var err error
+	var valueToEncode complex128 = 123 + 0
+	buf.Reset()
+
+	ComplexSchema.Encode(&buf, valueToEncode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	fmt.Println("complex64 to float64")
+	r := bytes.NewReader(buf.Bytes())
+
+	var decodedValue1 float64
+	err = ComplexSchema.Decode(r, &decodedValue1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if valueToEncode != complex128(complex(decodedValue1, 0)) {
+		t.Errorf("Expected value")
+	}
+
+	fmt.Println("complex64 to float32")
+	r = bytes.NewReader(buf.Bytes())
+
+	var decodedValue2 float32
+	err = ComplexSchema.Decode(r, &decodedValue2)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if valueToEncode != complex128(complex(decodedValue2, 0)) {
+		t.Errorf("Expected value")
+	}
+
+	fmt.Println("complex64 to int")
+	r = bytes.NewReader(buf.Bytes())
+
+	var decodedValue3 int
+	err = ComplexSchema.Decode(r, &decodedValue3)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if valueToEncode != complex128(complex(float64(decodedValue3), 0)) {
+		t.Errorf("Expected value")
+	}
+
+}
+
+// corner case:
+// specifically make sure that schemer will throw an error if we try to
+// decode a negative complex64 into an uint
+func TestDecodeComplex6(t *testing.T) {
+
+	ComplexSchema := ComplexNumberSchema{Bits: 64, WeakDecoding: true}
+
+	var buf bytes.Buffer
+	var err error
+	var valueToEncode complex64 = -123 + 0
+	buf.Reset()
+
+	ComplexSchema.Encode(&buf, valueToEncode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	fmt.Println("complex64 to uint")
+	r := bytes.NewReader(buf.Bytes())
+
+	var decodedValue4 uint
+	err = ComplexSchema.Decode(r, &decodedValue4)
+	if err == nil {
+		t.Error("schemer library decoding failure; should not be able to decode negative complex64 into uint")
+	}
+
+}
+
+// corner case:
+// specifically make sure that schemer will throw an error if we try to
+// decode a negative complex128 into an uint
+func TestDecodeComplex7(t *testing.T) {
+
+	ComplexSchema := ComplexNumberSchema{Bits: 128, WeakDecoding: true}
+
+	var buf bytes.Buffer
+	var err error
+	var valueToEncode complex128 = -123 + 0
+	buf.Reset()
+
+	ComplexSchema.Encode(&buf, valueToEncode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	fmt.Println("complex128 to uint")
+	r := bytes.NewReader(buf.Bytes())
+
+	var decodedValue4 uint
+	err = ComplexSchema.Decode(r, &decodedValue4)
+	if err == nil {
+		t.Error("schemer library decoding failure; should not be able to decode negative complex128 into uint")
+	}
+
+}
+
+// make sure that schemer will reject converting complex128 to floating point
+// or integer types when the complex component of the complex number is not zero
+func TestDecodeComplex8(t *testing.T) {
+
+	ComplexSchema := ComplexNumberSchema{Bits: 128, WeakDecoding: true}
+
+	var buf bytes.Buffer
+	var err error
+	var valueToEncode complex128 = 123 + 12i // imaginary part is present... should not be able to decode!
+	buf.Reset()
+
+	ComplexSchema.Encode(&buf, valueToEncode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	fmt.Println("complex128 to float64")
+	r := bytes.NewReader(buf.Bytes())
+
+	var decodedValue1 float64
+	err = ComplexSchema.Decode(r, &decodedValue1)
+	if err == nil {
+		t.Error("schemer library decoding failure; imginary component present")
+	}
+
+	fmt.Println("complex128 to float32")
+	r = bytes.NewReader(buf.Bytes())
+
+	var decodedValue2 float32
+	err = ComplexSchema.Decode(r, &decodedValue2)
+	if err == nil {
+		t.Error("schemer library decoding failure; imginary component present")
+	}
+
+	fmt.Println("complex128 to int")
+	r = bytes.NewReader(buf.Bytes())
+
+	var decodedValue3 int
+	err = ComplexSchema.Decode(r, &decodedValue3)
+	if err == nil {
+		t.Error("schemer library decoding failure; imginary component present")
+	}
+
+	fmt.Println("complex128	 to uint")
+	r = bytes.NewReader(buf.Bytes())
+
+	var decodedValue4 uint
+	err = ComplexSchema.Decode(r, &decodedValue4)
+	if err == nil {
+		t.Error("schemer library decoding failure; imginary component present")
+	}
+
+}
+
+// make sure we can decode a complex number into float32 and float64 arrays
+func TestDecodeComplex9(t *testing.T) {
+
+	ComplexSchema := ComplexNumberSchema{Bits: 128, WeakDecoding: true}
+
+	var buf bytes.Buffer
+	var err error
+	var valueToEncode complex128 = 123 + 12i // imaginary part is present... should not be able to decode!
+	buf.Reset()
+
+	ComplexSchema.Encode(&buf, valueToEncode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	fmt.Println("complex128 to float32 array")
+	r := bytes.NewReader(buf.Bytes())
+
+	var decodedValue1 [2]float32
+
+	err = ComplexSchema.Decode(r, &decodedValue1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if valueToEncode != complex128(complex(decodedValue1[0], decodedValue1[1])) {
+		t.Errorf("Expected value")
+	}
+
+	fmt.Println("complex128 to float64 array")
+	r = bytes.NewReader(buf.Bytes())
+
+	var decodedValue2 [2]float64
+	err = ComplexSchema.Decode(r, &decodedValue2)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if valueToEncode != complex128(complex(decodedValue2[0], decodedValue2[1])) {
+		t.Errorf("Expected value")
+	}
+
+}
+
+// make sure we can decode a complex number into float and float64 slices
+func TestDecodeComplex10(t *testing.T) {
+
+	ComplexSchema := ComplexNumberSchema{Bits: 128, WeakDecoding: true}
+
+	var buf bytes.Buffer
+	var err error
+	var valueToEncode complex128 = 123 + 12i // imaginary part is present... should not be able to decode!
+	buf.Reset()
+
+	ComplexSchema.Encode(&buf, valueToEncode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	fmt.Println("complex128 to float32 slice")
+	r := bytes.NewReader(buf.Bytes())
+
+	var decodedValue1 []float32 = make([]float32, 2)
+
+	err = ComplexSchema.Decode(r, &decodedValue1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if valueToEncode != complex128(complex(decodedValue1[0], decodedValue1[1])) {
+		t.Errorf("Expected value")
+	}
+
+	fmt.Println("complex128 to float64 slice")
+	r = bytes.NewReader(buf.Bytes())
+
+	var decodedValue2 []float64 = make([]float64, 2)
+	err = ComplexSchema.Decode(r, &decodedValue2)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if valueToEncode != complex128(complex(decodedValue2[0], decodedValue2[1])) {
 		t.Errorf("Expected value")
 	}
 

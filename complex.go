@@ -240,6 +240,28 @@ func (s ComplexNumberSchema) Decode(r io.Reader, i interface{}) error {
 		tmp := complex128(complex(realPart, imaginaryPart))
 		v.SetString(strconv.FormatComplex(tmp, 'E', -1, int(s.Bits)))
 
+	case reflect.Slice:
+		fallthrough
+	case reflect.Array:
+		if !s.WeakDecoding {
+			return fmt.Errorf("weak decoding not enabled; cannot decode complex to array/slice")
+		}
+
+		if v.Len() != 2 {
+			return fmt.Errorf("complex numbers must be decoded into array/slice of exactly length 2")
+		}
+
+		arrayOK := true
+		arrayOK = arrayOK && (v.Index(0).Kind() == reflect.Float32 || v.Index(0).Kind() == reflect.Float64)
+		arrayOK = arrayOK && (v.Index(1).Kind() == reflect.Float32 || v.Index(1).Kind() == reflect.Float64)
+
+		if !arrayOK {
+			return fmt.Errorf("complex numbers must be decoded into array/slice of type Float32 or Float64")
+		}
+
+		v.Index(0).SetFloat(realPart)
+		v.Index(1).SetFloat(imaginaryPart)
+
 	default:
 		return fmt.Errorf("invalid destination %v", k)
 	}
