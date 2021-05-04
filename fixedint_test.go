@@ -18,8 +18,7 @@ func dumpBuffer(buf bytes.Buffer) {
 }
 */
 
-// TestDecodeint64 makes sure we can decode 64 bit values into each destination type
-func TestDecodeint64(t *testing.T) {
+func TestCodeFixedInt1(t *testing.T) {
 
 	fixedIntSchema := FixedInteger{Signed: true, Bits: 64, WeakDecoding: true}
 
@@ -30,7 +29,7 @@ func TestDecodeint64(t *testing.T) {
 
 	fmt.Println("Testing decoding int64 value")
 
-	fixedIntSchema.Encode(&buf, valueToEncode)
+	err = fixedIntSchema.Encode(&buf, valueToEncode)
 	if err != nil {
 		t.Error(err)
 	}
@@ -253,8 +252,7 @@ func TestDecodeint64(t *testing.T) {
 
 }
 
-// TestDecodeint32 makes sure we can decode 32 bit values into each destination type
-func TestDecodeint32(t *testing.T) {
+func TestCodeFixedInt2(t *testing.T) {
 
 	fixedIntSchema := FixedInteger{Signed: true, Bits: 32, WeakDecoding: true}
 
@@ -265,7 +263,7 @@ func TestDecodeint32(t *testing.T) {
 
 	fmt.Println("Testing decoding int32 value")
 
-	fixedIntSchema.Encode(&buf, valueToEncode)
+	err = fixedIntSchema.Encode(&buf, valueToEncode)
 	if err != nil {
 		t.Error(err)
 	}
@@ -488,8 +486,7 @@ func TestDecodeint32(t *testing.T) {
 
 }
 
-// TestDecodeint16 makes sure we can decode 16 bit values into each destination type
-func TestDecodeint16(t *testing.T) {
+func TestCodeFixedInt3(t *testing.T) {
 
 	fixedIntSchema := FixedInteger{Signed: true, Bits: 16, WeakDecoding: true}
 
@@ -500,7 +497,7 @@ func TestDecodeint16(t *testing.T) {
 
 	fmt.Println("Testing decoding int16 value")
 
-	fixedIntSchema.Encode(&buf, valueToEncode)
+	err = fixedIntSchema.Encode(&buf, valueToEncode)
 	if err != nil {
 		t.Error(err)
 	}
@@ -721,4 +718,25 @@ func TestDecodeint16(t *testing.T) {
 		t.Errorf("decoding to string producing unexpected value")
 	}
 
+}
+
+// make sure schemer will throw an error if we have a mismatch between our schema and
+//
+func TestCodeFixedInt4(t *testing.T) {
+
+	fixedIntSchema := FixedInteger{Signed: true, Bits: 8, WeakDecoding: true}
+
+	var buf bytes.Buffer
+	var err error
+	var valueToEncode int16 = 100
+	buf.Reset()
+
+	fmt.Println("Testing encoding int16 value into 8 bit FixedInteger schema")
+
+	err = fixedIntSchema.Encode(&buf, valueToEncode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// decode into signed integer types
 }

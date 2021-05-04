@@ -9,14 +9,52 @@ import (
 	"strconv"
 )
 
+// https://golangbyexample.com/go-size-range-int-uint/
+const uintSize = 32 << (^uint(0) >> 32 & 1) // 32 or 64
+
 const maxFloatInt = int64(1)<<53 - 1
 const minFloatInt = -maxFloatInt
 const maxIntUint = uint64(1)<<63 - 1
 
 type FixedInteger struct {
-	Signed       bool
-	Bits         uint8
-	WeakDecoding bool
+	Signed         bool
+	Bits           uint8
+	WeakDecoding   bool
+	StrictEncoding bool
+	Nullable       bool
+}
+
+// Bytes encodes the schema in a portable binary format
+func (s FixedInteger) Bytes() []byte {
+
+	// fixed length schemas are 1 byte long total
+	var schema []byte = make([]byte, 1)
+
+	// The most signifiant bit indicates whether or not the type is nullable
+	if s.Nullable {
+		schema[0] |= 1
+	}
+
+	// next bit indicates if the the fixed length int is signed or not
+	if s.Signed {
+		schema[0] |= 2
+	}
+
+	//
+	switch s.Bits {
+	case 8:
+		//do nothing
+	case 16:
+		schema[0] |= 4
+	case 32:
+		schema[0] |= 8
+	case 64:
+		schema[0] |= 24
+	default:
+	}
+
+	return schema
+
 }
 
 func (s FixedInteger) MarshalJSON() ([]byte, error) {
@@ -30,12 +68,6 @@ func (s *FixedInteger) UnmarshalJSON(buf []byte) error {
 	return json.Unmarshal(buf, s)
 
 }
-
-/*
-func Bytes() []byte {
-
-}
-*/
 
 func writeUint(w io.Writer, v uint64, s FixedInteger) error {
 	switch s.Bits {
@@ -150,10 +182,61 @@ func readUint(r io.Reader, s FixedInteger) (uint64, error) {
 	}
 }
 
+// CheckType returns true if the integer type passed for i
+// matched the schema
+func CheckType(s FixedInteger, i interface{}) bool {
+
+	var typeOK bool
+	v := reflect.ValueOf(i)
+	t := v.Type()
+	k := t.Kind()
+
+	switch k {
+	case reflect.Int:
+		if uintSize == 32 {
+			typeOK = s.Bits == 32 && s.Signed
+		} else {
+			typeOK = s.Bits == 64 && s.Signed
+		}
+	case reflect.Int8:
+		typeOK = s.Bits == 8 && s.Signed
+	case reflect.Int16:
+		typeOK = s.Bits == 16 && s.Signed
+	case reflect.Int32:
+		typeOK = s.Bits == 32 && s.Signed
+	case reflect.Int64:
+		typeOK = s.Bits == 64 && s.Signed
+
+	case reflect.Uint:
+		if uintSize == 32 {
+			typeOK = s.Bits == 32 && !s.Signed
+		} else {
+			typeOK = s.Bits == 64 && !s.Signed
+		}
+	case reflect.Uint8:
+		typeOK = s.Bits == 8 && !s.Signed
+	case reflect.Uint16:
+		typeOK = s.Bits == 16 && !s.Signed
+	case reflect.Uint32:
+		typeOK = s.Bits == 32 && !s.Signed
+	case reflect.Uint64:
+		typeOK = s.Bits == 64 && !s.Signed
+	default:
+		typeOK = false
+	}
+
+	return typeOK
+}
+
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s FixedInteger) Encode(w io.Writer, v interface{}) error {
-	value := reflect.ValueOf(v)
-	t := value.Type()
+func (s FixedInteger) Encode(w io.Writer, i interface{}) error {
+
+	if !CheckType(s, i) {
+		return fmt.Errorf("encode failure; value to be encoded does not match FixedInteger schema")
+	}
+
+	v := reflect.ValueOf(i)
+	t := v.Type()
 	k := t.Kind()
 
 	switch k {
@@ -166,7 +249,7 @@ func (s FixedInteger) Encode(w io.Writer, v interface{}) error {
 	case reflect.Int32:
 		fallthrough
 	case reflect.Int64:
-		intVal := value.Int()
+		intVal := v.Int()
 		// Check integer range
 		start := int64(0)
 		end := uint64(0xFFFFFFFFFFFFFFFF) // 8 bytes
@@ -193,7 +276,7 @@ func (s FixedInteger) Encode(w io.Writer, v interface{}) error {
 	case reflect.Uint32:
 		fallthrough
 	case reflect.Uint64:
-		uintVal := value.Uint()
+		uintVal := v.Uint()
 		// Check integer range
 		start := int64(0)
 		end := uint64(0xFFFFFFFFFFFFFFFF) // 8 bytes

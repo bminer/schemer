@@ -10,90 +10,140 @@ import (
 	"strconv"
 )
 
-type ComplexNumberSchema struct {
+type ComplexSchema struct {
 	Bits         uint8 // must be 64 or 128
 	WeakDecoding bool
+	IsNullable   bool
 }
 
-func (s ComplexNumberSchema) IsValid() bool {
+func (s ComplexSchema) IsValid() bool {
 	return s.Bits == 64 || s.Bits == 128
 }
 
-func (s ComplexNumberSchema) MarshalJSON() ([]byte, error) {
+// if this function is called MarshalJSON it seems to be called
+// recursively by the json library???
+func (s ComplexSchema) DoMarshalJSON() ([]byte, error) {
+	if !s.IsValid() {
+		return nil, fmt.Errorf("invalid floating point schema")
+	}
 
 	return json.Marshal(s)
-
 }
 
-func (s *ComplexNumberSchema) UnmarshalJSON(buf []byte) error {
-
+// if this function is called UnmarshalJSON it seems to be called
+// recursively by the json library???
+func (s ComplexSchema) DoUnmarshalJSON(buf []byte) error {
 	return json.Unmarshal(buf, s)
+}
 
+// Bytes encodes the schema in a portable binary format
+func (s ComplexSchema) Bytes() []byte {
+
+	// floating point schemas are 1 byte long
+	var schema []byte = make([]byte, 1)
+
+	schema[0] = 0b01100000 // bit pattern for complex number schema
+
+	// The most signifiant bit indicates whether or not the type is nullable
+	if s.IsNullable {
+		schema[0] |= 1
+	}
+
+	// bit 2 unused
+
+	// bit 3 = complex number size in (64 << n) bits
+	if s.Bits == 64 {
+		// do nothing; third bit should be 0
+	} else if s.Bits == 128 {
+		// third bit should be one; indicating 128 bit complex
+		schema[0] |= 4
+	}
+
+	// bit 4 = is reserved
+
+	return schema
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s ComplexNumberSchema) Encode(w io.Writer, v interface{}) error {
-	value := reflect.ValueOf(v)
-	t := value.Type()
-	k := t.Kind()
-	complex := value.Complex()
+func (s ComplexSchema) Encode(w io.Writer, v interface{}) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
 		return fmt.Errorf("cannot encode using invalid ComplexNumber schema")
 	}
 
-	switch k {
-	case reflect.Complex64:
+	value := reflect.ValueOf(v)
+	t := value.Type()
+	k := t.Kind()
 
-		real := math.Float32bits(float32(real(complex)))
-		imaginary := math.Float32bits(float32(imag(complex)))
+	if k != reflect.Complex64 && k != reflect.Complex128 {
+		return fmt.Errorf("ComplexSchema only supports encoding Complex64 and Complex128 values")
+	}
+	complex := value.Complex()
+
+	switch s.Bits {
+	case 64:
+		if k == reflect.Float64 {
+			return fmt.Errorf("32bit FloatSchema schema cannot encode 64 bit values")
+		}
+		r := math.Float32bits(float32(real(complex)))
+		i := math.Float32bits(float32(imag(complex)))
 
 		n, err := w.Write([]byte{
-			byte(real),
-			byte(real >> 8),
-			byte(real >> 16),
-			byte(real >> 24),
-			byte(imaginary),
-			byte(imaginary >> 8),
-			byte(imaginary >> 16),
-			byte(imaginary >> 24),
+			byte(r),
+			byte(r >> 8),
+			byte(r >> 16),
+			byte(r >> 24),
+			byte(i),
+			byte(i >> 8),
+			byte(i >> 16),
+			byte(i >> 24),
 		})
 		if err == nil && n != 8 {
-			return errors.New("unexpected number of bytes written")
+			err = errors.New("unexpected number of bytes written")
 		}
+		return err
 
-	case reflect.Complex128:
-		real := math.Float64bits(real(complex))
-		imaginary := math.Float64bits(imag(complex))
+	case 128:
+		r := math.Float64bits(real(complex))
+		i := math.Float64bits(imag(complex))
 
 		n, err := w.Write([]byte{
-			byte(real),
-			byte(real >> 8),
-			byte(real >> 16),
-			byte(real >> 24),
-			byte(real >> 32),
-			byte(real >> 40),
-			byte(real >> 48),
-			byte(real >> 56),
-			byte(imaginary),
-			byte(imaginary >> 8),
-			byte(imaginary >> 16),
-			byte(imaginary >> 24),
-			byte(imaginary >> 32),
-			byte(imaginary >> 40),
-			byte(imaginary >> 48),
-			byte(imaginary >> 56),
+			byte(r),
+			byte(r >> 8),
+			byte(r >> 16),
+			byte(r >> 24),
+			byte(r >> 32),
+			byte(r >> 40),
+			byte(r >> 48),
+			byte(r >> 56),
+			byte(i),
+			byte(i >> 8),
+			byte(i >> 16),
+			byte(i >> 24),
+			byte(i >> 32),
+			byte(i >> 40),
+			byte(i >> 48),
+			byte(i >> 56),
 		})
 		if err == nil && n != 16 {
-			return errors.New("unexpected number of bytes written")
+			err = errors.New("unexpected number of bytes written")
 		}
+		return err
+	default:
+		// error
 	}
 	return nil
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s ComplexNumberSchema) Decode(r io.Reader, i interface{}) error {
+func (s ComplexSchema) Decode(r io.Reader, i interface{}) error {
+
+	// just double check the schema they are using
+	if !s.IsValid() {
+		return fmt.Errorf("cannot decode using invalid ComplexNumber schema")
+	}
+
 	v := reflect.ValueOf(i)
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
@@ -107,13 +157,8 @@ func (s ComplexNumberSchema) Decode(r io.Reader, i interface{}) error {
 		return fmt.Errorf("decode destination is not settable")
 	}
 
-	// just double check the schema they are using
-	if !s.IsValid() {
-		return fmt.Errorf("cannot decode using invalid ComplexNumber schema")
-	}
-
 	var realPart float64
-	var imaginaryPart float64
+	var imagPart float64
 
 	// take a look at the schema..
 	switch s.Bits {
@@ -123,8 +168,16 @@ func (s ComplexNumberSchema) Decode(r io.Reader, i interface{}) error {
 		if err != nil {
 			return err
 		}
-		realPart = float64(math.Float32frombits(uint32(buf[0]) | uint32(buf[1])<<8 | uint32(buf[2])<<16 | uint32(buf[3])<<24))
-		imaginaryPart = float64(math.Float32frombits(uint32(buf[4]) | uint32(buf[5])<<8 | uint32(buf[6])<<16 | uint32(buf[7])<<24))
+		realPart = float64(math.Float32frombits(
+			uint32(buf[0]) |
+				uint32(buf[1])<<8 |
+				uint32(buf[2])<<16 |
+				uint32(buf[3])<<24))
+		imagPart = float64(math.Float32frombits(
+			uint32(buf[4]) |
+				uint32(buf[5])<<8 |
+				uint32(buf[6])<<16 |
+				uint32(buf[7])<<24))
 	case 128:
 		buf := make([]byte, 16)
 		_, err := io.ReadAtLeast(r, buf, 16)
@@ -140,7 +193,7 @@ func (s ComplexNumberSchema) Decode(r io.Reader, i interface{}) error {
 				uint64(buf[5])<<40 |
 				uint64(buf[6])<<48 |
 				uint64(buf[7])<<56)
-		imaginaryPart = math.Float64frombits(
+		imagPart = math.Float64frombits(
 			uint64(buf[8]) |
 				uint64(buf[9])<<8 |
 				uint64(buf[10])<<16 |
@@ -151,7 +204,7 @@ func (s ComplexNumberSchema) Decode(r io.Reader, i interface{}) error {
 				uint64(buf[15])<<56)
 
 	}
-	var complexToWrite complex128 = complex128(complex(realPart, imaginaryPart))
+	var complexToWrite complex128 = complex(realPart, imagPart)
 
 	switch k {
 	case reflect.Complex64:
@@ -166,7 +219,7 @@ func (s ComplexNumberSchema) Decode(r io.Reader, i interface{}) error {
 		fallthrough
 	case reflect.Float64:
 		// make sure there is no imaginary component
-		if imaginaryPart != 0 {
+		if imagPart != 0 {
 			return fmt.Errorf("cannot decode ComplexNumber to non complex type when imaginary component is present")
 		}
 
@@ -185,22 +238,18 @@ func (s ComplexNumberSchema) Decode(r io.Reader, i interface{}) error {
 		fallthrough
 	case reflect.Int64:
 		// make sure there is no imaginary component
-		if imaginaryPart != 0 {
+		if imagPart != 0 {
 			return fmt.Errorf("cannot decode ComplexNumber to non complex type when imaginary component is present")
 		}
 
 		if v.OverflowInt(int64(realPart)) {
 			return fmt.Errorf("decoded value overflows destination %v", k)
 		}
-		if s.WeakDecoding {
-			// with weak decoding, we will allow loss of decimal point values
+
+		if realPart == math.Trunc(realPart) {
 			v.SetInt(int64(realPart))
 		} else {
-			if realPart == math.Trunc(realPart) {
-				v.SetInt(int64(realPart))
-			} else {
-				return fmt.Errorf("loss of floating point precision not allowed w/o WeakDecoding")
-			}
+			return fmt.Errorf("loss of floating point precision not allowed w/o WeakDecoding")
 		}
 
 	case reflect.Uint:
@@ -213,7 +262,7 @@ func (s ComplexNumberSchema) Decode(r io.Reader, i interface{}) error {
 		fallthrough
 	case reflect.Uint64:
 		// make sure there is no imaginary component
-		if imaginaryPart != 0 {
+		if imagPart != 0 {
 			return fmt.Errorf("cannot decode ComplexNumber to non complex type when imaginary component is present")
 		}
 		if v.OverflowUint(uint64(realPart)) {
@@ -222,22 +271,18 @@ func (s ComplexNumberSchema) Decode(r io.Reader, i interface{}) error {
 		if realPart < 0 {
 			return fmt.Errorf("cannot decode negative ComplexNumber to unsigned int")
 		}
-		if s.WeakDecoding {
-			// with weak decoding, we will allow loss of decimal point values
+
+		if realPart == math.Trunc(realPart) {
 			v.SetUint(uint64(realPart))
 		} else {
-			if realPart == math.Trunc(realPart) {
-				v.SetUint(uint64(realPart))
-			} else {
-				return fmt.Errorf("loss of floating point precision not allowed w/o WeakDecoding")
-			}
+			return fmt.Errorf("loss of floating point precision not allowed w/o WeakDecoding")
 		}
 
 	case reflect.String:
 		if !s.WeakDecoding {
 			return fmt.Errorf("weak decoding not enabled; cannot decode to string")
 		}
-		tmp := complex128(complex(realPart, imaginaryPart))
+		tmp := complex128(complex(realPart, imagPart))
 		v.SetString(strconv.FormatComplex(tmp, 'E', -1, int(s.Bits)))
 
 	case reflect.Slice:
@@ -251,16 +296,15 @@ func (s ComplexNumberSchema) Decode(r io.Reader, i interface{}) error {
 			return fmt.Errorf("complex numbers must be decoded into array/slice of exactly length 2")
 		}
 
-		arrayOK := true
-		arrayOK = arrayOK && (v.Index(0).Kind() == reflect.Float32 || v.Index(0).Kind() == reflect.Float64)
-		arrayOK = arrayOK && (v.Index(1).Kind() == reflect.Float32 || v.Index(1).Kind() == reflect.Float64)
-
-		if !arrayOK {
-			return fmt.Errorf("complex numbers must be decoded into array/slice of type Float32 or Float64")
+		elemK := t.Elem().Kind()
+		if elemK != reflect.Float32 && elemK != reflect.Float64 {
+			return fmt.Errorf("complex numbers must be decoded into array/slice of type float32 or float64")
 		}
 
+		// check overflow for each float
+
 		v.Index(0).SetFloat(realPart)
-		v.Index(1).SetFloat(imaginaryPart)
+		v.Index(1).SetFloat(imagPart)
 
 	default:
 		return fmt.Errorf("invalid destination %v", k)

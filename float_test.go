@@ -3,7 +3,6 @@ package schemer
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 	"testing"
@@ -13,7 +12,7 @@ import (
 // when weakdecoding is enabled
 func TestFloatingPointSchema1(t *testing.T) {
 
-	floatingPointSchema := FloatingPointNumberSchema{Bits: 32, WeakDecoding: true}
+	floatingPointSchema := FloatSchema{Bits: 32, WeakDecoding: true}
 
 	var buf bytes.Buffer
 	var err error
@@ -50,37 +49,6 @@ func TestFloatingPointSchema1(t *testing.T) {
 	}
 
 	if valueToEncode != float32(decodedValue2) {
-		t.Errorf("Expected value")
-	}
-
-	// we have weak decoding on
-	// so just make sure we can decode into each integer type [with loss of precision]
-
-	var expectedTruncatedInteger int = int(math.Trunc(float64(valueToEncode)))
-	r = bytes.NewReader(buf.Bytes())
-
-	fmt.Println("float32 to int")
-
-	var decodedValue3 int
-	err = floatingPointSchema.Decode(r, &decodedValue3)
-	if err != nil {
-		t.Error(err)
-	}
-
-	if expectedTruncatedInteger != decodedValue3 {
-		t.Errorf("Expected value")
-	}
-
-	r = bytes.NewReader(buf.Bytes())
-	fmt.Println("float32 to uint")
-
-	var decodedValue4 uint
-	err = floatingPointSchema.Decode(r, &decodedValue4)
-	if err != nil {
-		t.Error(err)
-	}
-
-	if uint(expectedTruncatedInteger) != decodedValue4 {
 		t.Errorf("Expected value")
 	}
 
@@ -130,7 +98,7 @@ func TestFloatingPointSchema1(t *testing.T) {
 // when weakdecoding is disabled
 func TestFloatingPointSchema2(t *testing.T) {
 
-	floatingPointSchema := FloatingPointNumberSchema{Bits: 32, WeakDecoding: false}
+	floatingPointSchema := FloatSchema{Bits: 32, WeakDecoding: false}
 
 	var buf bytes.Buffer
 	var err error
@@ -161,7 +129,7 @@ func TestFloatingPointSchema2(t *testing.T) {
 // even if weakdecoding is false
 func TestFloatingPointSchema3(t *testing.T) {
 
-	floatingPointSchema := FloatingPointNumberSchema{Bits: 32, WeakDecoding: false}
+	floatingPointSchema := FloatSchema{Bits: 32, WeakDecoding: false}
 
 	var buf bytes.Buffer
 	var err error
@@ -197,7 +165,7 @@ func TestFloatingPointSchema3(t *testing.T) {
 func TestFloatingPointSchema4(t *testing.T) {
 
 	// setup an invalid schema
-	floatingPointSchema := FloatingPointNumberSchema{Bits: 8, WeakDecoding: false}
+	floatingPointSchema := FloatSchema{Bits: 8, WeakDecoding: false}
 
 	var buf bytes.Buffer
 	var err error
@@ -216,7 +184,7 @@ func TestFloatingPointSchema4(t *testing.T) {
 // overflow
 func TestFloatingPointSchema5(t *testing.T) {
 
-	floatingPointSchema := FloatingPointNumberSchema{Bits: 32, WeakDecoding: false}
+	floatingPointSchema := FloatSchema{Bits: 32, WeakDecoding: false}
 
 	var buf bytes.Buffer
 	var err error
@@ -251,7 +219,7 @@ func TestFloatingPointSchema5(t *testing.T) {
 // when weakdecoding is enabled.
 func TestFloatingPointSchema6(t *testing.T) {
 
-	floatingPointSchema := FloatingPointNumberSchema{Bits: 64, WeakDecoding: true}
+	floatingPointSchema := FloatSchema{Bits: 64, WeakDecoding: true}
 
 	var buf bytes.Buffer
 	var err error
@@ -288,37 +256,6 @@ func TestFloatingPointSchema6(t *testing.T) {
 	}
 
 	if valueToEncode != decodedValue2 {
-		t.Errorf("Expected value")
-	}
-
-	// we have weak decoding on
-	// so just make sure we can decode into each integer type [with loss of precision]
-
-	var expectedTruncatedInteger int = int(math.Trunc(float64(valueToEncode)))
-	r = bytes.NewReader(buf.Bytes())
-
-	fmt.Println("float64 to int")
-
-	var decodedValue3 int
-	err = floatingPointSchema.Decode(r, &decodedValue3)
-	if err != nil {
-		t.Error(err)
-	}
-
-	if expectedTruncatedInteger != decodedValue3 {
-		t.Errorf("Expected value")
-	}
-
-	r = bytes.NewReader(buf.Bytes())
-	fmt.Println("float64 to uint")
-
-	var decodedValue4 uint
-	err = floatingPointSchema.Decode(r, &decodedValue4)
-	if err != nil {
-		t.Error(err)
-	}
-
-	if uint(expectedTruncatedInteger) != decodedValue4 {
 		t.Errorf("Expected value")
 	}
 
@@ -368,7 +305,7 @@ func TestFloatingPointSchema6(t *testing.T) {
 // when weakdecoding is disabled
 func TestFloatingPointSchema7(t *testing.T) {
 
-	floatingPointSchema := FloatingPointNumberSchema{Bits: 64, WeakDecoding: false}
+	floatingPointSchema := FloatSchema{Bits: 64, WeakDecoding: false}
 
 	var buf bytes.Buffer
 	var err error
@@ -399,7 +336,7 @@ func TestFloatingPointSchema7(t *testing.T) {
 // even if weakdecoding is false
 func TestFloatingPointSchema8(t *testing.T) {
 
-	floatingPointSchema := FloatingPointNumberSchema{Bits: 64, WeakDecoding: false}
+	floatingPointSchema := FloatSchema{Bits: 64, WeakDecoding: false}
 
 	var buf bytes.Buffer
 	var err error
@@ -435,7 +372,7 @@ func TestFloatingPointSchema8(t *testing.T) {
 func TestFloatingPointScheme9(t *testing.T) {
 
 	// setup an invalid schema
-	floatingPointSchema := FloatingPointNumberSchema{Bits: 8, WeakDecoding: false}
+	floatingPointSchema := FloatSchema{Bits: 8, WeakDecoding: false}
 
 	var buf bytes.Buffer
 	var err error
@@ -454,7 +391,7 @@ func TestFloatingPointScheme9(t *testing.T) {
 // overflow
 func TestFloatingPointSchema10(t *testing.T) {
 
-	floatingPointSchema := FloatingPointNumberSchema{Bits: 32, WeakDecoding: false}
+	floatingPointSchema := FloatSchema{Bits: 64, WeakDecoding: false}
 
 	var buf bytes.Buffer
 	var err error
@@ -486,7 +423,7 @@ func TestFloatingPointSchema11(t *testing.T) {
 
 	jsonData := []byte("{\"Bits\":32,\"WeakDecoding\":false}")
 
-	var floatingPointSchema FloatingPointNumberSchema
+	var floatingPointSchema FloatSchema
 	err := floatingPointSchema.DoUnmarshalJSON(jsonData)
 	if err != nil {
 		t.Error(err)
@@ -503,6 +440,35 @@ func TestFloatingPointSchema11(t *testing.T) {
 
 	if !strings.EqualFold(string(jsonData), string(buf)) {
 		t.Error("schemer library failure; DoUnmarshalJSON unexpected result")
+	}
+
+}
+
+func TestFloatingPointSchema13(t *testing.T) {
+
+	// setup an example schema
+	floatingPointSchema := FloatSchema{Bits: 32, WeakDecoding: false, IsNullable: false}
+
+	// encode it
+	b := floatingPointSchema.Bytes()
+
+	// make sure we can successfully decode it
+	var DecodedFloatSchema FloatSchema
+	var err error
+
+	tmp, err := NewSchema(b)
+	if err != nil {
+		t.Error("cannot decode binary encoded float schema")
+	}
+
+	DecodedFloatSchema = tmp.(FloatSchema)
+
+	// and then check the actual contents of the decoded schema
+	// to make sure it contains the correct values
+	if DecodedFloatSchema.Bits != floatingPointSchema.Bits ||
+		DecodedFloatSchema.IsNullable != floatingPointSchema.IsNullable {
+
+		t.Error("unexpected values when decoding binary FloatSchema")
 	}
 
 }

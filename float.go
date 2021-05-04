@@ -10,60 +10,96 @@ import (
 	"strconv"
 )
 
-type FloatingPointNumberSchema struct {
-	Bits         uint8 // must be 64 or 128
+type FloatSchema struct {
+	Bits         uint8 // must be 32 or 64
 	WeakDecoding bool
+	IsNullable   bool
 }
 
-func (s FloatingPointNumberSchema) IsValid() bool {
+func (s FloatSchema) Valid() bool {
 	return s.Bits == 32 || s.Bits == 64
+}
+
+// Bytes encodes the schema in a portable binary format
+func (s FloatSchema) Bytes() []byte {
+
+	// floating point schemas are 1 byte long
+	var schema []byte = make([]byte, 1)
+
+	schema[0] = 0b01010000 // bit pattern for floating point number schema
+
+	// The most signifiant bit indicates whether or not the type is nullable
+	if s.IsNullable {
+		schema[0] |= 1
+	}
+
+	// bit 2 unused
+
+	// bit 3 = floating-point size in (32 << n) bits
+	if s.Bits == 32 {
+		// do nothing; third bit should be 0
+	} else if s.Bits == 64 {
+		// third bit should be one; indicating 64 bit floating point
+		schema[0] |= 4
+	}
+
+	// bit 4 = is reserved
+
+	return schema
 }
 
 // if this function is called MarshalJSON it seems to be called
 // recursively by the json library???
-func (s FloatingPointNumberSchema) DoMarshalJSON() ([]byte, error) {
-
-	if !s.IsValid() {
+func (s FloatSchema) DoMarshalJSON() ([]byte, error) {
+	if !s.Valid() {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
 
 	return json.Marshal(s)
-
 }
 
 // if this function is called UnmarshalJSON it seems to be called
 // recursively by the json library???
-func (s *FloatingPointNumberSchema) DoUnmarshalJSON(buf []byte) error {
-
+func (s FloatSchema) DoUnmarshalJSON(buf []byte) error {
 	return json.Unmarshal(buf, s)
+}
 
+/*
+// TODO: fixme
+func (s FloatSchema) Nullable() bool {
+	return s.IsNullable
 }
 
 // TODO: fixme
-func Nullable() bool {
-	return false
+func (s FloatSchema) SetNullable(n bool) {
+	s.IsNullable = true
 }
-
-// TODO: fixme
-func SetNullable(n bool) {
-}
+*/
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s FloatingPointNumberSchema) Encode(w io.Writer, v interface{}) error {
-	value := reflect.ValueOf(v)
-	t := value.Type()
-	k := t.Kind()
-	floatToWrite := value.Float()
+func (s FloatSchema) Encode(w io.Writer, i interface{}) error {
 
 	// just double check the schema they are using
-	if !s.IsValid() {
+	if !s.Valid() {
 		return fmt.Errorf("cannot encode using invalid floating point schema")
 	}
 
+	v := reflect.ValueOf(i)
+	t := v.Type()
+	k := t.Kind()
+
+	if k != reflect.Float32 && k != reflect.Float64 {
+		return fmt.Errorf("FloatSchema only supports encoding float32 and float64 values")
+	}
+	floatV := v.Float()
+
 	// what type of value did they pass in?
-	switch k {
-	case reflect.Float32:
-		i := math.Float32bits(float32(floatToWrite))
+	switch s.Bits {
+	case 32:
+		if k == reflect.Float64 {
+			return fmt.Errorf("32bit FloatSchema schema cannot encode 64 bit values")
+		}
+		i := math.Float32bits(float32(floatV))
 
 		n, err := w.Write([]byte{
 			byte(i),
@@ -72,14 +108,12 @@ func (s FloatingPointNumberSchema) Encode(w io.Writer, v interface{}) error {
 			byte(i >> 24),
 		})
 		if err == nil && n != 4 {
-			return errors.New("unexpected number of bytes written")
+			err = errors.New("unexpected number of bytes written")
 		}
-		if err != nil {
-			return err
-		}
+		return err
 
-	case reflect.Float64:
-		i := math.Float64bits(floatToWrite)
+	case 64:
+		i := math.Float64bits(floatV)
 
 		n, err := w.Write([]byte{
 			byte(i),
@@ -94,16 +128,16 @@ func (s FloatingPointNumberSchema) Encode(w io.Writer, v interface{}) error {
 		if err == nil && n != 8 {
 			return errors.New("unexpected number of bytes written")
 		}
-		if err != nil {
-			return err
-		}
+		return err
 
+	default:
+		// error
 	}
 	return nil
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s FloatingPointNumberSchema) Decode(r io.Reader, i interface{}) error {
+func (s FloatSchema) Decode(r io.Reader, i interface{}) error {
 	v := reflect.ValueOf(i)
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
@@ -118,14 +152,14 @@ func (s FloatingPointNumberSchema) Decode(r io.Reader, i interface{}) error {
 	}
 
 	// just double check the schema they are using
-	if !s.IsValid() {
+	if !s.Valid() {
 		return fmt.Errorf("cannot decode using invalid floating point schema")
 	}
 
 	var decodedFloat64 float64
 
 	// take a look at the schema
-	// the .IsValid check above already ensured that Bits is either 32 or 64
+	// the .Valid check above already ensured that Bits is either 32 or 64
 	switch s.Bits {
 	case 32:
 		buf := make([]byte, 4)
@@ -182,15 +216,13 @@ func (s FloatingPointNumberSchema) Decode(r io.Reader, i interface{}) error {
 		if v.OverflowInt(int64(decodedFloat64)) {
 			return fmt.Errorf("decoded value %f overflows destination %v", decodedFloat64, k)
 		}
-		if s.WeakDecoding {
+
+		if decodedFloat64 == math.Trunc(decodedFloat64) {
 			v.SetInt(int64(decodedFloat64))
 		} else {
-			if decodedFloat64 == math.Trunc(decodedFloat64) {
-				v.SetInt(int64(decodedFloat64))
-			} else {
-				return fmt.Errorf("loss of floating point precision not allowed w/o WeakDecoding")
-			}
+			return fmt.Errorf("loss of floating point precision not allowed w/o WeakDecoding")
 		}
+
 	case reflect.Uint:
 		fallthrough
 	case reflect.Uint8:
@@ -206,27 +238,24 @@ func (s FloatingPointNumberSchema) Decode(r io.Reader, i interface{}) error {
 		if decodedFloat64 < 0 {
 			return fmt.Errorf("cannot decode negative ComplexNumber to unsigned int")
 		}
-		if s.WeakDecoding {
+
+		if decodedFloat64 == math.Trunc(decodedFloat64) {
 			v.SetUint(uint64(decodedFloat64))
 		} else {
-			if decodedFloat64 == math.Trunc(decodedFloat64) {
-				v.SetUint(uint64(decodedFloat64))
-			} else {
-				return fmt.Errorf("loss of floating point precision not allowed w/o WeakDecoding")
-			}
+			return fmt.Errorf("loss of floating point precision not allowed w/o WeakDecoding")
 		}
 
 	case reflect.Complex64:
 		if !s.WeakDecoding {
 			return fmt.Errorf("weak decoding not enabled; cannot decode float to Complex64")
 		}
-		v.SetComplex(complex128(complex(decodedFloat64, 0)))
+		v.SetComplex(complex(decodedFloat64, 0))
 
 	case reflect.Complex128:
 		if !s.WeakDecoding {
 			return fmt.Errorf("weak decoding not enabled; cannot decode float to Complex128")
 		}
-		v.SetComplex(complex128(complex(decodedFloat64, 0)))
+		v.SetComplex(complex(decodedFloat64, 0))
 
 	case reflect.String:
 		if !s.WeakDecoding {

@@ -28,23 +28,41 @@ func (s *BoolSchema) UnmarshalJSON(buf []byte) error {
 
 }
 
+// Bytes encodes the schema in a portable binary format
+func (s BoolSchema) Bytes() []byte {
+
+	// floating point schemas are 1 byte long
+	var schema []byte = make([]byte, 1)
+
+	schema[0] = 0b011100
+
+	// no options!
+
+	return schema
+}
+
 // Encode uses the schema to write the encoded value of v to the output stream
 func (s BoolSchema) Encode(w io.Writer, v interface{}) error {
+
+	// just double check the schema they are using
+	if !s.IsValid() {
+		return fmt.Errorf("cannot encode using invalid BoolSchema schema")
+	}
 
 	value := reflect.ValueOf(v)
 	t := value.Type()
 	k := t.Kind()
+
+	if k != reflect.Bool {
+		return fmt.Errorf("BoolSchema only supports encoding boolean values")
+	}
+
 	var boolToEncode byte
 
 	if value.Bool() {
 		boolToEncode = 1
 	} else {
 		boolToEncode = 0
-	}
-
-	// just double check the schema they are using
-	if !s.IsValid() {
-		return fmt.Errorf("cannot encode using invalid BoolSchema schema")
 	}
 
 	switch k {
