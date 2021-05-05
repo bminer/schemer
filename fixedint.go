@@ -9,29 +9,30 @@ import (
 	"strconv"
 )
 
-// https://golangbyexample.com/go-size-range-int-uint/
-const uintSize = 32 << (^uint(0) >> 32 & 1) // 32 or 64
-
 const maxFloatInt = int64(1)<<53 - 1
 const minFloatInt = -maxFloatInt
 const maxIntUint = uint64(1)<<63 - 1
 
-type FixedInteger struct {
+type FixedIntSchema struct {
 	Signed         bool
-	Bits           uint8
+	Bits           int
 	WeakDecoding   bool
 	StrictEncoding bool
-	Nullable       bool
+	IsNullable     bool
+}
+
+func (s FixedIntSchema) IsValid() bool {
+	return s.Bits == 8 || s.Bits == 16 || s.Bits == 32 || s.Bits == 64
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s FixedInteger) Bytes() []byte {
+func (s FixedIntSchema) Bytes() []byte {
 
 	// fixed length schemas are 1 byte long total
 	var schema []byte = make([]byte, 1)
 
 	// The most signifiant bit indicates whether or not the type is nullable
-	if s.Nullable {
+	if s.IsNullable {
 		schema[0] |= 1
 	}
 
@@ -45,9 +46,9 @@ func (s FixedInteger) Bytes() []byte {
 	case 8:
 		//do nothing
 	case 16:
-		schema[0] |= 4
-	case 32:
 		schema[0] |= 8
+	case 32:
+		schema[0] |= 16
 	case 64:
 		schema[0] |= 24
 	default:
@@ -57,19 +58,23 @@ func (s FixedInteger) Bytes() []byte {
 
 }
 
-func (s FixedInteger) MarshalJSON() ([]byte, error) {
+// if this function is called MarshalJSON it seems to be called
+// recursively by the json library???
+func (s FixedIntSchema) DoMarshalJSON() ([]byte, error) {
+	if !s.IsValid() {
+		return nil, fmt.Errorf("invalid floating point schema")
+	}
 
 	return json.Marshal(s)
-
 }
 
-func (s *FixedInteger) UnmarshalJSON(buf []byte) error {
-
+// if this function is called UnmarshalJSON it seems to be called
+// recursively by the json library???
+func (s FixedIntSchema) DoUnmarshalJSON(buf []byte) error {
 	return json.Unmarshal(buf, s)
-
 }
 
-func writeUint(w io.Writer, v uint64, s FixedInteger) error {
+func writeUint(w io.Writer, v uint64, s FixedIntSchema) error {
 	switch s.Bits {
 	case 8:
 		n, err := w.Write([]byte{byte(v)})
@@ -133,7 +138,7 @@ func writeUint(w io.Writer, v uint64, s FixedInteger) error {
 	}
 }
 
-func readUint(r io.Reader, s FixedInteger) (uint64, error) {
+func readUint(r io.Reader, s FixedIntSchema) (uint64, error) {
 	const errVal = uint64(0)
 
 	// Read len(buf) bytes from r
@@ -184,12 +189,9 @@ func readUint(r io.Reader, s FixedInteger) (uint64, error) {
 
 // CheckType returns true if the integer type passed for i
 // matched the schema
-func CheckType(s FixedInteger, i interface{}) bool {
+func checkType(s FixedIntSchema, k reflect.Kind) bool {
 
 	var typeOK bool
-	v := reflect.ValueOf(i)
-	t := v.Type()
-	k := t.Kind()
 
 	switch k {
 	case reflect.Int:
@@ -229,15 +231,41 @@ func CheckType(s FixedInteger, i interface{}) bool {
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s FixedInteger) Encode(w io.Writer, i interface{}) error {
+func (s FixedIntSchema) Encode(w io.Writer, i interface{}) error {
 
-	if !CheckType(s, i) {
-		return fmt.Errorf("encode failure; value to be encoded does not match FixedInteger schema")
+	// just double check the schema they are using
+	if !s.IsValid() {
+		return fmt.Errorf("cannot encode using invalid FixedIntSchema schema")
+	}
+
+	if s.IsNullable {
+		// did the caller pass in a nil value, or a null pointer
+		if i == nil ||
+			(reflect.TypeOf(i).Kind() == reflect.Ptr && reflect.ValueOf(i).IsNil()) {
+			// we encode a null value by writing a single non 0 byte
+			w.Write([]byte{1})
+			return nil
+		} else {
+			// 0 means not null (with actual encoded bytes to follow)
+			w.Write([]byte{0})
+		}
+	} else {
+		if i == nil {
+			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
+		}
 	}
 
 	v := reflect.ValueOf(i)
+	// Dereference pointer / interface types
+	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+		v = v.Elem()
+	}
 	t := v.Type()
 	k := t.Kind()
+
+	if !checkType(s, k) {
+		return fmt.Errorf("encode failure; value to be encoded does not match FixedIntSchema schema")
+	}
 
 	switch k {
 	case reflect.Int:
@@ -295,8 +323,39 @@ func (s FixedInteger) Encode(w io.Writer, i interface{}) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s FixedInteger) Decode(r io.Reader, i interface{}) error {
+func (s FixedIntSchema) Decode(r io.Reader, i interface{}) error {
+
 	v := reflect.ValueOf(i)
+
+	// just double check the schema they are using
+	if !s.IsValid() {
+		return fmt.Errorf("cannot encode using invalid FixedIntSchema schema")
+	}
+
+	// if the schema indicates this type is nullable, then the actual floating point
+	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
+	if s.IsNullable {
+		buf := make([]byte, 1)
+		_, err := io.ReadAtLeast(r, buf, 1)
+		if err != nil {
+			return err
+		}
+		if buf[0] != 0 {
+			if v.Kind() == reflect.Ptr {
+				v = v.Elem()
+				if v.Kind() == reflect.Ptr {
+					// special way to return a nil pointer
+					v.Set(reflect.Zero(v.Type()))
+				} else {
+					return fmt.Errorf("cannot decode null value to non pointer to pointer type")
+				}
+			} else {
+				return fmt.Errorf("cannot decode null value to non pointer to pointer type")
+			}
+			return nil
+		}
+	}
+
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
 		v = v.Elem()

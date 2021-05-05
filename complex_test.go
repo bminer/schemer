@@ -490,3 +490,39 @@ func TestDecodeComplex11(t *testing.T) {
 	}
 
 }
+
+func TestDecodeComplex12(t *testing.T) {
+
+	fmt.Println("decode nil complex")
+
+	complexSchema := ComplexSchema{Bits: 64, IsNullable: true}
+
+	var buf bytes.Buffer
+	var err error
+	var complex64Ptr *complex64
+	buf.Reset()
+
+	complex64Ptr = nil
+	err = complexSchema.Encode(&buf, complex64Ptr)
+	if err != nil {
+		t.Error(err)
+	}
+
+	//------------
+
+	r := bytes.NewReader(buf.Bytes())
+
+	var complexToDecodeTo complex64
+	var complexPtr *complex64 = &complexToDecodeTo
+
+	err = complexSchema.Decode(r, &complexPtr)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// complexPtr should be a nil pointer once we decoded it!
+	if complexPtr != nil {
+		t.Error("unexpected value decoding null complexPtr")
+	}
+
+}

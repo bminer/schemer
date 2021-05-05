@@ -164,3 +164,64 @@ func TestDecodeBool5(t *testing.T) {
 	}
 
 }
+
+func TestDecodeBool6(t *testing.T) {
+
+	// setup an example schema
+	schema := BoolSchema{}
+
+	// encode it
+	b := schema.Bytes()
+
+	// make sure we can successfully decode it
+	var decodedBoolSchema BoolSchema
+	var err error
+
+	tmp, err := NewSchema(b)
+	if err != nil {
+		t.Error("cannot decode binary encoded bool")
+	}
+
+	decodedBoolSchema = tmp.(BoolSchema)
+	if decodedBoolSchema.WeakDecoding != false {
+		// nothing else to test here...
+		// really this shouldn't ever happen
+
+		t.Error("unexpected value for BoolSchema")
+	}
+
+}
+
+func TestDecodeBool7(t *testing.T) {
+
+	floatingPointSchema := BoolSchema{IsNullable: true}
+
+	fmt.Println("decode nil bool")
+
+	var buf bytes.Buffer
+	var err error
+	var boolPtr *bool
+	buf.Reset()
+
+	err = floatingPointSchema.Encode(&buf, boolPtr) // pass in nil pointer
+	if err != nil {
+		t.Error(err)
+	}
+
+	//------------
+
+	r := bytes.NewReader(buf.Bytes())
+
+	var boolToDecode bool
+	var boolPtr2 *bool = &boolToDecode
+
+	err = floatingPointSchema.Decode(r, &boolPtr2)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if boolPtr2 != nil {
+		t.Error("unexpected value decoding null boolean")
+	}
+
+}

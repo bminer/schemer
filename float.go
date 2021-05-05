@@ -11,7 +11,7 @@ import (
 )
 
 type FloatSchema struct {
-	Bits         uint8 // must be 32 or 64
+	Bits         int // must be 32 or 64
 	WeakDecoding bool
 	IsNullable   bool
 }
@@ -84,7 +84,29 @@ func (s FloatSchema) Encode(w io.Writer, i interface{}) error {
 		return fmt.Errorf("cannot encode using invalid floating point schema")
 	}
 
+	if s.IsNullable {
+		// did the caller pass in a nil value, or a null pointer
+		if i == nil ||
+			(reflect.TypeOf(i).Kind() == reflect.Ptr && reflect.ValueOf(i).IsNil()) {
+			// we encode a null value by writing a single non 0 byte
+			w.Write([]byte{1})
+			return nil
+		} else {
+			// 0 means not null (with actual encoded bytes to follow)
+			w.Write([]byte{0})
+		}
+	} else {
+		if i == nil {
+			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
+		}
+	}
+
 	v := reflect.ValueOf(i)
+
+	// Dereference pointer / interface types
+	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+		v = v.Elem()
+	}
 	t := v.Type()
 	k := t.Kind()
 
@@ -139,6 +161,36 @@ func (s FloatSchema) Encode(w io.Writer, i interface{}) error {
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
 func (s FloatSchema) Decode(r io.Reader, i interface{}) error {
 	v := reflect.ValueOf(i)
+
+	// just double check the schema they are using
+	if !s.Valid() {
+		return fmt.Errorf("cannot decode using invalid floating point schema")
+	}
+
+	// if the schema indicates this type is nullable, then the actual floating point
+	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
+	if s.IsNullable {
+		buf := make([]byte, 1)
+		_, err := io.ReadAtLeast(r, buf, 1)
+		if err != nil {
+			return err
+		}
+		if buf[0] != 0 {
+			if v.Kind() == reflect.Ptr {
+				v = v.Elem()
+				if v.Kind() == reflect.Ptr {
+					// special way to return a nil pointer
+					v.Set(reflect.Zero(v.Type()))
+				} else {
+					return fmt.Errorf("cannot decode null value to non pointer to pointer type")
+				}
+			} else {
+				return fmt.Errorf("cannot decode null value to non pointer to pointer type")
+			}
+			return nil
+		}
+	}
+
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
 		v = v.Elem()
@@ -149,11 +201,6 @@ func (s FloatSchema) Decode(r io.Reader, i interface{}) error {
 	// Ensure v is settable
 	if !v.CanSet() {
 		return fmt.Errorf("decode destination is not settable")
-	}
-
-	// just double check the schema they are using
-	if !s.Valid() {
-		return fmt.Errorf("cannot decode using invalid floating point schema")
 	}
 
 	var decodedFloat64 float64

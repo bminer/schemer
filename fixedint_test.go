@@ -18,9 +18,9 @@ func dumpBuffer(buf bytes.Buffer) {
 }
 */
 
-func TestCodeFixedInt1(t *testing.T) {
+func TestFixedIntSchema1(t *testing.T) {
 
-	fixedIntSchema := FixedInteger{Signed: true, Bits: 64, WeakDecoding: true}
+	fixedIntSchema := FixedIntSchema{Signed: true, Bits: 64, WeakDecoding: true}
 
 	var buf bytes.Buffer
 	var err error
@@ -252,9 +252,9 @@ func TestCodeFixedInt1(t *testing.T) {
 
 }
 
-func TestCodeFixedInt2(t *testing.T) {
+func TestFixedIntSchema2(t *testing.T) {
 
-	fixedIntSchema := FixedInteger{Signed: true, Bits: 32, WeakDecoding: true}
+	fixedIntSchema := FixedIntSchema{Signed: true, Bits: 32, WeakDecoding: true}
 
 	var buf bytes.Buffer
 	var err error
@@ -486,9 +486,9 @@ func TestCodeFixedInt2(t *testing.T) {
 
 }
 
-func TestCodeFixedInt3(t *testing.T) {
+func TestFixedIntSchema3(t *testing.T) {
 
-	fixedIntSchema := FixedInteger{Signed: true, Bits: 16, WeakDecoding: true}
+	fixedIntSchema := FixedIntSchema{Signed: true, Bits: 16, WeakDecoding: true}
 
 	var buf bytes.Buffer
 	var err error
@@ -722,21 +722,86 @@ func TestCodeFixedInt3(t *testing.T) {
 
 // make sure schemer will throw an error if we have a mismatch between our schema and
 //
-func TestCodeFixedInt4(t *testing.T) {
+func TestFixedIntSchema4(t *testing.T) {
 
-	fixedIntSchema := FixedInteger{Signed: true, Bits: 8, WeakDecoding: true}
+	fixedIntSchema := FixedIntSchema{Signed: true, Bits: 8, WeakDecoding: true}
 
 	var buf bytes.Buffer
 	var err error
 	var valueToEncode int16 = 100
 	buf.Reset()
 
-	fmt.Println("Testing encoding int16 value into 8 bit FixedInteger schema")
+	fmt.Println("Testing encoding int16 value into 8 bit FixedIntSchema schema")
 
 	err = fixedIntSchema.Encode(&buf, valueToEncode)
+	if err == nil {
+		t.Errorf("schemer library failure; cannot encode int16 using 8 bit schema")
+	}
+
+}
+
+func TestFixedIntSchema5(t *testing.T) {
+
+	fmt.Println("decode nil int")
+
+	fixedIntSchema := FixedIntSchema{Bits: 64, IsNullable: true}
+
+	var buf bytes.Buffer
+	var err error
+	var intPtr *int
+	buf.Reset()
+
+	intPtr = nil
+	err = fixedIntSchema.Encode(&buf, intPtr)
 	if err != nil {
 		t.Error(err)
 	}
 
-	// decode into signed integer types
+	//------------
+
+	r := bytes.NewReader(buf.Bytes())
+
+	var intToDecodeTo float64
+	var intPtr2 *float64 = &intToDecodeTo
+
+	err = fixedIntSchema.Decode(r, &intPtr2)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// floatPtr should be a nil pointer once we decoded it!
+	if intPtr2 != nil {
+		t.Error("unexpected value decoding null int")
+	}
+
+}
+
+func TestFixedIntSchema6(t *testing.T) {
+
+	// setup an example schema
+	fixedIntSchema := FixedIntSchema{Bits: 64, Signed: true, IsNullable: false}
+
+	// encode it
+	b := fixedIntSchema.Bytes()
+
+	// make sure we can successfully decode it
+	var decodedIntSchema FixedIntSchema
+	var err error
+
+	tmp, err := NewSchema(b)
+	if err != nil {
+		t.Error("cannot encode binary encoded FixedIntSchema")
+	}
+
+	decodedIntSchema = tmp.(FixedIntSchema)
+
+	// and then check the actual contents of the decoded schema
+	// to make sure it contains the correct values
+	if decodedIntSchema.Bits != fixedIntSchema.Bits ||
+		decodedIntSchema.IsNullable != fixedIntSchema.IsNullable ||
+		decodedIntSchema.Signed != fixedIntSchema.Signed {
+
+		t.Error("unexpected values when decoding binary FixedIntSchema")
+	}
+
 }

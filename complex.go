@@ -11,9 +11,9 @@ import (
 )
 
 type ComplexSchema struct {
-	Bits         uint8 // must be 64 or 128
-	WeakDecoding bool
+	Bits         int // must be 64 or 128
 	IsNullable   bool
+	WeakDecoding bool
 }
 
 func (s ComplexSchema) IsValid() bool {
@@ -65,21 +65,43 @@ func (s ComplexSchema) Bytes() []byte {
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s ComplexSchema) Encode(w io.Writer, v interface{}) error {
+func (s ComplexSchema) Encode(w io.Writer, i interface{}) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
 		return fmt.Errorf("cannot encode using invalid ComplexNumber schema")
 	}
 
-	value := reflect.ValueOf(v)
-	t := value.Type()
+	if s.IsNullable {
+		// did the caller pass in a nil value, or a null pointer
+		if i == nil ||
+			(reflect.TypeOf(i).Kind() == reflect.Ptr && reflect.ValueOf(i).IsNil()) {
+			// we encode a null value by writing a single non 0 byte
+			w.Write([]byte{1})
+			return nil
+		} else {
+			// 0 means not null (with actual encoded bytes to follow)
+			w.Write([]byte{0})
+		}
+	} else {
+		if i == nil {
+			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
+		}
+	}
+
+	v := reflect.ValueOf(i)
+
+	// Dereference pointer / interface types
+	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+		v = v.Elem()
+	}
+	t := v.Type()
 	k := t.Kind()
 
 	if k != reflect.Complex64 && k != reflect.Complex128 {
 		return fmt.Errorf("ComplexSchema only supports encoding Complex64 and Complex128 values")
 	}
-	complex := value.Complex()
+	complex := v.Complex()
 
 	switch s.Bits {
 	case 64:
@@ -87,17 +109,17 @@ func (s ComplexSchema) Encode(w io.Writer, v interface{}) error {
 			return fmt.Errorf("32bit FloatSchema schema cannot encode 64 bit values")
 		}
 		r := math.Float32bits(float32(real(complex)))
-		i := math.Float32bits(float32(imag(complex)))
+		imaginary := math.Float32bits(float32(imag(complex)))
 
 		n, err := w.Write([]byte{
 			byte(r),
 			byte(r >> 8),
 			byte(r >> 16),
 			byte(r >> 24),
-			byte(i),
-			byte(i >> 8),
-			byte(i >> 16),
-			byte(i >> 24),
+			byte(imaginary),
+			byte(imaginary >> 8),
+			byte(imaginary >> 16),
+			byte(imaginary >> 24),
 		})
 		if err == nil && n != 8 {
 			err = errors.New("unexpected number of bytes written")
@@ -106,7 +128,7 @@ func (s ComplexSchema) Encode(w io.Writer, v interface{}) error {
 
 	case 128:
 		r := math.Float64bits(real(complex))
-		i := math.Float64bits(imag(complex))
+		imaginary := math.Float64bits(imag(complex))
 
 		n, err := w.Write([]byte{
 			byte(r),
@@ -117,14 +139,14 @@ func (s ComplexSchema) Encode(w io.Writer, v interface{}) error {
 			byte(r >> 40),
 			byte(r >> 48),
 			byte(r >> 56),
-			byte(i),
-			byte(i >> 8),
-			byte(i >> 16),
-			byte(i >> 24),
-			byte(i >> 32),
-			byte(i >> 40),
-			byte(i >> 48),
-			byte(i >> 56),
+			byte(imaginary),
+			byte(imaginary >> 8),
+			byte(imaginary >> 16),
+			byte(imaginary >> 24),
+			byte(imaginary >> 32),
+			byte(imaginary >> 40),
+			byte(imaginary >> 48),
+			byte(imaginary >> 56),
 		})
 		if err == nil && n != 16 {
 			err = errors.New("unexpected number of bytes written")
@@ -138,13 +160,37 @@ func (s ComplexSchema) Encode(w io.Writer, v interface{}) error {
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
 func (s ComplexSchema) Decode(r io.Reader, i interface{}) error {
+	v := reflect.ValueOf(i)
 
 	// just double check the schema they are using
 	if !s.IsValid() {
 		return fmt.Errorf("cannot decode using invalid ComplexNumber schema")
 	}
 
-	v := reflect.ValueOf(i)
+	// if the schema indicates this type is nullable, then the actual floating point
+	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
+	if s.IsNullable {
+		buf := make([]byte, 1)
+		_, err := io.ReadAtLeast(r, buf, 1)
+		if err != nil {
+			return err
+		}
+		if buf[0] != 0 {
+			if v.Kind() == reflect.Ptr {
+				v = v.Elem()
+				if v.Kind() == reflect.Ptr {
+					// special way to return a nil pointer
+					v.Set(reflect.Zero(v.Type()))
+				} else {
+					return fmt.Errorf("cannot decode null value to non pointer to pointer type")
+				}
+			} else {
+				return fmt.Errorf("cannot decode null value to non pointer to pointer type")
+			}
+			return nil
+		}
+	}
+
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
 		v = v.Elem()
