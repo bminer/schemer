@@ -36,10 +36,10 @@ func (s BoolSchema) DoUnmarshalJSON(buf []byte) error {
 // Bytes encodes the schema in a portable binary format
 func (s BoolSchema) Bytes() []byte {
 
-	// floating point schemas are 1 byte long
+	// bool schemas are 1 byte long
 	var schema []byte = make([]byte, 1)
 
-	schema[0] = 0b011100
+	schema[0] = 0b01110000
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.IsNullable {
@@ -57,17 +57,17 @@ func (s BoolSchema) Encode(w io.Writer, i interface{}) error {
 		return fmt.Errorf("cannot encode using invalid BoolSchema schema")
 	}
 
-	if s.IsNullable {
-		// did the caller pass in a nil value, or a null pointer?
-		if i == nil ||
-			(reflect.TypeOf(i).Kind() == reflect.Ptr && reflect.ValueOf(i).IsNil()) {
+	// did the caller pass in a nil value, or a null pointer?
+	if i == nil ||
+		(reflect.TypeOf(i).Kind() == reflect.Ptr && reflect.ValueOf(i).IsNil()) {
+
+		// make sure the schema says the type is nullable
+		if s.IsNullable {
 			// per the spec, we encode a null value by writing a byte with the
 			// most sig bit set
 			w.Write([]byte{1})
 			return nil
-		}
-	} else {
-		if i == nil {
+		} else {
 			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
 		}
 	}
@@ -88,9 +88,9 @@ func (s BoolSchema) Encode(w io.Writer, i interface{}) error {
 	var boolToEncode byte
 
 	if v.Bool() {
-		// we have to encode a null 0 val, but making sure that the most sig
-		// bit is not set
-		boolToEncode = 2
+		// we are trying to encode a true value
+		// (but we have to make sure that the most sig bit is not set, because
+		boolToEncode = 254
 	} else {
 		boolToEncode = 0
 	}

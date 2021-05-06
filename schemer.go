@@ -64,6 +64,18 @@ func CreateFloatSchema(bits int, isNullable bool) Schema {
 	return floatSchema
 }
 
+func CreateStringSchema(IsNullable bool, IsFixedLength bool, FixedLength int) Schema {
+
+	var stringSchema StringSchema
+
+	stringSchema.IsNullable = IsNullable
+	stringSchema.IsFixedLength = IsFixedLength
+	stringSchema.FixedLength = FixedLength
+
+	return stringSchema
+
+}
+
 func SchemaOfType(t reflect.Type) Schema {
 
 	k := t.Kind()
@@ -142,14 +154,17 @@ func NewSchema(buf []byte) (Schema, error) {
 	var floatSchema FloatSchema
 	var complexSchema ComplexSchema
 	var boolSchema BoolSchema
+	var stringSchema StringSchema
 
 	// decode boolean
-	if buf[0]&28 == 28 {
+	// (bits 5,6,7 are all set)
+	if buf[0]&112 == 112 {
 		boolSchema.IsNullable = (buf[0]&1 == 1)
 		return boolSchema, nil
 	}
 
 	// decode fixed int schema
+	// (bits 7 and 8 should be clear)
 	if buf[0]&192 == 0 {
 		fixedIntSchema.IsNullable = (buf[0]&1 == 1)
 		fixedIntSchema.Signed = (buf[0] & 2) == 2
@@ -159,6 +174,7 @@ func NewSchema(buf []byte) (Schema, error) {
 	}
 
 	// decode floating point schema
+	// (bits 5 and 7 should be set)
 	if buf[0]&80 == 80 {
 		bit3IsSet = (buf[0] & 4) == 4
 		if bit3IsSet {
@@ -172,6 +188,7 @@ func NewSchema(buf []byte) (Schema, error) {
 	}
 
 	// decode complex number
+	// (bits 6 and 7 should be set)
 	if buf[0]&96 == 96 {
 		bit3IsSet = (buf[0] & 4) == 4
 		if bit3IsSet {
@@ -182,6 +199,16 @@ func NewSchema(buf []byte) (Schema, error) {
 		complexSchema.IsNullable = (buf[0]&1 == 1)
 
 		return complexSchema, nil
+	}
+
+	// decode string
+	// (bits 8 should be set)
+	if buf[0]&128 == 128 {
+
+		stringSchema.IsNullable = (buf[0]&1 == 1)
+		stringSchema.IsFixedLength = (buf[0] & 4) == 4 // bit 3 means fixed len
+
+		return stringSchema, nil
 	}
 
 	return nil, fmt.Errorf("invalid binary schema encountered")

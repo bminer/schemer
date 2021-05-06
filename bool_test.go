@@ -168,7 +168,7 @@ func TestDecodeBool5(t *testing.T) {
 func TestDecodeBool6(t *testing.T) {
 
 	// setup an example schema
-	schema := BoolSchema{}
+	schema := BoolSchema{IsNullable: false}
 
 	// encode it
 	b := schema.Bytes()
@@ -183,10 +183,7 @@ func TestDecodeBool6(t *testing.T) {
 	}
 
 	decodedBoolSchema = tmp.(BoolSchema)
-	if decodedBoolSchema.WeakDecoding != false {
-		// nothing else to test here...
-		// really this shouldn't ever happen
-
+	if decodedBoolSchema.IsNullable != schema.IsNullable {
 		t.Error("unexpected value for BoolSchema")
 	}
 

@@ -84,6 +84,37 @@ func (s FloatSchema) Encode(w io.Writer, i interface{}) error {
 		return fmt.Errorf("cannot encode using invalid floating point schema")
 	}
 
+	/*
+
+		v := reflect.ValueOf(i)
+
+		// Dereference pointer / interface types
+		for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+			v = v.Elem()
+		}
+		t := v.Type()
+		k := t.Kind()
+
+		if reflect.ValueOf(i).IsNil() {
+			if s.IsNullable {
+				// we encode a null value by writing a single non 0 byte
+				w.Write([]byte{1})
+				return nil
+			} else {
+				return fmt.Errorf("cannot encode nil value when IsNullable is false")
+			}
+		}
+
+		if k != reflect.Float32 && k != reflect.Float64 {
+			return fmt.Errorf("FloatSchema only supports encoding float32 and float64 values")
+		}
+
+		if s.IsNullable {
+			// 0 means not null (with actual encoded bytes to follow)
+			w.Write([]byte{0})
+		}
+	*/
+
 	if s.IsNullable {
 		// did the caller pass in a nil value, or a null pointer
 		if i == nil ||
@@ -175,10 +206,11 @@ func (s FloatSchema) Decode(r io.Reader, i interface{}) error {
 		if err != nil {
 			return err
 		}
+		// if value is null, set nil to top level
 		if buf[0] != 0 {
-			if v.Kind() == reflect.Ptr {
+			if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
 				v = v.Elem()
-				if v.Kind() == reflect.Ptr {
+				if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
 					// special way to return a nil pointer
 					v.Set(reflect.Zero(v.Type()))
 				} else {
