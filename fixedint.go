@@ -31,14 +31,16 @@ func (s FixedIntSchema) Bytes() []byte {
 	// fixed length schemas are 1 byte long total
 	var schema []byte = make([]byte, 1)
 
+	schema[0] = 0b00000000 // bit pattern for fixed int
+
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.IsNullable {
 		schema[0] |= 1
 	}
 
-	// next bit indicates if the the fixed length int is signed or not
+	// bit3 indicates if the the fixed length int is signed or not
 	if s.Signed {
-		schema[0] |= 2
+		schema[0] |= 4
 	}
 
 	//

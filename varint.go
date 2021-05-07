@@ -23,7 +23,23 @@ func (s VarIntSchema) IsValid() bool {
 // Bytes encodes the schema in a portable binary format
 func (s VarIntSchema) Bytes() []byte {
 
-	return nil
+	// fixed length schemas are 1 byte long total
+	var schema []byte = make([]byte, 1)
+
+	schema[0] = 0b01000000 // bit pattern for fixed int
+
+	// The most signifiant bit indicates whether or not the type is nullable
+	if s.IsNullable {
+		schema[0] |= 1
+	}
+
+	// next bit indicates if the the fixed length int is signed or not
+	if s.Signed {
+		schema[0] |= 4
+	}
+
+	return schema
+
 }
 
 // if this function is called MarshalJSON it seems to be called

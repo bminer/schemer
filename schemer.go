@@ -64,15 +64,14 @@ func CreateFloatSchema(bits int, isNullable bool) Schema {
 	return floatSchema
 }
 
-func CreateStringSchema(IsNullable bool, IsFixedLength bool, FixedLength int) Schema {
+func CreateFixedLenStringSchema(IsNullable bool, FixedLength int) Schema {
 
-	var stringSchema StringSchema
+	var fixedLenStringSchema FixedLenStringSchema
 
-	stringSchema.IsNullable = IsNullable
-	stringSchema.IsFixedLength = IsFixedLength
-	stringSchema.FixedLength = FixedLength
+	fixedLenStringSchema.IsNullable = IsNullable
+	fixedLenStringSchema.FixedLength = FixedLength
 
-	return stringSchema
+	return fixedLenStringSchema
 
 }
 
@@ -151,26 +150,30 @@ func NewSchema(buf []byte) (Schema, error) {
 	var bit3IsSet bool
 
 	var fixedIntSchema FixedIntSchema
+	var varIntSchema VarIntSchema
 	var floatSchema FloatSchema
 	var complexSchema ComplexSchema
 	var boolSchema BoolSchema
-	var stringSchema StringSchema
-
-	// decode boolean
-	// (bits 5,6,7 are all set)
-	if buf[0]&112 == 112 {
-		boolSchema.IsNullable = (buf[0]&1 == 1)
-		return boolSchema, nil
-	}
+	// other schemas
+	var fixedLenStringSchema FixedLenStringSchema
 
 	// decode fixed int schema
 	// (bits 7 and 8 should be clear)
 	if buf[0]&192 == 0 {
 		fixedIntSchema.IsNullable = (buf[0]&1 == 1)
-		fixedIntSchema.Signed = (buf[0] & 2) == 2
+		fixedIntSchema.Signed = (buf[0] & 4) == 4
 		fixedIntSchema.Bits = 8 << ((buf[0] & 56) >> 3)
 
 		return fixedIntSchema, nil
+	}
+
+	// decode varint schema
+	// (bits 7 should be set)
+	if buf[0]&64 == 64 {
+		varIntSchema.IsNullable = (buf[0]&1 == 1)
+		varIntSchema.Signed = (buf[0] & 4) == 4
+
+		return varIntSchema, nil
 	}
 
 	// decode floating point schema
@@ -201,15 +204,35 @@ func NewSchema(buf []byte) (Schema, error) {
 		return complexSchema, nil
 	}
 
-	// decode string
+	// decode boolean
+	// (bits 5,6,7 are all set)
+	if buf[0]&112 == 112 {
+		boolSchema.IsNullable = (buf[0]&1 == 1)
+		return boolSchema, nil
+	}
+
+	// Enum
+	//
+
+	// decode fixed len string
 	// (bits 8 should be set)
 	if buf[0]&128 == 128 {
+		fixedLenStringSchema.IsNullable = (buf[0]&1 == 1)
+		//fixedLenStringSchema.FixedLength = ???
+		//the binary schema does not encode the length
 
-		stringSchema.IsNullable = (buf[0]&1 == 1)
-		stringSchema.IsFixedLength = (buf[0] & 4) == 4 // bit 3 means fixed len
-
-		return stringSchema, nil
+		return fixedLenStringSchema, nil
 	}
+
+	//Array
+
+	//Object
+
+	//Variant
+
+	//Schema
+
+	//Custom Type
 
 	return nil, fmt.Errorf("invalid binary schema encountered")
 }
