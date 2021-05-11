@@ -165,6 +165,7 @@ func TestDecodeBool5(t *testing.T) {
 
 }
 
+// TestDecodeBool6 makes sure we can encode and decode boolean schemas
 func TestDecodeBool6(t *testing.T) {
 
 	// setup an example schema

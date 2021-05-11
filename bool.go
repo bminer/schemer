@@ -57,6 +57,10 @@ func (s BoolSchema) Encode(w io.Writer, i interface{}) error {
 		return fmt.Errorf("cannot encode using invalid BoolSchema schema")
 	}
 
+	if i == nil {
+		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
+	}
+
 	// did the caller pass in a nil value, or a null pointer?
 	if i == nil ||
 		(reflect.TypeOf(i).Kind() == reflect.Ptr && reflect.ValueOf(i).IsNil()) {
@@ -114,6 +118,11 @@ func (s BoolSchema) Encode(w io.Writer, i interface{}) error {
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
 func (s BoolSchema) Decode(r io.Reader, i interface{}) error {
+
+	if i == nil {
+		return fmt.Errorf("cannot decode to nil destination")
+	}
+
 	v := reflect.ValueOf(i)
 
 	// just double check the schema they are using

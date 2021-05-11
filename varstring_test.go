@@ -4,21 +4,21 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
-	"strings"
 	"testing"
 )
 
-// TestDecodeString1 checks that we can encode / decode the binary schema for a fixed len string
-func TestDecodeFixedString1(t *testing.T) {
+func TestVarFixedString1(t *testing.T) {
+
+	fmt.Println("Testing decoding var length string values")
 
 	// setup an example schema
-	schema := FixedLenStringSchema{IsNullable: true, FixedLength: 80}
+	schema := VarLenStringSchema{IsNullable: true}
 
 	// encode it
 	b := schema.Bytes()
 
 	// make sure we can successfully decode it
-	var decodedStringSchema FixedLenStringSchema
+	var decodedStringSchema VarLenStringSchema
 	var err error
 
 	tmp, err := NewSchema(b)
@@ -26,28 +26,26 @@ func TestDecodeFixedString1(t *testing.T) {
 		t.Error("cannot decode binary encoded string schema")
 	}
 
-	decodedStringSchema = tmp.(FixedLenStringSchema)
+	decodedStringSchema = tmp.(VarLenStringSchema)
 	if schema.IsNullable != decodedStringSchema.IsNullable {
 
 		// nothing else to test here...
 
-		t.Error("unexpected value for FixedLenStringSchema")
+		t.Error("unexpected value for VarLenStringSchema")
 	}
 
 }
 
-func TestDecodeFixedString2(t *testing.T) {
+func TestVarFixedString2(t *testing.T) {
 
-	fixedLenStringSchema := FixedLenStringSchema{IsNullable: true, FixedLength: 80}
+	varLenStringSchema := VarLenStringSchema{IsNullable: true}
 
 	var buf bytes.Buffer
 	var err error
-	var valueToEncode string = "hello, world!"
+	var valueToEncode string = ""
 	buf.Reset()
 
-	fmt.Println("Testing decoding fixed length string value")
-
-	err = fixedLenStringSchema.Encode(&buf, valueToEncode)
+	err = varLenStringSchema.Encode(&buf, valueToEncode)
 	if err != nil {
 		t.Error(err)
 	}
@@ -57,28 +55,28 @@ func TestDecodeFixedString2(t *testing.T) {
 	r := bytes.NewReader(buf.Bytes())
 
 	fmt.Println("fixed len string to string")
-	var decodedValue1 string
-	err = fixedLenStringSchema.Decode(r, &decodedValue1)
+	var decodedValue1 string = "44"
+	err = varLenStringSchema.Decode(r, &decodedValue1)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if valueToEncode != strings.Trim(decodedValue1, " ") {
+	if valueToEncode != decodedValue1 {
 		t.Errorf("Expected value: %s Decoded value: %s", valueToEncode, decodedValue1)
 	}
 
 }
 
-func TestDecodeFixedString3(t *testing.T) {
+func TestVarFixedString3(t *testing.T) {
 
-	fixedLenStringSchema := FixedLenStringSchema{IsNullable: true, FixedLength: 80}
+	varLenStringSchema := VarLenStringSchema{IsNullable: true}
 
 	var buf bytes.Buffer
 	var err error
 	var valueToEncode string = "3.14159"
 	buf.Reset()
 
-	err = fixedLenStringSchema.Encode(&buf, valueToEncode)
+	err = varLenStringSchema.Encode(&buf, valueToEncode)
 	if err != nil {
 		t.Error(err)
 	}
@@ -89,7 +87,7 @@ func TestDecodeFixedString3(t *testing.T) {
 
 	fmt.Println("fixed len string to string")
 	var decodedValue2 float32
-	err = fixedLenStringSchema.Decode(r, &decodedValue2)
+	err = varLenStringSchema.Decode(r, &decodedValue2)
 	if err != nil {
 		t.Error(err)
 	}
@@ -105,16 +103,16 @@ func TestDecodeFixedString3(t *testing.T) {
 
 }
 
-func TestDecodeFixedString4(t *testing.T) {
+func TestVarFixedString4(t *testing.T) {
 
-	fixedLenStringSchema := FixedLenStringSchema{IsNullable: true, FixedLength: 80}
+	varLenStringSchema := VarLenStringSchema{IsNullable: true}
 
 	var buf bytes.Buffer
 	var err error
 	var valueToEncode string = "3.14159"
 	buf.Reset()
 
-	err = fixedLenStringSchema.Encode(&buf, valueToEncode)
+	err = varLenStringSchema.Encode(&buf, valueToEncode)
 	if err != nil {
 		t.Error(err)
 	}
@@ -125,7 +123,7 @@ func TestDecodeFixedString4(t *testing.T) {
 
 	fmt.Println("fixed len string to string")
 	var decodedValue2 float64
-	err = fixedLenStringSchema.Decode(r, &decodedValue2)
+	err = varLenStringSchema.Decode(r, &decodedValue2)
 	if err != nil {
 		t.Error(err)
 	}
@@ -141,16 +139,16 @@ func TestDecodeFixedString4(t *testing.T) {
 
 }
 
-func TestDecodeFixedString5(t *testing.T) {
+func TestVarFixedString5(t *testing.T) {
 
-	fixedLenStringSchema := FixedLenStringSchema{IsNullable: true, FixedLength: 80}
+	varLenStringSchema := VarLenStringSchema{IsNullable: true}
 
 	var buf bytes.Buffer
 	var err error
 	var valueToEncode string = "-101"
 	buf.Reset()
 
-	err = fixedLenStringSchema.Encode(&buf, valueToEncode)
+	err = varLenStringSchema.Encode(&buf, valueToEncode)
 	if err != nil {
 		t.Error(err)
 	}
@@ -161,7 +159,7 @@ func TestDecodeFixedString5(t *testing.T) {
 
 	fmt.Println("fixed len string to int")
 	var decodedValue2 int
-	err = fixedLenStringSchema.Decode(r, &decodedValue2)
+	err = varLenStringSchema.Decode(r, &decodedValue2)
 	if err != nil {
 		t.Error(err)
 	}
@@ -177,25 +175,27 @@ func TestDecodeFixedString5(t *testing.T) {
 
 }
 
-func TestDecodeFixedString6(t *testing.T) {
+func TestVarFixedString6(t *testing.T) {
 
-	fixedLenStringSchema := FixedLenStringSchema{IsNullable: true, FixedLength: 80}
+	varLenStringSchema := VarLenStringSchema{IsNullable: true}
 
 	var buf bytes.Buffer
 	var err error
 	var valueToEncode string = "103"
 	buf.Reset()
 
-	err = fixedLenStringSchema.Encode(&buf, valueToEncode)
+	err = varLenStringSchema.Encode(&buf, valueToEncode)
 	if err != nil {
 		t.Error(err)
 	}
+
+	// decode into float32
 
 	r := bytes.NewReader(buf.Bytes())
 
 	fmt.Println("fixed len string to uint")
 	var decodedValue2 uint
-	err = fixedLenStringSchema.Decode(r, &decodedValue2)
+	err = varLenStringSchema.Decode(r, &decodedValue2)
 	if err != nil {
 		t.Error(err)
 	}

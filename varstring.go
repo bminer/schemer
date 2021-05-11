@@ -10,33 +10,32 @@ import (
 	"strings"
 )
 
-type FixedLenStringSchema struct {
+type VarLenStringSchema struct {
 	IsNullable   bool
 	WeakDecoding bool
-	FixedLength  int
 }
 
-func (s FixedLenStringSchema) IsValid() bool {
+func (s VarLenStringSchema) IsValid() bool {
 
-	return (s.FixedLength > 0)
+	return true
 }
 
 // fixme
-func (s FixedLenStringSchema) DoMarshalJSON() ([]byte, error) {
+func (s VarLenStringSchema) DoMarshalJSON() ([]byte, error) {
 
 	return json.Marshal(s)
 
 }
 
 // fixme
-func (s FixedLenStringSchema) DoUnmarshalJSON(buf []byte) error {
+func (s VarLenStringSchema) DoUnmarshalJSON(buf []byte) error {
 
 	return json.Unmarshal(buf, s)
 
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s FixedLenStringSchema) Bytes() []byte {
+func (s VarLenStringSchema) Bytes() []byte {
 
 	// string schemas are 1 byte long
 	var schema []byte = make([]byte, 1)
@@ -48,22 +47,21 @@ func (s FixedLenStringSchema) Bytes() []byte {
 		schema[0] |= 1
 	}
 
-	// set bit 3, which indicates this is fixed len string
-	schema[0] |= 4
+	// bit 3 is clear from above, indicating this is a var length string
 
 	return schema
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s FixedLenStringSchema) Encode(w io.Writer, i interface{}) error {
+func (s VarLenStringSchema) Encode(w io.Writer, i interface{}) error {
+
+	if i == nil {
+		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
+	}
 
 	// just double check the schema they are using
 	if !s.IsValid() {
 		return fmt.Errorf("cannot encode using invalid StringSchema schema")
-	}
-
-	if i == nil {
-		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
 	}
 
 	if s.IsNullable {
@@ -71,10 +69,12 @@ func (s FixedLenStringSchema) Encode(w io.Writer, i interface{}) error {
 		if i == nil ||
 			(reflect.TypeOf(i).Kind() == reflect.Ptr && reflect.ValueOf(i).IsNil()) {
 
-			// per the spec, we encode a null value by writing a non 0 value...
-			w.Write([]byte{1})
+			// per the spec, we encode a null value by writing out a single byte
+			// with the high bit set
+			w.Write([]byte{128})
 			return nil
 		} else {
+			// TODO: update the SPEC (encoding-format.md)
 			// 0 means not null (with actual encoded bytes to follow)
 			w.Write([]byte{0})
 		}
@@ -98,14 +98,15 @@ func (s FixedLenStringSchema) Encode(w io.Writer, i interface{}) error {
 	}
 
 	var stringToEncode string = v.String()
+	var stringLen int = len(stringToEncode)
 
-	// if we are encoding a fixed len string, we just need to pad it
-
-	formatString := "%-" + strconv.Itoa(s.FixedLength) + "v"
-	stringToEncode = fmt.Sprintf(formatString, stringToEncode)
+	err := writeVarUint(w, uint64(stringLen))
+	if err != nil {
+		return errors.New("cannot encode var string length as var int")
+	}
 
 	n, err := w.Write([]byte(stringToEncode))
-	if err == nil && n != s.FixedLength {
+	if err == nil && n != stringLen {
 		return errors.New("unexpected number of bytes written")
 	}
 
@@ -113,7 +114,7 @@ func (s FixedLenStringSchema) Encode(w io.Writer, i interface{}) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s FixedLenStringSchema) Decode(r io.Reader, i interface{}) error {
+func (s VarLenStringSchema) Decode(r io.Reader, i interface{}) error {
 
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
@@ -123,10 +124,11 @@ func (s FixedLenStringSchema) Decode(r io.Reader, i interface{}) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
-		return fmt.Errorf("cannot decode using invalid StringSchema schema")
+		return fmt.Errorf("cannot decode using invalid VarLenStringSchema schema")
 	}
 
-	// data is proceeded by one byte, which means
+	// TODO: update the spec to reflect this change
+	// data is proceeded by one byte which tells us if the data is null or not
 	buf := make([]byte, 1)
 	_, err := io.ReadAtLeast(r, buf, 1)
 	if err != nil {
@@ -144,10 +146,10 @@ func (s FixedLenStringSchema) Decode(r io.Reader, i interface{}) error {
 					// special way to return a nil pointer
 					v.Set(reflect.Zero(v.Type()))
 				} else {
-					return fmt.Errorf("cannot decode null value to non pointer to (bool) pointer type")
+					return fmt.Errorf("cannot decode null value to non pointer to (string) pointer type")
 				}
 			} else {
-				return fmt.Errorf("cannot decode null value to non pointer to (bool) pointer type")
+				return fmt.Errorf("cannot decode null value to non pointer to (string) pointer type")
 			}
 			return nil
 		}
@@ -165,16 +167,19 @@ func (s FixedLenStringSchema) Decode(r io.Reader, i interface{}) error {
 		return fmt.Errorf("decode destination is not settable")
 	}
 
-	var decodedString string
+	expectedLen, err := readVarUint(r)
+	if err != nil {
+		return err
+	}
 
-	buf = make([]byte, s.FixedLength)
-	_, err = io.ReadAtLeast(r, buf, s.FixedLength)
+	buf = make([]byte, int(expectedLen))
+	_, err = io.ReadAtLeast(r, buf, int(expectedLen))
 	if err != nil {
 		return err
 	}
 
 	// when we return as a string, we will return it with the padding intact
-	decodedString = string(buf)
+	decodedString := string(buf)
 
 	// but for conversions, having a trimmed up string will make things easier
 	trimString := strings.Trim(decodedString, " ")

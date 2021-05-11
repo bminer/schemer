@@ -154,8 +154,10 @@ func NewSchema(buf []byte) (Schema, error) {
 	var floatSchema FloatSchema
 	var complexSchema ComplexSchema
 	var boolSchema BoolSchema
-	// other schemas
 	var fixedLenStringSchema FixedLenStringSchema
+	var varLenStringSchema VarLenStringSchema
+	var enumSchema EnumSchema
+	var fixedLenArraySchema FixedLenArraySchema
 
 	// decode fixed int schema
 	// (bits 7 and 8 should be clear)
@@ -169,7 +171,7 @@ func NewSchema(buf []byte) (Schema, error) {
 
 	// decode varint schema
 	// (bits 7 should be set)
-	if buf[0]&64 == 64 {
+	if buf[0]&112 == 64 {
 		varIntSchema.IsNullable = (buf[0]&1 == 1)
 		varIntSchema.Signed = (buf[0] & 4) == 4
 
@@ -178,7 +180,7 @@ func NewSchema(buf []byte) (Schema, error) {
 
 	// decode floating point schema
 	// (bits 5 and 7 should be set)
-	if buf[0]&80 == 80 {
+	if buf[0]&112 == 80 {
 		bit3IsSet = (buf[0] & 4) == 4
 		if bit3IsSet {
 			floatSchema.Bits = 64
@@ -192,7 +194,7 @@ func NewSchema(buf []byte) (Schema, error) {
 
 	// decode complex number
 	// (bits 6 and 7 should be set)
-	if buf[0]&96 == 96 {
+	if buf[0]&112 == 96 {
 		bit3IsSet = (buf[0] & 4) == 4
 		if bit3IsSet {
 			complexSchema.Bits = 128
@@ -206,17 +208,22 @@ func NewSchema(buf []byte) (Schema, error) {
 
 	// decode boolean
 	// (bits 5,6,7 are all set)
-	if buf[0]&112 == 112 {
+	if buf[0]&116 == 112 {
 		boolSchema.IsNullable = (buf[0]&1 == 1)
 		return boolSchema, nil
 	}
 
-	// Enum
-	//
+	// decode enum
+	// (bits 3,5,6,7 should all be set)
+	if buf[0]&116 == 116 {
+		enumSchema.IsNullable = (buf[0]&1 == 1)
+
+		return enumSchema, nil
+	}
 
 	// decode fixed len string
-	// (bits 8 should be set)
-	if buf[0]&128 == 128 {
+	// (bits 8 and 3 should be set)
+	if buf[0]&252 == 132 {
 		fixedLenStringSchema.IsNullable = (buf[0]&1 == 1)
 		//fixedLenStringSchema.FixedLength = ???
 		//the binary schema does not encode the length
@@ -224,7 +231,21 @@ func NewSchema(buf []byte) (Schema, error) {
 		return fixedLenStringSchema, nil
 	}
 
-	//Array
+	// decode var len string
+	// (bits 8 should be set, bit 3 should be clear)
+	if buf[0]&252 == 128 {
+		varLenStringSchema.IsNullable = (buf[0]&1 == 1)
+
+		return varLenStringSchema, nil
+	}
+
+	// decode fixed array schema
+	// (bits 3, 5, 8)
+	if buf[0]&252 == 148 {
+		fixedLenArraySchema.IsNullable = (buf[0]&1 == 1)
+
+		return fixedLenArraySchema, nil
+	}
 
 	//Object
 

@@ -94,7 +94,7 @@ func readVarUint(r io.Reader) (uint64, error) {
 
 	decodedUInt, n := binary.Uvarint(buf)
 	if n != counter+1 {
-		return 0, fmt.Errorf("Uvarint did not consume all of in")
+		return 0, fmt.Errorf("uvarint did not consume expected number of bytes")
 	}
 
 	return decodedUInt, nil
@@ -109,10 +109,14 @@ func (s VarIntSchema) Encode(w io.Writer, i interface{}) error {
 		return fmt.Errorf("cannot encode using invalid VarIntSchema schema")
 	}
 
+	if i == nil {
+		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
+	}
+
 	if s.IsNullable {
-		// did the caller pass in a nil value, or a null pointer
-		if i == nil ||
-			(reflect.TypeOf(i).Kind() == reflect.Ptr && reflect.ValueOf(i).IsNil()) {
+		if reflect.TypeOf(i).Kind() == reflect.Ptr ||
+			reflect.TypeOf(i).Kind() == reflect.Interface &&
+				reflect.ValueOf(i).IsNil() {
 			// we encode a null value by writing a single non 0 byte
 			w.Write([]byte{1})
 			return nil
@@ -121,8 +125,10 @@ func (s VarIntSchema) Encode(w io.Writer, i interface{}) error {
 			w.Write([]byte{0})
 		}
 	} else {
-		if i == nil {
-			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
+		if reflect.TypeOf(i).Kind() == reflect.Ptr ||
+			reflect.TypeOf(i).Kind() == reflect.Interface &&
+				reflect.ValueOf(i).IsNil() {
+			return fmt.Errorf("cannot encode nil value when IsNullable is false")
 		}
 	}
 
@@ -170,14 +176,18 @@ func (s VarIntSchema) Encode(w io.Writer, i interface{}) error {
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
 func (s VarIntSchema) Decode(r io.Reader, i interface{}) error {
 
+	if i == nil {
+		return fmt.Errorf("cannot decode to nil destination")
+	}
+
 	v := reflect.ValueOf(i)
 
 	// just double check the schema they are using
 	if !s.IsValid() {
-		return fmt.Errorf("cannot encode using invalid FixedIntSchema schema")
+		return fmt.Errorf("cannot encode using invalid VarIntSchema schema")
 	}
 
-	// if the schema indicates this type is nullable, then the actual floating point
+	// if the schema indicates this type is nullable, then the actual var int
 	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
 	if s.IsNullable {
 		buf := make([]byte, 1)
