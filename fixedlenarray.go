@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"reflect"
 )
 
 type FixedLenArraySchema struct {
@@ -53,6 +54,81 @@ func (s FixedLenArraySchema) DoUnmarshalJSON(buf []byte) error {
 // Encode uses the schema to write the encoded value of v to the output stream
 func (s FixedLenArraySchema) Encode(w io.Writer, i interface{}) error {
 
+	// just double check the schema they are using
+	if !s.IsValid() {
+		return fmt.Errorf("cannot encode using invalid FixedLenArraySchema schema")
+	}
+
+	if i == nil {
+		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
+	}
+
+	if s.IsNullable {
+		// did the caller pass in a nil value, or a null pointer
+		if reflect.TypeOf(i).Kind() == reflect.Ptr ||
+			reflect.TypeOf(i).Kind() == reflect.Interface &&
+				reflect.ValueOf(i).IsNil() {
+			// we encode a null value by writing a single non 0 byte
+			w.Write([]byte{1})
+			return nil
+		} else {
+			// 0 means not null (with actual encoded bytes to follow)
+			w.Write([]byte{0})
+		}
+	} else {
+		if i == nil {
+			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
+		}
+	}
+
+	v := reflect.ValueOf(i)
+	// Dereference pointer / interface types
+	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+		v = v.Elem()
+	}
+	t := v.Type()
+	k := t.Kind()
+
+	if k != reflect.Array {
+		return fmt.Errorf("FixedLenArraySchema can only encode fixed length arrays")
+	}
+
+	if s.Length != v.Len() {
+		return fmt.Errorf("source array size does not match schema size")
+	}
+
+	// determine which type of schema to use for this array's type
+
+	var floatSchema FloatSchema
+	var fixedLenArraySchema FixedLenArraySchema
+
+	switch v.Index(0).Kind() {
+	case reflect.Array:
+		fixedLenArraySchema = s.Element.(FixedLenArraySchema)
+	case reflect.Float32:
+		floatSchema = s.Element.(FloatSchema)
+	default:
+		return fmt.Errorf("not implemented")
+	}
+
+	for i := 0; i < v.Len(); i++ {
+
+		switch v.Index(0).Kind() {
+
+		case reflect.Array:
+			fixedLenArraySchema.Encode(w, v.Index(i).Interface())
+
+		case reflect.Float32:
+			err := floatSchema.Encode(w, float32(v.Index(i).Float()))
+			if err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("not implemented")
+		}
+
+	}
+
 	return nil
 }
 
@@ -61,6 +137,86 @@ func (s FixedLenArraySchema) Decode(r io.Reader, i interface{}) error {
 
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
+	}
+
+	v := reflect.ValueOf(i)
+
+	// just double check the schema they are using
+	if !s.IsValid() {
+		return fmt.Errorf("cannot encode using invalid FixedIntSchema schema")
+	}
+
+	// if the schema indicates this type is nullable, then the actual floating point
+	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
+	if s.IsNullable {
+		buf := make([]byte, 1)
+		_, err := io.ReadAtLeast(r, buf, 1)
+		if err != nil {
+			return err
+		}
+		if buf[0] != 0 {
+			if v.Kind() == reflect.Ptr {
+				v = v.Elem()
+				if v.Kind() == reflect.Ptr {
+					// special way to return a nil pointer
+					v.Set(reflect.Zero(v.Type()))
+				} else {
+					return fmt.Errorf("cannot decode null value to non pointer to pointer type")
+				}
+			} else {
+				return fmt.Errorf("cannot decode null value to non pointer to pointer type")
+			}
+			return nil
+		}
+	}
+
+	// Dereference pointer / interface types
+	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+		v = v.Elem()
+	}
+	t := v.Type()
+	k := t.Kind()
+
+	if k != reflect.Array {
+		return fmt.Errorf("FixedLenArraySchema can only encode fixed length arrays")
+	}
+
+	if s.Length != v.Len() {
+		return fmt.Errorf("source array size does not match schema size")
+	}
+
+	// determine which type of schema to use for this array's type
+
+	var floatSchema FloatSchema
+	var fixedLenArraySchema FixedLenArraySchema
+
+	switch v.Index(0).Kind() {
+
+	case reflect.Array:
+		fixedLenArraySchema = s.Element.(FixedLenArraySchema)
+	case reflect.Float32:
+		fallthrough
+	case reflect.Float64:
+		floatSchema = s.Element.(FloatSchema)
+	default:
+		return fmt.Errorf("not implemented")
+	}
+
+	for i := 0; i < v.Len(); i++ {
+
+		switch v.Index(0).Kind() {
+		case reflect.Array:
+			// i have to pass a pointer in order for the decoder to decode this???
+			// how do i get a pointer here??
+			fixedLenArraySchema.Decode(r, v.Index(i).Interface())
+		case reflect.Float32:
+			var tmpFloat32 float32
+			floatSchema.Decode(r, &tmpFloat32)
+			v.Index(i).SetFloat(float64(tmpFloat32))
+
+		default:
+			return fmt.Errorf("not implemented")
+		}
 	}
 
 	return nil

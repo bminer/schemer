@@ -67,9 +67,9 @@ func (s FixedLenStringSchema) Encode(w io.Writer, i interface{}) error {
 	}
 
 	if s.IsNullable {
-		// did the caller pass in a nil value, or a null pointer?
-		if i == nil ||
-			(reflect.TypeOf(i).Kind() == reflect.Ptr && reflect.ValueOf(i).IsNil()) {
+		if reflect.TypeOf(i).Kind() == reflect.Ptr ||
+			reflect.TypeOf(i).Kind() == reflect.Interface &&
+				reflect.ValueOf(i).IsNil() {
 
 			// per the spec, we encode a null value by writing a non 0 value...
 			w.Write([]byte{1})

@@ -158,6 +158,7 @@ func NewSchema(buf []byte) (Schema, error) {
 	var varLenStringSchema VarLenStringSchema
 	var enumSchema EnumSchema
 	var fixedLenArraySchema FixedLenArraySchema
+	var varLenArraySchema VarLenArraySchema
 
 	// decode fixed int schema
 	// (bits 7 and 8 should be clear)
@@ -245,6 +246,14 @@ func NewSchema(buf []byte) (Schema, error) {
 		fixedLenArraySchema.IsNullable = (buf[0]&1 == 1)
 
 		return fixedLenArraySchema, nil
+	}
+
+	// decode var array schema
+	// (bits 3, 5, 8)
+	if buf[0]&252 == 144 {
+		varLenArraySchema.IsNullable = (buf[0]&1 == 1)
+
+		return varLenArraySchema, nil
 	}
 
 	//Object

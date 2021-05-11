@@ -162,6 +162,16 @@ func (s EnumSchema) Decode(r io.Reader, i interface{}) error {
 		if !s.WeakDecoding {
 			return fmt.Errorf("cannot decode enum to string without weak decoding enabled")
 		}
+
+		// if we have the map, return the string value of the constant
+		if s.Values != nil {
+			if _, ok := s.Values[int(decodedVarInt)]; ok {
+				v.SetString(s.Values[int(decodedVarInt)])
+				return nil
+			}
+		}
+
+		// otherwise, just return a string version of the decoded integer value
 		v.SetString(strconv.FormatInt(decodedVarInt, 10))
 	default:
 		return fmt.Errorf("decoded value %d incompatible with %v", decodedVarInt, k)
