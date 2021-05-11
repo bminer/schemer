@@ -17,6 +17,10 @@ func (s BoolSchema) IsValid() bool {
 	return true
 }
 
+func (s BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+	return nil
+}
+
 // if this function is called MarshalJSON it seems to be called
 // recursively by the json library???
 func (s BoolSchema) DoMarshalJSON() ([]byte, error) {

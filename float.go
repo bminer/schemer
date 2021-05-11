@@ -20,6 +20,12 @@ func (s FloatSchema) Valid() bool {
 	return s.Bits == 32 || s.Bits == 64
 }
 
+/*
+func (s FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+	return nil
+}
+*/
+
 // Bytes encodes the schema in a portable binary format
 func (s FloatSchema) Bytes() []byte {
 
@@ -194,14 +200,27 @@ func (s FloatSchema) Encode(w io.Writer, i interface{}) error {
 	return nil
 }
 
-// Decode uses the schema to read the next encoded value from the input stream and store it in v
 func (s FloatSchema) Decode(r io.Reader, i interface{}) error {
 
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
 	}
 
-	v := reflect.ValueOf(i)
+	return s.DecodeValue(r, reflect.ValueOf(i))
+}
+
+// Decode uses the schema to read the next encoded value from the input stream and store it in v
+//func (s FloatSchema) Decode(r io.Reader, i interface{}) error {
+
+func (s FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+
+	/*
+		if i == nil {
+			return fmt.Errorf("cannot decode to nil destination")
+		}
+
+		v := reflect.ValueOf(i)
+	*/
 
 	// just double check the schema they are using
 	if !s.Valid() {

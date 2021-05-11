@@ -18,6 +18,10 @@ func (s VarLenArraySchema) IsValid() bool {
 	return true
 }
 
+func (s VarLenArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
+	return nil
+}
+
 // Bytes encodes the schema in a portable binary format
 func (s VarLenArraySchema) Bytes() []byte {
 

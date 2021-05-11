@@ -15,6 +15,10 @@ type EnumSchema struct {
 	Values map[int]string
 }
 
+func (s EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+	return nil
+}
+
 func (s EnumSchema) IsValid() bool {
 	return true
 }

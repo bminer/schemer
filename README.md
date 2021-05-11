@@ -2,100 +2,68 @@
 
 Lightweight and robust data encoding library for [Go](https://golang.org/)
 
-Schemer provides an API to construct schemata that describe data structures; the schema is then used to encode and decode values.
+Schemer provides an API to construct schemata that describe data structures; a schema is then used to encode and decode values into sequences of bytes to be sent over the network or written to a file.
 
-Schemer seeks to be an alternative to [protobuf](https://github.com/protocolbuffers/protobuf), but it can also be used as a substitute for [JSON](https://www.json.org/) or [XML](https://en.wikipedia.org/wiki/XML).
+Schemer seeks to be an alternative to [protobuf](https://github.com/protocolbuffers/protobuf) or [Avro](https://avro.apache.org/), but it can also be used as a substitute for [JSON](https://www.json.org/).
 
 ## Features
 
 - Compact binary data format
 - High-speed encoding and decoding
 - Forward and backward compatibility
-- No code generation and no new language to learn
+- No code generation and no [new language](https://en.wikipedia.org/wiki/Interface_description_language) to learn
 - Simple and lightweight library with no external dependencies
+- Supports custom encoding for user-defined data types
 - JavaScript library for web browser interoperability (coming soon!)
 
 ## Why?
 
-[protobuf](https://github.com/protocolbuffers/protobuf) has several drawbacks that schemer addresses:
+Schemer is an attempt to further simplify data encoding. Unlike other encoding libraries that use [interface description languages](https://en.wikipedia.org/wiki/Interface_description_language) (i.e. protobuf), schemer allows developers to construct schemata programmatically with an API. Rather than generating code from a schema, a schema can be constructed from code. In Go, schemata can be generated from Go types using the reflection library. This subtlety adds a surprising amount of flexibility and extensibility to the encoding library.
 
-* protobuf uses [manually-assigned field identifiers](https://developers.google.com/protocol-buffers/docs/proto3#assigning_field_numbers) to ensure backward compatibility, but some may find this approach to be cumbersome and verbose. Much like [Avro](https://avro.apache.org/docs/current/), schemer ensures forward and backward compatibility by encoding values along with the writer's schema. During decoding, discrepancies between the reader schema and writer schema can be easily resolved.
-* Schemer allows the schema and encoded values to be written separately; thus, each datum is written with no per-value overheads. This reduces the size of the encoded data and improves performance.
-* Schemer relies on [Go's reflect package](https://golang.org/pkg/reflect/), so no code generation is needed. Schemata can be generated from vanilla Go data structures without writing a separate schema document. There is no new language to learn.
+Here's how schemer stacks up against other encoding formats:
+
+| Property                               | JSON               | XML                | MessagePack        | Protobuf           | Thrift             | Avro               | Gob                | Schemer            |
+| -------------------------------------- | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ |
+| Human-Readable                         | :heavy_check_mark: | :neutral_face:     | :x:                | :x:                | :x:                | :x:                | :x:                | :x:                |
+| Support for Many Programming Languages | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: |
+| Widely Adopted                         | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: | :x:                | :x:                | :x:                | :x:                |
+| Precise Encoding of Numbers            | :neutral_face:     | :x:                | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| Binary Strings                         | :x:                | :x:                | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| Compact Encoded Payload                | :x::x:             | :x::x:             | :x:                | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| Fast Encoding / Decoding               | :x:                | :x:                | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :neutral_face:     | :neutral_face:     | :grey_question:    |
+| Backward Compatibility                 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :neutral_face:     | :neutral_face:     | :heavy_check_mark: | :neutral_face:     | :heavy_check_mark: |
+| Forward Compatibility                  | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :neutral_face:     | :neutral_face:     | :heavy_check_mark: | :neutral_face:     | :heavy_check_mark: |
+| No Language To Learn                   | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                | :neutral_face:     | :heavy_check_mark: | :heavy_check_mark: |
+| Schema Support                         | :neutral_face:     | :neutral_face:     | :question:         | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: |
+| Supports Fixed-field Objects           | :x:                | :x:                | :x:                | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| Works on Web Browser                   | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :neutral_face:     | :heavy_check_mark: | :x:                | :calendar: soon…   |
 
 ## Types
 
 schemer uses type information provided by the schema to encode values. The following are all of the types that are supported:
 
-- Number
-  - Fixed-size Integer
-  	- Can be signed or unsigned
-  	- Integer sizes of 8, 16, 32, 64, 128 bits, although integers larger than 64 bits are rare.
-  - Variable-size Integer [^1] (signed or unsigned)
-  - Floating-point number (32 or 64-bit)
-  - Complex number (64 or 128-bit)
-- Enumeration
+- Integer
+  - Can be signed or unsigned
+  - Fixed-size or variable-size [^1]
+  	- Fixed-size integers can be 8, 16, 32, 64, or 128 bits
+- Floating-point number (32 or 64-bit)
+- Complex number (64 or 128-bit)
 - Boolean
-- Fixed-size String (UTF-8)
-- Variable-size String (UTF-8)
-- Fixed-size Array
-- Variable-size Array
+- Enumeration
+- String
+	- Can support any encoding, including UTF-8 and binary
+	- Fixed-size or variable-size [^2]
+- Array
+	- Fixed-size or variable-size
 - Object w/fixed fields (i.e. struct)
 - Object w/variable fields (i.e. map)
+- Schema (i.e. a schemer schema)
 - Dynamically-typed value (i.e. variant)
-- User-defined types using hooks
-	- Common hooks are provided (i.e. `time.Time`, `net.IPAddr`, etc.)
+- User-defined types
+	- A few common types are provided for representing timestamps, time durations, IP addresses, UUIDs, regular expressions, etc.
 
-## Schema Format
-
-Here's how schemer encodes the type information into a single byte in the schema:
-
-| Type                   | Encoded Type Byte | Notes                                                        |
-| ---------------------- | ----------------- | ------------------------------------------------------------ |
-| Fixed-size Integer | 0b0000 nnns      | where s is the signed/unsigned bit and n represents the encoded integer size in (8 << n) bits. Example: 0x07 is a signed 64-bit integer. |
-| Variable-size Integer[^1] | 0b0001 000s       | where s is the signed/unsigned bit                         |
-| Floating-point Number  | 0b0001 01*n       | where n is the floating-point size in (32 << n) bits and * is reserved for future use |
-| Complex Number        | 0b0001 10*n       | where n is the complex number size in (64 << n) bits and * is reserved for future use |
-| Enum | 0b0001 1100 |  |
-| Boolean            | 0b0001 1110 |                                                              |
-| String                 | 0b0010 000f       | where f indicates that the string is of fixed byte length    |
-| Array                  | 0b0010 010f     | where f indicates that the array is of fixed length          |
-| Object                 | 0b0010 100f   | where f indicates that the object has fixed number of fields |
-| Variant | 0b0010 1100 |  |
-| Nullable [^2]          | 0b1xxx xxxx       | where x is the type information for the nullable type |
-
-[^1]: By default, integer types are encoded as variable integers, as this format will most likely generate the smallest encoded size
-[^2]: This highest bit of the encoded type byte is the nullable bit, indicating whether or not the value can be null.  If set, the encoded value can also be null.
-
-## Values
-
-The following describes how schemer encodes different values.
-
-| Type                     | Encoding Format                                              | Nullable Format [^3]                                         |
-| ------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| Fixed-size Integer       | Exactly `1 >> n` bytes of two's complement integer representation in little-endian byte order | Preceded by 1 byte. 0 indicates not null.                    |
-| Variable-size Integer    | Each byte's most significant bit indicates more bytes follow. Lower 7 bits are concatenated (in big-endian order) to form [ZigZag-encoded integer](https://developers.google.com/protocol-buffers/docs/encoding?csw=1#types). | Initial byte can only store 6-bit value, and most significant bit indicates null if set. |
-| Floating-point Number    | Exactly `4 << n` bytes corresponding to the IEEE 754 binary representation of the floating-point number | Preceded by 1 byte. 0 indicates not null.                    |
-| Complex Number           | Exactly `4 << n` bytes for each floating-point number `a` and `b` where the complex number is `a + bi`. | Preceded by 1 byte. 0 indicates not null.                    |
-| Enum                     | Stored as an unsigned fixed-size integer (see above), where `n` is determined by the number of enumerated values | Stored as **signed** fixed-size integer, and most significant bit of first byte indicates null if set. |
-| Boolean                  | A single boolean value is encoded as 1 byte where 0 indicates `false` and any other value indicates `true`. | A single boolean value is encoded as 1 byte. The most significant bit indicates null if set. |
-| Fixed-Length String      | UTF-8 encoding of the string, padded with spaces to fit within allotted space. | Preceded by 1 byte. 0 indicates not null.                    |
-| Variable-Length String   | Length of the string is encoded as an unsigned variable-size integer followed by UTF-8 encoding of the string | Length of the string is encoded as a *signed* variable-size integer, and most significant bit indicates null if set. |
-| Fixed-Length Array       | List of values encoded using the type specified by the schema | Preceded by 1 byte. 0 indicates not null.                    |
-| Variable-Length Array    | Length of array encoded much like a string above. Arrays of boolean and/or nullable values may be optimized. | Length of the array is encoded as a *signed* variable-size integer, and most significant bit indicates null if set. |
-| Object w/fixed fields    | Encoded values for each field in the order specified by the schema. Nullable fields may be optimized. | Preceded by 1 byte. 0 indicates not null.                    |
-| Object w/variable fields | Number of entries encoded much like a string above. Key-value pairs are encoded using the types specified by the schema | Number of entries is encoded as a *signed* variable-size integer, and most significant bit indicates null if set. |
-| Variant                  | Variable-size unsigned integer indicating the schema ID to use to decode this value. The actual value then follows. | Variants themselves are not nullable.                        |
-
-[^3]: If the value is null, only 1 byte is written.
-
-### Optimizations
-
-The following optimizations modify the above rules for encoding values:
-
-* For objects either nullable or boolean fields, a single bitmask is placed a the start of the object
-* For arrays of a nullable type, each group of 8 elements is preceded by the corresponding null bitmask
-* Arrays of type boolean are encoded as bitmasks.  The final byte's least significant bits are padded with zeros
+[^1]: By default, integer types are encoded as variable integers, as this format will most likely generate the smallest encoded values.
+[^2]: By default, string types are encoded as variable-size strings. Fixed-size strings are padded with trailing null bytes / zeros.
 
 ## Schema JSON Specification
 
@@ -107,17 +75,17 @@ The following optimizations modify the above rules for encoding values:
 | Variable-size Integer    | int            | * `signed` - boolean indicating if integer is signed or unsigned<br />* `bits` - must be `null` or omitted |
 | Floating-point Number    | float          | * `bits` - one of the following numbers indicating the size of the floating-point: 32, 64 |
 | Complex Number           | complex        | * `bits` - one of the following numbers indicating the size of the complex number: 64, 128 |
-| Enum                     | enum           | * `values` - an object mapping strings to integer values     |
 | Boolean                  | bool           |                                                              |
+| Enum                     | enum           | * `values` - an object mapping strings to integer values     |
 | Fixed-Length String      | string         | * `length` - the length of the string in bytes               |
 | Variable-Length String   | string         | * `length` - must be `null` or omitted                       |
 | Fixed-Length Array       | array          | * `length` - the length of the string in bytes               |
 | Variable-Length Array    | array          | * `length` - must be `null` or omitted                       |
-| Object w/fixed fields    | object         | * `fields` - an array of fields. Each field is an type object with keys:<br />`name`[^4], `type`, and any additional options for the `type` |
+| Object w/fixed fields    | object         | * `fields` - an array of fields. Each field is an type object with keys:<br />`name`[^3], `type`, and any additional options for the `type` |
 | Object w/variable fields | object         | * `fields` - must be `null` or omitted                       |
 | Variant                  | variant        |                                                              |
 
-[^4]: It is strongly encouraged to use [camelCase](https://en.wikipedia.org/wiki/Camel_case) for object field names.
+[^3]: It is strongly encouraged to use [camelCase](https://en.wikipedia.org/wiki/Camel_case) for object field names.
 
 ### Example
 
@@ -139,13 +107,67 @@ Here's a struct with three fields:
       "type": "string"
     }, {
       "name": "age",
-      "type": "integer",
+      "type": "int",
       "signed": false,
       "size": 1
     }
   ]
 }
 ```
+
+## Type Compatibility
+
+When decoding values from one type to another, schemer employs the following compatibility rules. These rules, while rather opinionated, provide safe defaults when decoding values. Users who want to carefully craft how values are decoded from one type to another can simply create a custom type.
+
+As a general rule, types are only compatible with themselves (i.e. boolean values can only be decoded to boolean values).  The table below outlines a few notable exceptions and describes how using "weak" decoding mode can increase type compatibility by sacrificing type safety and by making a few assumptions.
+
+|                 | Destination           |                       |                        |                        |                       |                        |                        |                       |
+| --------------- | --------------------- | --------------------- | ---------------------- | ---------------------- | --------------------- | ---------------------- | ---------------------- | --------------------- |
+| **Source**      | int                   | float                 | complex                | bool                   | enum                  | string                 | array (see #12)        | object                |
+| int             | :heavy_check_mark: #1 | :heavy_check_mark: #1 | :heavy_check_mark: #1  | :grey_exclamation: #6  | :grey_exclamation: #7 | :grey_exclamation: #9  | :x:                    | :x:                   |
+| float           | :heavy_check_mark: #1 | :heavy_check_mark: #1 | :heavy_check_mark: #1  | :x:                    | :x:                   | :grey_exclamation: #9  | :x:                    | :x:                   |
+| complex         | :heavy_check_mark: #1 | :heavy_check_mark: #1 | :heavy_check_mark: #1  | :x:                    | :x:                   | :grey_exclamation: #9  | :grey_exclamation: #11 | :x:                   |
+| bool            | :grey_exclamation: #6 | :x:                   | :x:                    | :heavy_check_mark:     | :x:                   | :grey_exclamation: #10 | :x:                    | :x:                   |
+| enum            | :grey_exclamation: #7 | :x:                   | :x:                    | :x:                    | :heavy_check_mark: #2 | :heavy_check_mark: #2  | :x:                    | :x:                   |
+| string          | :grey_exclamation: #8 | :grey_exclamation: #8 | :grey_exclamation: #8  | :grey_exclamation: #10 | :heavy_check_mark: #2 | :heavy_check_mark:     | :x:                    | :x:                   |
+| array (see #12) | :x:                   | :x:                   | :grey_exclamation: #11 | :x:                    | :x:                   | :x:                    | :heavy_check_mark: #3  | :x:                   |
+| object          | :x:                   | :x:                   | :x:                    | :x:                    | :x:                   | :x:                    | :x:                    | :heavy_check_mark: #4 |
+
+**Legend**:<br/>:heavy_check_mark: - indicates compatibility according to the specified rule<br/>:grey_exclamation:- indicates compatibility according to the specified rule only if weak decoding is used<br/>:x: - indicates that the source type cannot be decoded to the destination
+
+#### Compatibility Rules:
+
+1. Any number can be decoded to any other number, provided the decoded value can be stored into the destination without losing any precision. If weak decoding is specified, we loosen this restriction slightly by allowing floating-point and complex number conversions to lose precision.
+
+	For example, if the number `3.14` is decoded, it can be stored as a float or complex number, but it cannot be stored as an integer. Similarly, the number `500` can be stored into a `uint16` but not a `uint8`, since `uint8` can only store values between 0 and 255.
+
+1. Enumerations are decoded to other enumerations by performing a case-insensitive match on the named value, not a match on the numeric value. If multiple matches occur, a case-sensitive match is then performed. Decoding fails if the decoded named value does not match a named value in the destination enumeration. Enumerations can also be converted to strings and vice-versa by matching on the enumeration's named value.
+
+1. Arrays can be decoded to arrays if the element type and array length is compatible. Specifically, when the destination array is of fixed-size and does not support null values, the decoded array must match exactly in length.
+
+1. Objects are decoded to other objects by performing a case-insensitive match on the key or field name.  If multiple matches occur, a case-sensitive match is then performed. When the destination is an object with fixed fields and the decoded value does not have a matching key or field name, the key / field is simply skipped and will remain unchanged.
+
+1. Null values can only be decoded to destinations that support null values (i.e. pointers), but a non-null value can be decoded even if the destination does not support null values.
+
+The following compatibility rules apply for weak decoding only:
+
+6. The boolean value `true` can be converted to the integer value `1`, and the boolean value `false` can be converted to the integer value `0`. Similarly, the integer `0` will be decoded as `false`, and all other integers are decoded as `true`.
+6. Enumerations can be converted to integer values and vice-versa, and they are matched on the enumeration's numeric value.
+6. Strings can be decoded to numeric values by considering the string format according to the table below. The resulting numeric value is compatible with the destination according to the relevant compatibility rules.
+6. Numbers are always encoded to strings in base 10.
+6. Boolean values `true` and `false` are converted to string values `"true"` and `"false"` respectively. Strings `"1"`, `"t"`, `"T"`, `"TRUE"`, `"true"`, and `"True"` can be converted to the boolean value `true`. Strings `"0"`, `"f"`, `"F"`, `"FALSE"`, `"false"`, and `"False"` can be converted to boolean value `false`.
+6. Complex numbers may be converted into 2-element arrays of floating-point numbers and vice-versa. The real part of the complex number will be matched with array element 0, and the complex part will be matched with array element 1.
+6. Single-element arrays can be decoded to a destination that is compatible with the array element and vice-versa.
+
+#### String to number decoding:
+
+| String Example | Regular Expression | Decoded As              |
+| -------------- | ------------------ | ----------------------- |
+| `"-3.14"`      |                    | Number, base 10         |
+| `"0b1101"`     |                    | Number, base 2          |
+| `"0775"`       |                    | Number, base 8          |
+| `"0x2020"`     |                    | Number, base 16         |
+| `"2.34 + 2i"`  |                    | Complex number, base 10 |
 
 ## API
 

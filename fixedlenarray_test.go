@@ -3,6 +3,7 @@ package schemer
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"testing"
 )
 
@@ -97,6 +98,8 @@ func TestDecodeFixedLenArray3(t *testing.T) {
 
 	r := bytes.NewReader(buf.Bytes())
 
+	log.Println("buf.Bytes()", buf.Len(), buf.Bytes())
+
 	decodedFloats := [3][4]float32{
 		{0, 0, 0, 0},
 		{0, 0, 0, 0},
@@ -106,6 +109,8 @@ func TestDecodeFixedLenArray3(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	log.Println(decodedFloats)
 
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 4; j++ {

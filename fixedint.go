@@ -21,6 +21,10 @@ type FixedIntSchema struct {
 	IsNullable     bool
 }
 
+func (s FixedIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+	return nil
+}
+
 func (s FixedIntSchema) IsValid() bool {
 	return s.Bits == 8 || s.Bits == 16 || s.Bits == 32 || s.Bits == 64
 }

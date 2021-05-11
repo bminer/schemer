@@ -15,6 +15,10 @@ type VarLenStringSchema struct {
 	WeakDecoding bool
 }
 
+func (s VarLenStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+	return nil
+}
+
 func (s VarLenStringSchema) IsValid() bool {
 
 	return true

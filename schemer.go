@@ -13,7 +13,7 @@ type Schema interface {
 	// Encode uses the schema to write the encoded value of v to the output stream
 	Encode(w io.Writer, i interface{}) error
 	// Decode uses the schema to read the next encoded value from the input stream and store it in v
-	Decode(r io.Reader, i interface{}) error
+	//Decode(r io.Reader, i interface{}) error
 	// MarshalSchemer encodes the schema in a portable binary format
 	// MarshalJSON returns the JSON encoding of the schema
 	DoMarshalJSON() ([]byte, error)
@@ -25,6 +25,8 @@ type Schema interface {
 		// SetNullable sets the nullable flag for the schema
 		SetNullable(n bool)
 	*/
+
+	DecodeValue(r io.Reader, v reflect.Value) error
 }
 
 // functions to create schema

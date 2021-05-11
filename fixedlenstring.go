@@ -16,6 +16,10 @@ type FixedLenStringSchema struct {
 	FixedLength  int
 }
 
+func (s FixedLenStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+	return nil
+}
+
 func (s FixedLenStringSchema) IsValid() bool {
 
 	return (s.FixedLength > 0)

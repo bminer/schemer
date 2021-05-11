@@ -20,6 +20,10 @@ func (s VarIntSchema) IsValid() bool {
 	return true
 }
 
+func (s VarIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+	return nil
+}
+
 // Bytes encodes the schema in a portable binary format
 func (s VarIntSchema) Bytes() []byte {
 
