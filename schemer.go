@@ -13,7 +13,7 @@ type Schema interface {
 	// Encode uses the schema to write the encoded value of v to the output stream
 	Encode(w io.Writer, i interface{}) error
 	// Decode uses the schema to read the next encoded value from the input stream and store it in v
-	//Decode(r io.Reader, i interface{}) error
+	Decode(r io.Reader, i interface{}) error
 	// MarshalSchemer encodes the schema in a portable binary format
 	// MarshalJSON returns the JSON encoding of the schema
 	DoMarshalJSON() ([]byte, error)
@@ -31,18 +31,18 @@ type Schema interface {
 
 // functions to create schema
 
-func CreateFixedIntegerSchema(signed bool, bits int, isNullable bool) Schema {
+func CreateFixedIntegerSchema(signed bool, bits int, isNullable bool) FixedIntSchema {
 
-	var floatSchema FloatSchema
+	var fixedIntSchema FixedIntSchema
 
-	floatSchema.Bits = bits
-	floatSchema.IsNullable = isNullable
+	fixedIntSchema.Signed = signed
+	fixedIntSchema.Bits = bits
+	fixedIntSchema.IsNullable = isNullable
 
-	return floatSchema
-
+	return fixedIntSchema
 }
 
-func CreateComplexSchema(bits int) Schema {
+func CreateComplexSchema(bits int) ComplexSchema {
 	var complexSchema ComplexSchema
 
 	complexSchema.Bits = bits
@@ -50,13 +50,13 @@ func CreateComplexSchema(bits int) Schema {
 	return complexSchema
 }
 
-func CreateBooleanSchema() Schema {
+func CreateBooleanSchema() BoolSchema {
 	var boolSchema BoolSchema
 
 	return boolSchema
 }
 
-func CreateFloatSchema(bits int, isNullable bool) Schema {
+func CreateFloatSchema(bits int, isNullable bool) FloatSchema {
 
 	var floatSchema FloatSchema
 
@@ -66,7 +66,7 @@ func CreateFloatSchema(bits int, isNullable bool) Schema {
 	return floatSchema
 }
 
-func CreateFixedLenStringSchema(IsNullable bool, FixedLength int) Schema {
+func CreateFixedLenStringSchema(IsNullable bool, FixedLength int) FixedLenStringSchema {
 
 	var fixedLenStringSchema FixedLenStringSchema
 
@@ -77,14 +77,95 @@ func CreateFixedLenStringSchema(IsNullable bool, FixedLength int) Schema {
 
 }
 
-func SchemaOfType(t reflect.Type) Schema {
+func CreateVarLenStringSchema(IsNullable bool) VarLenStringSchema {
+	var varStringSchema VarLenStringSchema
 
+	varStringSchema.IsNullable = IsNullable
+
+	return varStringSchema
+}
+
+func CreateFixedArraySchema(IsNullable bool, FixedLength int) FixedLenArraySchema {
+
+	var fixedLenArraySchema FixedLenArraySchema
+
+	fixedLenArraySchema.IsNullable = IsNullable
+	fixedLenArraySchema.Length = FixedLength
+
+	return fixedLenArraySchema
+
+}
+
+func CreateVarArraySchema(IsNullable bool) VarArraySchema {
+
+	var varArraySchema VarArraySchema
+
+	varArraySchema.IsNullable = IsNullable
+
+	return varArraySchema
+
+}
+
+func CreateFixedObjectSchema(IsNullable bool) FixedObjectSchema {
+
+	var fixedObjectSchema FixedObjectSchema
+
+	fixedObjectSchema.IsNullable = IsNullable
+
+	return fixedObjectSchema
+}
+
+func SchemaOf(i interface{}) Schema {
+	v := reflect.ValueOf(i)
+	return SchemaForValue(v)
+}
+
+// SchemaOf generates a Schema from the concrete value stored in the interface i.
+// SchemaOf(nil) returns a Schema for an empty struct.
+func SchemaForValue(v reflect.Value) Schema {
+
+	// Dereference pointer / interface types
+	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+		v = v.Elem()
+	}
+
+	t := v.Type()
 	k := t.Kind()
 
 	switch k {
 
+	case reflect.Struct:
+		fixedObjectSchema := CreateFixedObjectSchema(true)
+		var of ObjectField
+
+		for i := 0; i < t.NumField(); i++ {
+
+			f := v.Field(i)
+
+			of.Name = t.Field(i).Name
+			of.Schema = SchemaForValue(f)
+
+			fixedObjectSchema.Fields = append(fixedObjectSchema.Fields, of)
+
+		}
+
+		return fixedObjectSchema
+
+	case reflect.Slice:
+		tmp := CreateVarArraySchema(true)
+		tmp.Element = SchemaForValue(v.Index(0))
+		return tmp
+
+	case reflect.Array:
+		tmp := CreateFixedArraySchema(true, v.Len())
+		tmp.Element = SchemaForValue(v.Index(0))
+		return tmp
+
+	case reflect.String:
+		return CreateVarLenStringSchema(true)
+
 	case reflect.Int:
-		return CreateFixedIntegerSchema(true, uintSize/8, false)
+		return CreateFixedIntegerSchema(true, uintSize, false)
 
 	case reflect.Int8:
 		return CreateFixedIntegerSchema(true, 8, false)
@@ -99,7 +180,7 @@ func SchemaOfType(t reflect.Type) Schema {
 		return CreateFixedIntegerSchema(true, 64, false)
 
 	case reflect.Uint:
-		return CreateFixedIntegerSchema(false, uintSize/8, false)
+		return CreateFixedIntegerSchema(false, uintSize, false)
 
 	case reflect.Uint8:
 		return CreateFixedIntegerSchema(false, 8, false)
@@ -131,19 +212,7 @@ func SchemaOfType(t reflect.Type) Schema {
 	}
 
 	return nil
-}
 
-// SchemaOf generates a Schema from the concrete value stored in the interface i.
-// SchemaOf(nil) returns a Schema for an empty struct.
-func SchemaOf(i interface{}) Schema {
-	v := reflect.ValueOf(i)
-	// Dereference pointer / interface types
-	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
-		v = v.Elem()
-	}
-	t := v.Type()
-
-	return SchemaOfType(t)
 }
 
 // NewSchema decodes a schema stored in buf and returns an error if the schema is invalid
@@ -160,7 +229,7 @@ func NewSchema(buf []byte) (Schema, error) {
 	var varLenStringSchema VarLenStringSchema
 	var enumSchema EnumSchema
 	var fixedLenArraySchema FixedLenArraySchema
-	var varLenArraySchema VarLenArraySchema
+	var varArraySchema VarArraySchema
 
 	// decode fixed int schema
 	// (bits 7 and 8 should be clear)
@@ -253,9 +322,9 @@ func NewSchema(buf []byte) (Schema, error) {
 	// decode var array schema
 	// (bits 3, 5, 8)
 	if buf[0]&252 == 144 {
-		varLenArraySchema.IsNullable = (buf[0]&1 == 1)
+		varArraySchema.IsNullable = (buf[0]&1 == 1)
 
-		return varLenArraySchema, nil
+		return varArraySchema, nil
 	}
 
 	//Object

@@ -15,10 +15,6 @@ type EnumSchema struct {
 	Values map[int]string
 }
 
-func (s EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
-	return nil
-}
-
 func (s EnumSchema) IsValid() bool {
 	return true
 }
@@ -67,10 +63,16 @@ func (s EnumSchema) Encode(w io.Writer, v interface{}) error {
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
 func (s EnumSchema) Decode(r io.Reader, i interface{}) error {
-
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
 	}
+
+	v := reflect.ValueOf(i)
+
+	return s.DecodeValue(r, v)
+}
+
+func (s EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// first we decode the actual encoded binary value
 
@@ -84,8 +86,6 @@ func (s EnumSchema) Decode(r io.Reader, i interface{}) error {
 	if err != nil {
 		return err
 	}
-
-	v := reflect.ValueOf(i)
 
 	// now we check to see if varIntSchema.Decode returned us a nil value
 	if intPtr == nil {

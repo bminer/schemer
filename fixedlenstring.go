@@ -16,10 +16,6 @@ type FixedLenStringSchema struct {
 	FixedLength  int
 }
 
-func (s FixedLenStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
-	return nil
-}
-
 func (s FixedLenStringSchema) IsValid() bool {
 
 	return (s.FixedLength > 0)
@@ -118,12 +114,17 @@ func (s FixedLenStringSchema) Encode(w io.Writer, i interface{}) error {
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
 func (s FixedLenStringSchema) Decode(r io.Reader, i interface{}) error {
-
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
 	}
 
 	v := reflect.ValueOf(i)
+
+	return s.DecodeValue(r, v)
+}
+
+// DecodeValue uses the schema to read the next encoded value from the input stream and store it in v
+func (s FixedLenStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {

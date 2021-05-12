@@ -17,10 +17,6 @@ func (s BoolSchema) IsValid() bool {
 	return true
 }
 
-func (s BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
-	return nil
-}
-
 // if this function is called MarshalJSON it seems to be called
 // recursively by the json library???
 func (s BoolSchema) DoMarshalJSON() ([]byte, error) {
@@ -65,18 +61,20 @@ func (s BoolSchema) Encode(w io.Writer, i interface{}) error {
 		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
 	}
 
-	// did the caller pass in a nil value, or a null pointer?
-	if reflect.TypeOf(i).Kind() == reflect.Ptr ||
-		reflect.TypeOf(i).Kind() == reflect.Interface &&
-			reflect.ValueOf(i).IsNil() {
-
-		// make sure the schema says the type is nullable
-		if s.IsNullable {
-			// per the spec, we encode a null value by writing a byte with the
-			// most sig bit set
+	if s.IsNullable {
+		// did the caller pass in a nil value, or a null pointer
+		if reflect.TypeOf(i).Kind() == reflect.Ptr ||
+			reflect.TypeOf(i).Kind() == reflect.Interface &&
+				reflect.ValueOf(i).IsNil() {
+			// we encode a null value by writing a single non 0 byte
 			w.Write([]byte{1})
 			return nil
 		} else {
+			// 0 means not null (with actual encoded bytes to follow)
+			w.Write([]byte{0})
+		}
+	} else {
+		if i == nil {
 			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
 		}
 	}
@@ -130,34 +128,37 @@ func (s BoolSchema) Decode(r io.Reader, i interface{}) error {
 
 	v := reflect.ValueOf(i)
 
+	return s.DecodeValue(r, v)
+
+}
+
+func (s BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+
 	// just double check the schema they are using
 	if !s.IsValid() {
 		return fmt.Errorf("cannot decode using invalid BoolSchema schema")
 	}
-
-	// take a look at the schema..
 
 	buf := make([]byte, 1)
 	_, err := io.ReadAtLeast(r, buf, 1)
 	if err != nil {
 		return err
 	}
-	tmpByte := buf[0]
 
-	// if the schema indicates this type is nullable, then the actual floating point
-	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
+	// if the schema indicates this type is nullable
 	if s.IsNullable {
-		if tmpByte == 1 {
-			if v.Kind() == reflect.Ptr {
+		// if value is null, set nil to top level
+		if buf[0] != 0 {
+			if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
 				v = v.Elem()
-				if v.Kind() == reflect.Ptr {
+				if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
 					// special way to return a nil pointer
 					v.Set(reflect.Zero(v.Type()))
 				} else {
-					return fmt.Errorf("cannot decode null value to non pointer to (bool) pointer type")
+					return fmt.Errorf("cannot decode null value to non pointer to pointer type")
 				}
 			} else {
-				return fmt.Errorf("cannot decode null value to non pointer to (bool) pointer type")
+				return fmt.Errorf("cannot decode null value to non pointer to pointer type")
 			}
 			return nil
 		}
@@ -175,7 +176,7 @@ func (s BoolSchema) Decode(r io.Reader, i interface{}) error {
 		return fmt.Errorf("decode destination is not settable")
 	}
 
-	decodedBool := tmpByte > 1 // 0 = false; 1 = NULL; anything else = true
+	decodedBool := buf[0] > 0
 
 	// take a look at the destination
 	// bools can be decoded to integer types, bools, and strings

@@ -13,10 +13,8 @@ import (
 type VarLenStringSchema struct {
 	IsNullable   bool
 	WeakDecoding bool
-}
 
-func (s VarLenStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
-	return nil
+	Element Schema
 }
 
 func (s VarLenStringSchema) IsValid() bool {
@@ -74,13 +72,11 @@ func (s VarLenStringSchema) Encode(w io.Writer, i interface{}) error {
 			reflect.TypeOf(i).Kind() == reflect.Interface &&
 				reflect.ValueOf(i).IsNil() {
 
-			// per the spec, we encode a null value by writing out a single byte
-			// with the high bit set
-			w.Write([]byte{128})
+			// per the revised spec, 1 indicates null
+			w.Write([]byte{1})
 			return nil
 		} else {
-			// TODO: update the SPEC (encoding-format.md)
-			// 0 means not null (with actual encoded bytes to follow)
+			// 0 indicates not null
 			w.Write([]byte{0})
 		}
 	} else {
@@ -119,13 +115,7 @@ func (s VarLenStringSchema) Encode(w io.Writer, i interface{}) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s VarLenStringSchema) Decode(r io.Reader, i interface{}) error {
-
-	if i == nil {
-		return fmt.Errorf("cannot decode to nil destination")
-	}
-
-	v := reflect.ValueOf(i)
+func (s VarLenStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
@@ -270,4 +260,15 @@ func (s VarLenStringSchema) Decode(r io.Reader, i interface{}) error {
 	}
 
 	return nil
+}
+
+// Decode uses the schema to read the next encoded value from the input stream and store it in v
+func (s VarLenStringSchema) Decode(r io.Reader, i interface{}) error {
+	if i == nil {
+		return fmt.Errorf("cannot decode to nil destination")
+	}
+
+	v := reflect.ValueOf(i)
+
+	return s.DecodeValue(r, v)
 }

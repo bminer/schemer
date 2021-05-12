@@ -20,10 +20,6 @@ func (s ComplexSchema) IsValid() bool {
 	return s.Bits == 64 || s.Bits == 128
 }
 
-func (s ComplexSchema) DecodeValue(r io.Reader, v reflect.Value) error {
-	return nil
-}
-
 // if this function is called MarshalJSON it seems to be called
 // recursively by the json library???
 func (s ComplexSchema) DoMarshalJSON() ([]byte, error) {
@@ -175,6 +171,12 @@ func (s ComplexSchema) Decode(r io.Reader, i interface{}) error {
 	}
 
 	v := reflect.ValueOf(i)
+
+	return s.DecodeValue(r, v)
+
+}
+
+func (s ComplexSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {

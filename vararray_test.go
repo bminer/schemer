@@ -7,48 +7,46 @@ import (
 	"testing"
 )
 
-func TestDecodeFixedLenArray1(t *testing.T) {
+// make sure we can encode/decode binary schemas for EnumSchema
+func TestDecodeVarLenArray1(t *testing.T) {
 
 	// setup an example schema
-	fixedLenArraySchema := FixedLenArraySchema{IsNullable: false, Length: 10}
+	varArraySchema := VarArraySchema{IsNullable: false}
 
 	// encode it
-	b := fixedLenArraySchema.Bytes()
+	b := varArraySchema.Bytes()
 
 	// make sure we can successfully decode it
-	var decodedSchema FixedLenArraySchema
+	var decodedIntSchema VarArraySchema
 	var err error
 
 	tmp, err := NewSchema(b)
 	if err != nil {
-		t.Error("cannot encode binary encoded enumSchema")
+		t.Error("cannot encode binary encoded VarLenArraySchema")
 	}
 
-	decodedSchema = tmp.(FixedLenArraySchema)
+	decodedIntSchema = tmp.(VarArraySchema)
 
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
-	if decodedSchema.IsNullable != fixedLenArraySchema.IsNullable {
+	if decodedIntSchema.IsNullable != varArraySchema.IsNullable {
 		t.Error("unexpected values when decoding binary EnumSchema")
 	}
 
 }
 
-func TestDecodeFixedLenArray2(t *testing.T) {
+func TestDecodeVarLenArray2(t *testing.T) {
 
 	// build up the schema programatically
-	fixedLenArraySchema := FixedLenArraySchema{IsNullable: false, Length: 6}
-	fixedLenArraySchema.Element = FloatSchema{Bits: 32}
+	varArraySchema := VarArraySchema{IsNullable: false}
+	varArraySchema.Element = FloatSchema{Bits: 32}
 
 	var buf bytes.Buffer
 	var err error
-	floatarray := [6]float32{2.0, 3.1, 5.2, 7.3, 11.4, 13.5}
+	floatslice := []float32{2.0, 3.1, 5.2, 7.3, 11.4, 13.5}
 	buf.Reset()
 
-	// we should also be able to say:
-	// schmemaOf(floatarray)
-
-	err = fixedLenArraySchema.Encode(&buf, floatarray)
+	err = varArraySchema.Encode(&buf, floatslice)
 	if err != nil {
 		t.Error(err)
 	}
@@ -57,24 +55,24 @@ func TestDecodeFixedLenArray2(t *testing.T) {
 
 	r := bytes.NewReader(buf.Bytes())
 
-	var decodedFloats [6]float32
-	err = fixedLenArraySchema.Decode(r, &decodedFloats)
+	var decodedFloats []float32 = make([]float32, 6)
+	err = varArraySchema.Decode(r, &decodedFloats)
 	if err != nil {
 		t.Error(err)
 	}
 
-	for i := 0; i < len(floatarray); i++ {
-		if floatarray[i] != decodedFloats[i] {
+	for i := 0; i < len(decodedFloats); i++ {
+		if floatslice[i] != decodedFloats[i] {
 			t.Error("unexpected value decoding floating point array")
 		}
 	}
 }
 
-func TestDecodeFixedLenArray3(t *testing.T) {
+func TestDecodeVarLenArray3(t *testing.T) {
 
 	// build up the schema programatically
-	fixedLenArraySchema := FixedLenArraySchema{IsNullable: false, Length: 3}
-	fixedLenArraySchema1 := FixedLenArraySchema{IsNullable: false, Length: 4}
+	fixedLenArraySchema := VarArraySchema{IsNullable: false}
+	fixedLenArraySchema1 := VarArraySchema{IsNullable: false}
 	FloatSchema := FloatSchema{Bits: 32}
 
 	fixedLenArraySchema1.Element = FloatSchema
@@ -82,14 +80,14 @@ func TestDecodeFixedLenArray3(t *testing.T) {
 
 	var buf bytes.Buffer
 	var err error
-	floatArray := [3][4]float32{
+	floatSlice := [][]float32{
 		{0.5, 1, 2, 3},
 		{4, 5, 6, 7},
 		{8, 9, 10, 11},
 	}
 	buf.Reset()
 
-	err = fixedLenArraySchema.Encode(&buf, floatArray)
+	err = fixedLenArraySchema.Encode(&buf, floatSlice)
 	if err != nil {
 		t.Error(err)
 	}
@@ -100,11 +98,11 @@ func TestDecodeFixedLenArray3(t *testing.T) {
 
 	log.Println("buf.Bytes()", buf.Len(), buf.Bytes())
 
-	decodedFloats := [3][4]float32{
-		{0, 0, 0, 0},
-		{0, 0, 0, 0},
-		{0, 0, 0, 0},
+	decodedFloats := make([][]float32, 3)
+	for i := range decodedFloats {
+		decodedFloats[i] = make([]float32, 4)
 	}
+
 	err = fixedLenArraySchema.Decode(r, &decodedFloats)
 	if err != nil {
 		t.Error(err)
@@ -114,7 +112,7 @@ func TestDecodeFixedLenArray3(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 4; j++ {
-			if floatArray[i][j] != decodedFloats[i][j] {
+			if floatSlice[i][j] != decodedFloats[i][j] {
 				t.Error("unexpected value decoding 2-dimensional floating point array")
 			}
 		}

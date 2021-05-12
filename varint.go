@@ -20,10 +20,6 @@ func (s VarIntSchema) IsValid() bool {
 	return true
 }
 
-func (s VarIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
-	return nil
-}
-
 // Bytes encodes the schema in a portable binary format
 func (s VarIntSchema) Bytes() []byte {
 
@@ -177,7 +173,6 @@ func (s VarIntSchema) Encode(w io.Writer, i interface{}) error {
 	return nil
 }
 
-// Decode uses the schema to read the next encoded value from the input stream and store it in v
 func (s VarIntSchema) Decode(r io.Reader, i interface{}) error {
 
 	if i == nil {
@@ -185,6 +180,12 @@ func (s VarIntSchema) Decode(r io.Reader, i interface{}) error {
 	}
 
 	v := reflect.ValueOf(i)
+
+	return s.DecodeValue(r, v)
+}
+
+// Decode uses the schema to read the next encoded value from the input stream and store it in v
+func (s VarIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {

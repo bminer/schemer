@@ -21,10 +21,6 @@ type FixedIntSchema struct {
 	IsNullable     bool
 }
 
-func (s FixedIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
-	return nil
-}
-
 func (s FixedIntSchema) IsValid() bool {
 	return s.Bits == 8 || s.Bits == 16 || s.Bits == 32 || s.Bits == 64
 }
@@ -335,12 +331,16 @@ func (s FixedIntSchema) Encode(w io.Writer, i interface{}) error {
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
 func (s FixedIntSchema) Decode(r io.Reader, i interface{}) error {
-
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
 	}
 
 	v := reflect.ValueOf(i)
+
+	return s.DecodeValue(r, v)
+}
+
+func (s FixedIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
