@@ -18,7 +18,34 @@ type TestStruct struct {
 	T    TestStructToNest
 }
 
-func TestDecodeObject1(t *testing.T) {
+func TestDecodeFixedObject1(t *testing.T) {
+
+	// setup an example schema
+	fixedObjectSchema := FixedObjectSchema{IsNullable: false}
+
+	// encode it
+	b := fixedObjectSchema.Bytes()
+
+	// make sure we can successfully decode it
+	var decodedIntSchema FixedObjectSchema
+	var err error
+
+	tmp, err := NewSchema(b)
+	if err != nil {
+		t.Error("cannot encode binary encoded FixedObjectSchema")
+	}
+
+	decodedIntSchema = tmp.(FixedObjectSchema)
+
+	// and then check the actual contents of the decoded schema
+	// to make sure it contains the correct values
+	if decodedIntSchema.IsNullable != fixedObjectSchema.IsNullable {
+		t.Error("unexpected values when decoding binary EnumSchema")
+	}
+
+}
+
+func TestDecodeFixedObject2(t *testing.T) {
 
 	var structToEncode = TestStruct{"Ben", 13, [2]int{3, 5}, TestStructToNest{8}}
 

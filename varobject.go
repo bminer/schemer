@@ -2,32 +2,33 @@ package schemer
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
 )
 
-type ObjectField struct {
-	Name   string
-	Schema Schema
+type VarObjectField struct {
+	Key   Schema
+	Value Schema
 }
 
-type FixedObjectSchema struct {
+type VarObjectSchema struct {
 	IsNullable bool
-	Fields     []ObjectField
+	Fields     []VarObjectField
 }
 
-func (s FixedObjectSchema) IsValid() bool {
+func (s VarObjectSchema) IsValid() bool {
 	return true
 }
 
-func (s FixedObjectSchema) DoMarshalJSON() ([]byte, error) {
+func (s VarObjectSchema) DoMarshalJSON() ([]byte, error) {
 
 	return json.Marshal(s)
 
 }
 
-func (s FixedObjectSchema) DoUnmarshalJSON(buf []byte) error {
+func (s VarObjectSchema) DoUnmarshalJSON(buf []byte) error {
 
 	return json.Unmarshal(buf, s)
 
@@ -35,25 +36,25 @@ func (s FixedObjectSchema) DoUnmarshalJSON(buf []byte) error {
 
 // Bytes encodes the schema in a portable binary format
 // FIXME
-func (s FixedObjectSchema) Bytes() []byte {
+func (s VarObjectSchema) Bytes() []byte {
 
-	// fixedObject schemas are 1 byte long
+	// string schemas are 1 byte long
 	var schema []byte = make([]byte, 1)
 
-	schema[0] = 0b10100100
+	schema[0] = 0b10100000
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.IsNullable {
 		schema[0] |= 1
 	}
 
-	// also need to concatenate the schemas for all other fields
+	// bit 3 is clear from above, indicating this is a var length string
 
 	return schema
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s FixedObjectSchema) Encode(w io.Writer, i interface{}) error {
+func (s VarObjectSchema) Encode(w io.Writer, i interface{}) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
@@ -90,14 +91,23 @@ func (s FixedObjectSchema) Encode(w io.Writer, i interface{}) error {
 	t := v.Type()
 	k := t.Kind()
 
-	if k != reflect.Struct {
-		return fmt.Errorf("fixedObjectSchema can only encode structs")
+	if k != reflect.Map {
+		return fmt.Errorf("varObjectSchema can only encode maps")
 	}
 
-	// loop through all the schemas, and encode each one
-	for i := 0; i < t.NumField(); i++ {
-		f := v.Field(i)
-		err := s.Fields[i].Schema.Encode(w, f.Interface())
+	err := writeVarUint(w, uint64(v.Len()))
+	if err != nil {
+		return errors.New("cannot encode var string length as var int")
+	}
+
+	for i, mapKey := range v.MapKeys() {
+		mapValue := v.MapIndex(mapKey)
+
+		err := s.Fields[i].Key.Encode(w, mapKey.Interface()) // encode key
+		if err != nil {
+			return err
+		}
+		err = s.Fields[i].Value.Encode(w, mapValue.Interface()) // encode value
 		if err != nil {
 			return err
 		}
@@ -107,7 +117,7 @@ func (s FixedObjectSchema) Encode(w io.Writer, i interface{}) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+func (s VarObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
@@ -145,22 +155,47 @@ func (s FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	t := v.Type()
 	k := t.Kind()
 
-	if k != reflect.Struct {
-		return fmt.Errorf("FixedObjectSchema can only decode to structures")
+	if k != reflect.Map {
+		return fmt.Errorf("VarObjectSchema can only decode to maps")
 	}
 
-	for i := 0; i < t.NumField(); i++ {
-		f := v.Field(i)
-		err := s.Fields[i].Schema.DecodeValue(r, f)
+	// we wrote the number of entries in the map as a var int
+	// when we did the encoding
+	expectedNumEntries, err := readVarUint(r)
+	if err != nil {
+		return err
+	}
+
+	// double check the size of the map that we are going to decode to
+	// to make sure it has expectedNumEntries
+	// fixme
+	if int(expectedNumEntries) == len(v.MapKeys()) {
+		return fmt.Errorf("encoded length does not match destination map size")
+	}
+
+	// loop through the schemas for the fields that we encoded
+	for _, f := range s.Fields {
+
+		key := reflect.New(t.Key())
+		val := reflect.New(t.Elem())
+
+		err := f.Key.DecodeValue(r, key) // decode key
 		if err != nil {
 			return err
 		}
+		err = f.Value.DecodeValue(r, val) // decode value
+		if err != nil {
+			return err
+		}
+
+		v.SetMapIndex(reflect.Indirect(key), reflect.Indirect((val)))
+
 	}
 
 	return nil
 }
 
-func (s FixedObjectSchema) Decode(r io.Reader, i interface{}) error {
+func (s VarObjectSchema) Decode(r io.Reader, i interface{}) error {
 
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")

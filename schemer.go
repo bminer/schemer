@@ -115,6 +115,15 @@ func CreateFixedObjectSchema(IsNullable bool) FixedObjectSchema {
 	return fixedObjectSchema
 }
 
+func CreateVarObjectSchema(IsNullable bool) VarObjectSchema {
+
+	var varObjectSchema VarObjectSchema
+
+	varObjectSchema.IsNullable = IsNullable
+
+	return varObjectSchema
+}
+
 func SchemaOf(i interface{}) Schema {
 	v := reflect.ValueOf(i)
 	return SchemaForValue(v)
@@ -133,6 +142,9 @@ func SchemaForValue(v reflect.Value) Schema {
 	k := t.Kind()
 
 	switch k {
+
+	case reflect.Map:
+		return CreateVarObjectSchema(true)
 
 	case reflect.Struct:
 		fixedObjectSchema := CreateFixedObjectSchema(true)
@@ -230,6 +242,8 @@ func NewSchema(buf []byte) (Schema, error) {
 	var enumSchema EnumSchema
 	var fixedLenArraySchema FixedLenArraySchema
 	var varArraySchema VarArraySchema
+	var varObjectSchema VarObjectSchema
+	var fixedObjectSchema FixedObjectSchema
 
 	// decode fixed int schema
 	// (bits 7 and 8 should be clear)
@@ -327,7 +341,19 @@ func NewSchema(buf []byte) (Schema, error) {
 		return varArraySchema, nil
 	}
 
-	//Object
+	// decode var object schema
+	if buf[0]&252 == 160 {
+		varObjectSchema.IsNullable = (buf[0]&1 == 1)
+
+		return varObjectSchema, nil
+	}
+
+	// fixed object schema
+	if buf[0]&252 == 164 {
+		fixedObjectSchema.IsNullable = (buf[0]&1 == 1)
+
+		return fixedObjectSchema, nil
+	}
 
 	//Variant
 
