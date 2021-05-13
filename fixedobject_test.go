@@ -4,18 +4,28 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"reflect"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
+type TestStructToNest2 struct {
+	A [3]int8
+	B []string
+	C *string
+	D *int
+}
+
 type TestStructToNest struct {
-	Test123 int
+	Test123 float64
+	M       map[string]int
+	TestStructToNest2
 }
 
 type TestStruct struct {
-	Name string
-	Age  int
-	I    [2]int
-	T    TestStructToNest
+	A string
+	T TestStructToNest
 }
 
 func TestDecodeFixedObject1(t *testing.T) {
@@ -47,26 +57,19 @@ func TestDecodeFixedObject1(t *testing.T) {
 
 func TestDecodeFixedObject2(t *testing.T) {
 
-	var structToEncode = TestStruct{"Ben", 13, [2]int{3, 5}, TestStructToNest{8}}
+	//s := "string"
+	i := 10
+
+	var structToEncode = TestStruct{"ben", TestStructToNest{99.9, map[string]int{
+		"a": 1,
+		"b": 2,
+		"d": 3},
+		TestStructToNest2{[3]int8{4, 5, 6}, []string{"go", "reflection", "rocks"}, nil, &i}}}
 
 	var buf bytes.Buffer
 	var err error
 
 	buf.Reset()
-
-	/*
-		// build up schema programatically...
-
-		stringSchema := CreateVarLenStringSchema(false)
-		fixedIntSchema := CreateFixedIntegerSchema(true, 64, true)
-
-		of1 := ObjectField{"Name", stringSchema}
-		of2 := ObjectField{"Age", fixedIntSchema}
-
-		fixedObjectSchema := FixedObjectSchema{}
-		fixedObjectSchema.Fields = append(fixedObjectSchema.Fields, of1)
-		fixedObjectSchema.Fields = append(fixedObjectSchema.Fields, of2)
-	*/
 
 	fixedObjectSchema := SchemaOf(&structToEncode)
 
@@ -81,13 +84,20 @@ func TestDecodeFixedObject2(t *testing.T) {
 
 	r := bytes.NewReader(buf.Bytes())
 
-	structToDecode := TestStruct{"", 0, [2]int{0, 0}, TestStructToNest{0}}
+	var structToDecode = TestStruct{}
 
-	err = fixedObjectSchema.Decode(r, &structToDecode)
+	log.Print(structToEncode)
+
+	err = fixedObjectSchema.DecodeValue(r, reflect.ValueOf(&structToDecode))
+
+	log.Print(structToDecode)
+
 	if err != nil {
 		t.Error(err)
 	}
 
-	// check each field...
+	if !cmp.Equal(structToEncode, structToDecode) {
+		t.Error("unexpected struct to struct decode")
+	}
 
 }

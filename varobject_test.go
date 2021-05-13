@@ -36,10 +36,10 @@ func TestDecodeVarObject1(t *testing.T) {
 func TestDecodeVarObject2(t *testing.T) {
 
 	strToIntMap := map[string]int{
-		"rsc": 3711,
-		"r":   2138,
-		"gri": 1908,
-		"adg": 912,
+		"a": 1,
+		"b": 2,
+		"c": 3,
+		"d": 4,
 	}
 
 	var buf bytes.Buffer
@@ -49,19 +49,23 @@ func TestDecodeVarObject2(t *testing.T) {
 
 	// build up schema programatically...
 
-	varObjectSchema := CreateVarObjectSchema(true)
+	/*
 
-	fixedIntSchema := CreateFixedIntegerSchema(true, 64, true)
-	VarLenStringSchema := CreateVarLenStringSchema(true)
+		varObjectSchema := CreateVarObjectSchema(true)
 
-	of1 := VarObjectField{VarLenStringSchema, fixedIntSchema}
+		fixedIntSchema := CreateFixedIntegerSchema(true, 64, true)
+		VarLenStringSchema := CreateVarLenStringSchema(true)
 
-	varObjectSchema.Fields = append(varObjectSchema.Fields, of1)
-	varObjectSchema.Fields = append(varObjectSchema.Fields, of1)
-	varObjectSchema.Fields = append(varObjectSchema.Fields, of1)
-	varObjectSchema.Fields = append(varObjectSchema.Fields, of1)
+		of1 := VarObjectField{VarLenStringSchema, fixedIntSchema}
 
-	//varObjectSchema := SchemaOf(&strToIntMap)
+		varObjectSchema.Fields = append(varObjectSchema.Fields, of1)
+		varObjectSchema.Fields = append(varObjectSchema.Fields, of1)
+		varObjectSchema.Fields = append(varObjectSchema.Fields, of1)
+		varObjectSchema.Fields = append(varObjectSchema.Fields, of1)
+
+	*/
+
+	varObjectSchema := SchemaOf(&strToIntMap)
 
 	err = varObjectSchema.Encode(&buf, strToIntMap)
 	if err != nil {
@@ -72,13 +76,19 @@ func TestDecodeVarObject2(t *testing.T) {
 
 	r := bytes.NewReader(buf.Bytes())
 
-	mapToDecode := make(map[string]int, 4)
+	// pass in a nil map
+	// to make sure decode will allocate it for us
+	var mapToDecode map[string]int
 
 	err = varObjectSchema.Decode(r, &mapToDecode)
 	if err != nil {
 		t.Error(err)
 	}
 
-	// check each field...
+	for key, element := range strToIntMap {
+		if element != mapToDecode[key] {
+			t.Error("encoded data not present in decoded map")
+		}
+	}
 
 }

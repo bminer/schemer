@@ -8,14 +8,11 @@ import (
 	"reflect"
 )
 
-type VarObjectField struct {
-	Key   Schema
-	Value Schema
-}
-
 type VarObjectSchema struct {
 	IsNullable bool
-	Fields     []VarObjectField
+
+	Key   Schema
+	Value Schema
 }
 
 func (s VarObjectSchema) IsValid() bool {
@@ -100,14 +97,14 @@ func (s VarObjectSchema) Encode(w io.Writer, i interface{}) error {
 		return errors.New("cannot encode var string length as var int")
 	}
 
-	for i, mapKey := range v.MapKeys() {
+	for _, mapKey := range v.MapKeys() {
 		mapValue := v.MapIndex(mapKey)
 
-		err := s.Fields[i].Key.Encode(w, mapKey.Interface()) // encode key
+		err := s.Key.Encode(w, mapKey.Interface()) // encode key
 		if err != nil {
 			return err
 		}
-		err = s.Fields[i].Value.Encode(w, mapValue.Interface()) // encode value
+		err = s.Value.Encode(w, mapValue.Interface()) // encode value
 		if err != nil {
 			return err
 		}
@@ -166,30 +163,33 @@ func (s VarObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		return err
 	}
 
-	// double check the size of the map that we are going to decode to
-	// to make sure it has expectedNumEntries
-	// fixme
-	if int(expectedNumEntries) == len(v.MapKeys()) {
-		return fmt.Errorf("encoded length does not match destination map size")
+	if v.IsNil() {
+		if !v.CanSet() {
+			return errors.New("v not settable")
+		}
+		var mapType = reflect.MapOf(t.Key(), t.Elem())
+		v.Set(reflect.MakeMap(mapType))
+	} else {
+		// we have an existing map
+		// right now by default, we will just keep their entries
+		// but we have to decide if this behavior is OK
 	}
 
-	// loop through the schemas for the fields that we encoded
-	for _, f := range s.Fields {
+	for i := 0; i < int(expectedNumEntries); i++ {
 
 		key := reflect.New(t.Key())
 		val := reflect.New(t.Elem())
 
-		err := f.Key.DecodeValue(r, key) // decode key
+		err = s.Key.DecodeValue(r, key) // decode key
 		if err != nil {
 			return err
 		}
-		err = f.Value.DecodeValue(r, val) // decode value
+		err = s.Value.DecodeValue(r, val) // decode value
 		if err != nil {
 			return err
 		}
 
-		v.SetMapIndex(reflect.Indirect(key), reflect.Indirect((val)))
-
+		v.SetMapIndex(reflect.Indirect(key), reflect.Indirect(val))
 	}
 
 	return nil

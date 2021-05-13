@@ -150,8 +150,7 @@ func (s FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 
 	for i := 0; i < t.NumField(); i++ {
-		f := v.Field(i)
-		err := s.Fields[i].Schema.DecodeValue(r, f)
+		err := s.Fields[i].Schema.DecodeValue(r, v.Field(i))
 		if err != nil {
 			return err
 		}
@@ -167,4 +166,5 @@ func (s FixedObjectSchema) Decode(r io.Reader, i interface{}) error {
 	}
 
 	return s.DecodeValue(r, reflect.ValueOf(i))
+
 }

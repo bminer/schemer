@@ -13,8 +13,6 @@ import (
 type VarLenStringSchema struct {
 	IsNullable   bool
 	WeakDecoding bool
-
-	Element Schema
 }
 
 func (s VarLenStringSchema) IsValid() bool {
@@ -66,11 +64,20 @@ func (s VarLenStringSchema) Encode(w io.Writer, i interface{}) error {
 		return fmt.Errorf("cannot encode using invalid StringSchema schema")
 	}
 
+	v := reflect.ValueOf(i)
+
+	// Dereference pointer / interface types
+	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+		v = v.Elem()
+	}
+	t := v.Type()
+	k := t.Kind()
+
 	if s.IsNullable {
 		// did the caller pass in a nil value, or a null pointer?
-		if reflect.TypeOf(i).Kind() == reflect.Ptr ||
-			reflect.TypeOf(i).Kind() == reflect.Interface &&
-				reflect.ValueOf(i).IsNil() {
+		if (reflect.TypeOf(i).Kind() == reflect.Ptr ||
+			reflect.TypeOf(i).Kind() == reflect.Interface) &&
+			reflect.ValueOf(i).IsNil() {
 
 			// per the revised spec, 1 indicates null
 			w.Write([]byte{1})
@@ -84,15 +91,6 @@ func (s VarLenStringSchema) Encode(w io.Writer, i interface{}) error {
 			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
 		}
 	}
-
-	v := reflect.ValueOf(i)
-
-	// Dereference pointer / interface types
-	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
-		i = v.Elem()
-	}
-	t := v.Type()
-	k := t.Kind()
 
 	if k != reflect.String {
 		return fmt.Errorf("StringSchema only supports encoding string values")
@@ -152,6 +150,12 @@ func (s VarLenStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+		if v.IsNil() {
+			if !v.CanSet() {
+				return fmt.Errorf("decode destination is not settable")
+			}
+			v.Set(reflect.New(v.Type().Elem()))
+		}
 		v = v.Elem()
 	}
 	t := v.Type()

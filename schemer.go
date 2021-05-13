@@ -125,6 +125,12 @@ func CreateVarObjectSchema(IsNullable bool) VarObjectSchema {
 }
 
 func SchemaOf(i interface{}) Schema {
+
+	// spec says: "SchemaOf(nil) returns a Schema for an empty struct."
+	if i == nil {
+		return CreateFixedObjectSchema(true)
+	}
+
 	v := reflect.ValueOf(i)
 	return SchemaForValue(v)
 }
@@ -135,6 +141,17 @@ func SchemaForValue(v reflect.Value) Schema {
 
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+
+		if v.IsNil() {
+			// maybe we need way to return an error here...
+			/*
+				if !v.CanSet() {
+					return fmt.Errorf("decode destination is not settable")
+				}
+			*/
+			v.Set(reflect.New(v.Type().Elem()))
+		}
+
 		v = v.Elem()
 	}
 
@@ -144,7 +161,17 @@ func SchemaForValue(v reflect.Value) Schema {
 	switch k {
 
 	case reflect.Map:
-		return CreateVarObjectSchema(true)
+		varObjectSchema := CreateVarObjectSchema(true)
+
+		for _, mapKey := range v.MapKeys() {
+			mapValue := v.MapIndex(mapKey)
+
+			varObjectSchema.Key = SchemaForValue(mapKey)
+			varObjectSchema.Value = SchemaForValue(mapValue)
+
+		}
+
+		return varObjectSchema
 
 	case reflect.Struct:
 		fixedObjectSchema := CreateFixedObjectSchema(true)

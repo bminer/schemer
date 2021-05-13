@@ -158,9 +158,22 @@ func (s VarArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		return err
 	}
 
-	if int(expectedLen) != v.Len() {
-		return fmt.Errorf("encoded length does not match destination slice size")
+	if v.IsNil() {
+		if !v.CanSet() {
+			return errors.New("v not settable")
+		}
+		v.Set(reflect.MakeSlice(t, int(expectedLen), int(expectedLen)))
+	} else {
+		// we have an existing slice
+		// right now by default, we will just keep their entries
+		// but we have to decide if this behavior is OK??
 	}
+
+	/*
+		if int(expectedLen) != v.Len() {
+			return fmt.Errorf("encoded length does not match destination slice size")
+		}
+	*/
 
 	for i := 0; i < v.Len(); i++ {
 		err := s.Element.DecodeValue(r, v.Index(i))
