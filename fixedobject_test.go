@@ -6,27 +6,7 @@ import (
 	"log"
 	"reflect"
 	"testing"
-
-	"github.com/google/go-cmp/cmp"
 )
-
-type TestStructToNest2 struct {
-	A [3]int8
-	B []string
-	C *string
-	D *int
-}
-
-type TestStructToNest struct {
-	Test123 float64
-	M       map[string]int
-	TestStructToNest2
-}
-
-type TestStruct struct {
-	A string
-	T TestStructToNest
-}
 
 func TestDecodeFixedObject1(t *testing.T) {
 
@@ -57,14 +37,32 @@ func TestDecodeFixedObject1(t *testing.T) {
 
 func TestDecodeFixedObject2(t *testing.T) {
 
-	//s := "string"
+	type TestStructToNest2 struct {
+		A [3]int8
+		B []string
+		C *string
+		D **int
+	}
+
+	type TestStructToNest struct {
+		Test123 float64
+		M       map[string]int
+		J       TestStructToNest2
+	}
+
+	type TestStruct struct {
+		A string
+		T TestStructToNest
+	}
+
 	i := 10
+	var iptr *int = &i
 
 	var structToEncode = TestStruct{"ben", TestStructToNest{99.9, map[string]int{
 		"a": 1,
 		"b": 2,
 		"d": 3},
-		TestStructToNest2{[3]int8{4, 5, 6}, []string{"go", "reflection", "rocks"}, nil, &i}}}
+		TestStructToNest2{[3]int8{4, 5, 6}, []string{"go", "reflection", "rocks"}, nil, &iptr}}}
 
 	var buf bytes.Buffer
 	var err error
@@ -92,12 +90,88 @@ func TestDecodeFixedObject2(t *testing.T) {
 
 	log.Print(structToDecode)
 
+	log.Print(**structToDecode.T.J.D)
+
 	if err != nil {
 		t.Error(err)
 	}
 
-	if !cmp.Equal(structToEncode, structToDecode) {
+	if !reflect.DeepEqual(structToEncode, structToDecode) {
 		t.Error("unexpected struct to struct decode")
+	}
+
+}
+
+func TestDecodeFixedObject4(t *testing.T) {
+
+	type TestStruct struct {
+		A string
+	}
+
+	var structToEncode *TestStruct
+
+	var buf bytes.Buffer
+	var err error
+
+	fixedObjectSchema := SchemaOf(&structToEncode)
+
+	err = fixedObjectSchema.Encode(&buf, structToEncode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	r := bytes.NewReader(buf.Bytes())
+
+	var structToDecode = TestStruct{}
+
+	err = fixedObjectSchema.DecodeValue(r, reflect.ValueOf(&structToDecode))
+
+	if err != nil {
+		t.Error(err)
+	}
+
+}
+
+func TestDecodeFixedObject3(t *testing.T) {
+
+	type TestStructToNest struct {
+		Test123 float64
+		M       map[string]int
+	}
+
+	type TestStruct struct {
+		A string
+		T *TestStructToNest
+	}
+
+	var structToEncode = TestStruct{}
+	structToEncode.A = "ben"
+	structToEncode.T = nil
+
+	var buf bytes.Buffer
+	var err error
+
+	fixedObjectSchema := SchemaOf(&structToEncode)
+
+	err = fixedObjectSchema.Encode(&buf, structToEncode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	r := bytes.NewReader(buf.Bytes())
+
+	var structToDecode = TestStruct{}
+
+	err = fixedObjectSchema.DecodeValue(r, reflect.ValueOf(&structToDecode))
+
+	structToDecode.T.Test123 = 3.14
+	structToDecode.T.M["a"] = 1
+
+	log.Print(structToDecode.T.Test123)
+	log.Print(structToDecode.T.M)
+
+	if err != nil {
+		t.Error(err)
 	}
 
 }

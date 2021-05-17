@@ -209,6 +209,12 @@ func (s ComplexSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+		if v.IsNil() {
+			if !v.CanSet() {
+				return fmt.Errorf("decode destination is not settable")
+			}
+			v.Set(reflect.New(v.Type().Elem()))
+		}
 		v = v.Elem()
 	}
 	t := v.Type()

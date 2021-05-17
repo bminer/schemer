@@ -84,6 +84,12 @@ func (s FixedLenArraySchema) Encode(w io.Writer, i interface{}) error {
 	v := reflect.ValueOf(i)
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+		if v.IsNil() {
+			if !v.CanSet() {
+				return fmt.Errorf("decode destination is not settable")
+			}
+			v.Set(reflect.New(v.Type().Elem()))
+		}
 		v = v.Elem()
 	}
 	t := v.Type()

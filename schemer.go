@@ -97,17 +97,14 @@ func CreateFixedArraySchema(IsNullable bool, FixedLength int) FixedLenArraySchem
 }
 
 func CreateVarArraySchema(IsNullable bool) VarArraySchema {
-
 	var varArraySchema VarArraySchema
 
 	varArraySchema.IsNullable = IsNullable
 
 	return varArraySchema
-
 }
 
 func CreateFixedObjectSchema(IsNullable bool) FixedObjectSchema {
-
 	var fixedObjectSchema FixedObjectSchema
 
 	fixedObjectSchema.IsNullable = IsNullable
@@ -125,54 +122,58 @@ func CreateVarObjectSchema(IsNullable bool) VarObjectSchema {
 }
 
 func SchemaOf(i interface{}) Schema {
-
 	// spec says: "SchemaOf(nil) returns a Schema for an empty struct."
 	if i == nil {
 		return CreateFixedObjectSchema(true)
 	}
 
 	v := reflect.ValueOf(i)
-	return SchemaForValue(v)
+	// t := reflect.TypeOf(i)
+	// if t is a ptr or interface type, remove exactly ONE level of indirection
+	// return SchemaOfType(t)
+	return SchemaOfValue(v)
 }
 
 // SchemaOf generates a Schema from the concrete value stored in the interface i.
 // SchemaOf(nil) returns a Schema for an empty struct.
-func SchemaForValue(v reflect.Value) Schema {
+func SchemaOfValue(v reflect.Value) Schema {
 
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
 
-		if v.IsNil() {
-			// maybe we need way to return an error here...
-			/*
-				if !v.CanSet() {
-					return fmt.Errorf("decode destination is not settable")
-				}
-			*/
-			v.Set(reflect.New(v.Type().Elem()))
-		}
+		// Set IsNullable flag on whatever Schema we return...
+
+		// if v.IsNil() {
+		// 	// maybe we need way to return an error here...
+		// 	/*
+		// 		if !v.CanSet() {
+		// 			return fmt.Errorf("decode destination is not settable")
+		// 		}
+		// 	*/
+		// 	v.Set(reflect.New(v.Type().Elem()))
+		// }
 
 		v = v.Elem()
+		// t = t.Elem() -- do this instead
 	}
 
 	t := v.Type()
 	k := t.Kind()
 
 	switch k {
-
 	case reflect.Map:
 		varObjectSchema := CreateVarObjectSchema(true)
 
-		for _, mapKey := range v.MapKeys() {
-			mapValue := v.MapIndex(mapKey)
+		//for _, mapKey := range v.MapKeys() {
+		// t.Elem() and t.Key() instead of v.MapIndex()
+		mapValue := v.MapIndex(mapKey)
 
-			varObjectSchema.Key = SchemaForValue(mapKey)
-			varObjectSchema.Value = SchemaForValue(mapValue)
+		varObjectSchema.Key = SchemaOfValue(mapKey)
+		varObjectSchema.Value = SchemaOfValue(mapValue)
 
-		}
+		//}
 
 		return varObjectSchema
-
 	case reflect.Struct:
 		fixedObjectSchema := CreateFixedObjectSchema(true)
 		var of ObjectField
@@ -182,27 +183,24 @@ func SchemaForValue(v reflect.Value) Schema {
 			f := v.Field(i)
 
 			of.Name = t.Field(i).Name
-			of.Schema = SchemaForValue(f)
+			// TODO: Parse struct tags
+			of.Schema = SchemaOfValue(f)
 
 			fixedObjectSchema.Fields = append(fixedObjectSchema.Fields, of)
 
 		}
 
 		return fixedObjectSchema
-
 	case reflect.Slice:
 		tmp := CreateVarArraySchema(true)
-		tmp.Element = SchemaForValue(v.Index(0))
+		tmp.Element = SchemaOfValue(v.Index(0))
 		return tmp
-
 	case reflect.Array:
 		tmp := CreateFixedArraySchema(true, v.Len())
-		tmp.Element = SchemaForValue(v.Index(0))
+		tmp.Element = SchemaOfValue(v.Index(0))
 		return tmp
-
 	case reflect.String:
 		return CreateVarLenStringSchema(true)
-
 	case reflect.Int:
 		return CreateFixedIntegerSchema(true, uintSize, false)
 
@@ -377,6 +375,11 @@ func NewSchema(buf []byte) (Schema, error) {
 
 	// fixed object schema
 	if buf[0]&252 == 164 {
+		// s := FixedObjectSchema{
+		// 	IsNullable: ,
+		// 	...
+		// }
+		// return s, nil
 		fixedObjectSchema.IsNullable = (buf[0]&1 == 1)
 
 		return fixedObjectSchema, nil

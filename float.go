@@ -94,41 +94,25 @@ func (s FloatSchema) Encode(w io.Writer, i interface{}) error {
 		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
 	}
 
-	/*
+	v := reflect.ValueOf(i)
 
-		v := reflect.ValueOf(i)
-
-		// Dereference pointer / interface types
-		for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
-			v = v.Elem()
-		}
-		t := v.Type()
-		k := t.Kind()
-
-		if reflect.ValueOf(i).IsNil() {
-			if s.IsNullable {
-				// we encode a null value by writing a single non 0 byte
-				w.Write([]byte{1})
-				return nil
-			} else {
-				return fmt.Errorf("cannot encode nil value when IsNullable is false")
+	// Dereference pointer / interface types
+	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+		if v.IsNil() {
+			if !v.CanSet() {
+				return fmt.Errorf("decode destination is not settable")
 			}
+			v.Set(reflect.New(v.Type().Elem()))
 		}
-
-		if k != reflect.Float32 && k != reflect.Float64 {
-			return fmt.Errorf("FloatSchema only supports encoding float32 and float64 values")
-		}
-
-		if s.IsNullable {
-			// 0 means not null (with actual encoded bytes to follow)
-			w.Write([]byte{0})
-		}
-	*/
+		v = v.Elem()
+	}
+	t := v.Type()
+	k := t.Kind()
 
 	if s.IsNullable {
 		// did the caller pass in a nil value, or a null pointer
-		if reflect.TypeOf(i).Kind() == reflect.Ptr ||
-			reflect.TypeOf(i).Kind() == reflect.Interface &&
+		if reflect.TypeOf(v).Kind() == reflect.Ptr ||
+			reflect.TypeOf(v).Kind() == reflect.Interface &&
 				reflect.ValueOf(i).IsNil() {
 			// we encode a null value by writing a single non 0 byte
 			w.Write([]byte{1})
@@ -142,15 +126,6 @@ func (s FloatSchema) Encode(w io.Writer, i interface{}) error {
 			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
 		}
 	}
-
-	v := reflect.ValueOf(i)
-
-	// Dereference pointer / interface types
-	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
-		v = v.Elem()
-	}
-	t := v.Type()
-	k := t.Kind()
 
 	if k != reflect.Float32 && k != reflect.Float64 {
 		return fmt.Errorf("FloatSchema only supports encoding float32 and float64 values")
@@ -210,17 +185,7 @@ func (s FloatSchema) Decode(r io.Reader, i interface{}) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-//func (s FloatSchema) Decode(r io.Reader, i interface{}) error {
-
 func (s FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
-
-	/*
-		if i == nil {
-			return fmt.Errorf("cannot decode to nil destination")
-		}
-
-		v := reflect.ValueOf(i)
-	*/
 
 	// just double check the schema they are using
 	if !s.Valid() {
@@ -235,11 +200,13 @@ func (s FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		// if value is null, set nil to top level
+		// if value is null,
 		if buf[0] != 0 {
-			if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
+			if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface ||
+				v.Kind() == reflect.Slice || v.Kind() == reflect.Map {
 				v = v.Elem()
-				if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
+				if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface ||
+					v.Kind() == reflect.Slice || v.Kind() == reflect.Map {
 					// special way to return a nil pointer
 					v.Set(reflect.Zero(v.Type()))
 				} else {
@@ -253,7 +220,16 @@ func (s FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 
 	// Dereference pointer / interface types
-	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface ||
+		k == reflect.Slice || k == reflect.Map; k = v.Kind() {
+
+		if v.IsNil() {
+			if !v.CanSet() {
+				return fmt.Errorf("decode destination is not settable")
+			}
+			v.Set(reflect.New(v.Type().Elem()))
+		}
+
 		v = v.Elem()
 	}
 	t := v.Type()
@@ -372,7 +348,7 @@ func (s FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		v.SetString(strconv.FormatFloat(decodedFloat64, 'f', -1, 64))
 
 	default:
-		return fmt.Errorf("invalid destination %v", k)
+		return fmt.Errorf("invalid destination: %v", k)
 	}
 
 	return nil
