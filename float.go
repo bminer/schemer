@@ -353,3 +353,11 @@ func (s FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	return nil
 }
+
+func (s FloatSchema) Nullable() bool {
+	return s.IsNullable
+}
+
+func (s *FloatSchema) SetNullable(n bool) {
+	s.IsNullable = n
+}

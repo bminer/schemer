@@ -385,3 +385,11 @@ func (s VarIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	return nil
 }
+
+func (s VarIntSchema) Nullable() bool {
+	return s.IsNullable
+}
+
+func (s *VarIntSchema) SetNullable(n bool) {
+	s.IsNullable = n
+}

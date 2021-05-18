@@ -243,3 +243,11 @@ func (s BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	return nil
 }
+
+func (s BoolSchema) Nullable() bool {
+	return s.IsNullable
+}
+
+func (s *BoolSchema) SetNullable(n bool) {
+	s.IsNullable = n
+}

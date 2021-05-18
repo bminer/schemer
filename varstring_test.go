@@ -3,11 +3,12 @@ package schemer
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"strconv"
 	"testing"
 )
 
-func TestVarFixedString1(t *testing.T) {
+func TestVarString1(t *testing.T) {
 
 	fmt.Println("Testing decoding var length string values")
 
@@ -36,9 +37,9 @@ func TestVarFixedString1(t *testing.T) {
 
 }
 
-func TestVarFixedString2(t *testing.T) {
+func TestVarString2(t *testing.T) {
 
-	varLenStringSchema := VarLenStringSchema{IsNullable: true}
+	varLenStringSchema := VarLenStringSchema{IsNullable: false}
 
 	var buf bytes.Buffer
 	var err error
@@ -49,6 +50,8 @@ func TestVarFixedString2(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	log.Print(buf)
 
 	// decode into string
 

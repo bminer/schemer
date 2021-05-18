@@ -380,3 +380,11 @@ func (s ComplexSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	return nil
 }
+
+func (s ComplexSchema) Nullable() bool {
+	return s.IsNullable
+}
+
+func (s *ComplexSchema) SetNullable(n bool) {
+	s.IsNullable = n
+}

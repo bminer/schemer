@@ -90,6 +90,9 @@ func (s VarLenStringSchema) Encode(w io.Writer, i interface{}) error {
 		if i == nil {
 			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
 		}
+
+		// 0 indicates not null
+		w.Write([]byte{0})
 	}
 
 	if k != reflect.String {
@@ -275,4 +278,12 @@ func (s VarLenStringSchema) Decode(r io.Reader, i interface{}) error {
 	v := reflect.ValueOf(i)
 
 	return s.DecodeValue(r, v)
+}
+
+func (s VarLenStringSchema) Nullable() bool {
+	return s.IsNullable
+}
+
+func (s *VarLenStringSchema) SetNullable(n bool) {
+	s.IsNullable = n
 }

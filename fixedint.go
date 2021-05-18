@@ -539,3 +539,11 @@ func (s FixedIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 	return nil
 }
+
+func (s FixedIntSchema) Nullable() bool {
+	return s.IsNullable
+}
+
+func (s *FixedIntSchema) SetNullable(n bool) {
+	s.IsNullable = n
+}

@@ -8,8 +8,10 @@ import (
 
 func TestDecodeVarObject1(t *testing.T) {
 
+	m := map[int]string{1: "b"}
+
 	// setup an example schema
-	varObjectSchema := VarObjectSchema{IsNullable: false}
+	varObjectSchema := SchemaOf(m).(VarObjectSchema)
 
 	// encode it
 	b := varObjectSchema.Bytes()

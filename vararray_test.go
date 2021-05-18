@@ -10,10 +10,11 @@ import (
 // make sure we can encode/decode binary schemas for EnumSchema
 func TestDecodeVarLenArray1(t *testing.T) {
 
-	// setup an example schema
-	varArraySchema := VarArraySchema{IsNullable: false}
+	slice := []int{1, 2, 3, 4}
 
-	// encode it
+	// setup an example schema
+	varArraySchema := SchemaOf(slice).(VarArraySchema)
+	// encode i
 	b := varArraySchema.Bytes()
 
 	// make sure we can successfully decode it

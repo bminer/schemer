@@ -47,6 +47,9 @@ func (s VarObjectSchema) Bytes() []byte {
 
 	// bit 3 is clear from above, indicating this is a var length string
 
+	schema = append(schema, s.Key.Bytes()...)
+	schema = append(schema, s.Value.Bytes()...)
+
 	return schema
 }
 
@@ -202,4 +205,12 @@ func (s VarObjectSchema) Decode(r io.Reader, i interface{}) error {
 	}
 
 	return s.DecodeValue(r, reflect.ValueOf(i))
+}
+
+func (s VarObjectSchema) Nullable() bool {
+	return s.IsNullable
+}
+
+func (s *VarObjectSchema) SetNullable(n bool) {
+	s.IsNullable = n
 }

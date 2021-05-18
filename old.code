@@ -1,0 +1,396 @@
+/*
+// NewSchema decodes a schema stored in buf and returns an error if the schema is invalid
+func NewSchema(buf []byte) (Schema, error) {
+
+	copyOfBytes := make([]byte, len(buf))
+	copy(copyOfBytes, buf)
+
+	return newSchemaFromBytes(&copyOfBytes)
+
+}
+
+func newSchemaFromBytes(buf *[]byte) (Schema, error) {
+
+	var bit3IsSet bool
+	var err error
+
+	// decode fixed int schema
+	// (bits 7 and 8 should be clear)
+	if ((*buf)[0] & 192) == 0 {
+		var fixedIntSchema FixedIntSchema
+
+		fixedIntSchema.IsNullable = (*buf)[0]&1 == 1
+		fixedIntSchema.Signed = (*buf)[0]&4 == 4
+		fixedIntSchema.Bits = 8 << ((*buf)[0] & 56) >> 3
+
+		return fixedIntSchema, nil
+	}
+
+	// decode varint schema
+	// (bits 7 should be set)
+	if (*buf)[0]&112 == 64 {
+		var varIntSchema VarIntSchema
+
+		varIntSchema.IsNullable = (*buf)[0]&1 == 1
+		varIntSchema.Signed = (*buf)[0]&4 == 4
+
+		return varIntSchema, nil
+	}
+
+	// decode floating point schema
+	// (bits 5 and 7 should be set)
+	if (*buf)[0]&112 == 80 {
+		var floatSchema FloatSchema
+
+		bit3IsSet = ((*buf)[0] & 4) == 4
+		if bit3IsSet {
+			floatSchema.Bits = 64
+		} else {
+			floatSchema.Bits = 32
+		}
+		floatSchema.IsNullable = ((*buf)[0]&1 == 1)
+
+		return floatSchema, nil
+	}
+
+	// decode complex number
+	// (bits 6 and 7 should be set)
+	if (*buf)[0]&112 == 96 {
+		var complexSchema ComplexSchema
+
+		bit3IsSet = ((*buf)[0] & 4) == 4
+		if bit3IsSet {
+			complexSchema.Bits = 128
+		} else {
+			complexSchema.Bits = 64
+		}
+		complexSchema.IsNullable = ((*buf)[0]&1 == 1)
+
+		return complexSchema, nil
+	}
+
+	// decode boolean
+	// (bits 5,6,7 are all set)
+	if (*buf)[0]&116 == 112 {
+		var boolSchema BoolSchema
+
+		boolSchema.IsNullable = ((*buf)[0]&1 == 1)
+		return boolSchema, nil
+	}
+
+	// decode enum
+	// (bits 3,5,6,7 should all be set)
+	if (*buf)[0]&116 == 116 {
+		var enumSchema EnumSchema
+
+		enumSchema.IsNullable = ((*buf)[0]&1 == 1)
+
+		return enumSchema, nil
+	}
+
+	// decode fixed len string
+	// (bits 8 and 3 should be set)
+	if (*buf)[0]&252 == 132 {
+		var fixedLenStringSchema FixedStringSchema
+
+		fixedLenStringSchema.IsNullable = ((*buf)[0]&1 == 1)
+		//fixedLenStringSchema.FixedLength = ???
+		//the binary schema does not encode the length
+
+		return fixedLenStringSchema, nil
+	}
+
+	// decode var len string
+	// (bits 8 should be set, bit 3 should be clear)
+	if (*buf)[0]&252 == 128 {
+		var varLenStringSchema VarLenStringSchema
+
+		varLenStringSchema.IsNullable = ((*buf)[0]&1 == 1)
+
+		return varLenStringSchema, nil
+	}
+
+	// decode fixed array schema
+	// (bits 3, 5, 8)
+	if (*buf)[0]&252 == 148 {
+		var fixedLenArraySchema FixedLenArraySchema
+
+		fixedLenArraySchema.IsNullable = ((*buf)[0]&1 == 1)
+
+		//x := (*buf)[1:]
+
+		fixedLenArraySchema.Element, err = NewSchema(buf[1:])
+
+		if err != nil {
+			return nil, err
+		}
+
+		return fixedLenArraySchema, nil
+	}
+
+	// decode var array schema
+	// (bits 3, 5, 8)
+	if (*buf)[0]&252 == 144 {
+		var varArraySchema VarArraySchema
+
+		varArraySchema.IsNullable = (*buf)[0]&1 == 1
+
+		/*
+			varArraySchema.Element, err = NewSchema(buf[1:])
+
+			if err != nil {
+				return nil, err
+			}
+		*/
+
+		return varArraySchema, nil
+	}
+
+	// decode var object schema
+	if (*buf)[0]&252 == 160 {
+		var varObjectSchema VarObjectSchema
+
+		varObjectSchema.IsNullable = ((*buf)[0]&1 == 1)
+
+		//varObjectSchema.Element, err = NewSchema(buf[1:])
+
+		if err != nil {
+			return nil, err
+		}
+
+		return varObjectSchema, nil
+	}
+
+	// fixed object schema
+	if (*buf)[0]&252 == 164 {
+		var fixedObjectSchema FixedObjectSchema
+
+		fixedObjectSchema.IsNullable = ((*buf)[0]&1 == 1)
+
+		return fixedObjectSchema, nil
+	}
+
+	//Variant
+
+	//Schema
+
+	//Custom Type
+
+	return nil, fmt.Errorf("invalid binary schema encountered")
+}
+
+
+
+/*
+
+func SchemaOf(i interface{}) Schema {
+	// spec says: "SchemaOf(nil) returns a Schema for an empty struct."
+	if i == nil {
+		var fixedObjectSchema FixedObjectSchema
+
+		fixedObjectSchema.IsNullable = true
+
+		return fixedObjectSchema
+
+	}
+
+	v := reflect.ValueOf(i)
+	// t := reflect.TypeOf(i)
+	// if t is a ptr or interface type, remove exactly ONE level of indirection
+	// return SchemaOfType(t)
+	return SchemaOfValue(v)
+}
+
+// SchemaOf generates a Schema from the concrete value stored in the interface i.
+// SchemaOf(nil) returns a Schema for an empty struct.
+func SchemaOfValue(v reflect.Value) Schema {
+
+	// Dereference pointer / interface types
+	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+
+		// Set IsNullable flag on whatever Schema we return...
+
+		if v.IsNil() {
+			v.Set(reflect.New(v.Type().Elem()))
+		}
+
+		v = v.Elem()
+		// t = t.Elem() -- do this instead
+	}
+
+	t := v.Type()
+	k := t.Kind()
+
+	switch k {
+	case reflect.Map:
+		var varObjectSchema VarObjectSchema
+
+		varObjectSchema.IsNullable = false
+
+		for _, mapKey := range v.MapKeys() {
+			// t.Elem() and t.Key() instead of v.MapIndex()
+			mapValue := v.MapIndex(mapKey)
+
+			varObjectSchema.Key = SchemaOfValue(mapKey)
+			varObjectSchema.Value = SchemaOfValue(mapValue)
+
+		}
+
+		return varObjectSchema
+	case reflect.Struct:
+		var fixedObjectSchema FixedObjectSchema
+		fixedObjectSchema.IsNullable = false
+
+		var of ObjectField
+
+		for i := 0; i < t.NumField(); i++ {
+			f := v.Field(i)
+
+			of.Name = t.Field(i).Name
+			// TODO: Parse struct tags
+			of.Schema = SchemaOfValue(f)
+
+			fixedObjectSchema.Fields = append(fixedObjectSchema.Fields, of)
+		}
+
+		return fixedObjectSchema
+	case reflect.Slice:
+		var varArraySchema VarArraySchema
+		varArraySchema.IsNullable = false
+		varArraySchema.Element = SchemaOfValue(v.Index(0))
+		return varArraySchema
+	case reflect.Array:
+		var fixedLenArraySchema FixedLenArraySchema
+
+		fixedLenArraySchema.IsNullable = true
+		fixedLenArraySchema.Length = v.Len()
+
+		fixedLenArraySchema.Element = SchemaOfValue(v.Index(0))
+		return fixedLenArraySchema
+	case reflect.String:
+		var varStringSchema VarLenStringSchema
+
+		varStringSchema.IsNullable = true
+
+		return varStringSchema
+	case reflect.Int:
+		var fixedIntSchema FixedIntSchema
+
+		fixedIntSchema.Signed = true
+		fixedIntSchema.Bits = uintSize
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
+	case reflect.Int8:
+		var fixedIntSchema FixedIntSchema
+
+		fixedIntSchema.Signed = true
+		fixedIntSchema.Bits = 8
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
+	case reflect.Int16:
+		var fixedIntSchema FixedIntSchema
+
+		fixedIntSchema.Signed = true
+		fixedIntSchema.Bits = 16
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
+	case reflect.Int32:
+		var fixedIntSchema FixedIntSchema
+
+		fixedIntSchema.Signed = true
+		fixedIntSchema.Bits = 32
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
+	case reflect.Int64:
+		var fixedIntSchema FixedIntSchema
+
+		fixedIntSchema.Signed = true
+		fixedIntSchema.Bits = 64
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
+	case reflect.Uint:
+		var fixedIntSchema FixedIntSchema
+
+		fixedIntSchema.Signed = false
+		fixedIntSchema.Bits = uintSize
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
+	case reflect.Uint8:
+		var fixedIntSchema FixedIntSchema
+
+		fixedIntSchema.Signed = false
+		fixedIntSchema.Bits = 8
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
+	case reflect.Uint16:
+		var fixedIntSchema FixedIntSchema
+
+		fixedIntSchema.Signed = false
+		fixedIntSchema.Bits = 16
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
+	case reflect.Uint32:
+		var fixedIntSchema FixedIntSchema
+
+		fixedIntSchema.Signed = false
+		fixedIntSchema.Bits = 32
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
+	case reflect.Uint64:
+		var fixedIntSchema FixedIntSchema
+
+		fixedIntSchema.Signed = false
+		fixedIntSchema.Bits = 32
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
+	case reflect.Complex64:
+		var complexSchema ComplexSchema
+
+		complexSchema.Bits = 64
+
+		return complexSchema
+
+	case reflect.Complex128:
+		var complexSchema ComplexSchema
+
+		complexSchema.Bits = 128
+
+		return complexSchema
+
+	case reflect.Bool:
+		var boolSchema BoolSchema
+
+		boolSchema.IsNullable = false
+
+		return boolSchema
+	case reflect.Float32:
+		var floatSchema FloatSchema
+
+		floatSchema.Bits = 32
+		floatSchema.IsNullable = false
+
+		return floatSchema
+	case reflect.Float64:
+		var floatSchema FloatSchema
+
+		floatSchema.Bits = 64
+		floatSchema.IsNullable = false
+
+		return floatSchema
+	}
+
+	return nil
+
+}
+
+*/

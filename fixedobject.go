@@ -38,18 +38,26 @@ func (s FixedObjectSchema) DoUnmarshalJSON(buf []byte) error {
 func (s FixedObjectSchema) Bytes() []byte {
 
 	// fixedObject schemas are 1 byte long
-	var schema []byte = make([]byte, 1)
+	var schemaBytes []byte = make([]byte, 1)
 
-	schema[0] = 0b10100100
+	schemaBytes[0] = 0b10100100
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.IsNullable {
-		schema[0] |= 1
+		schemaBytes[0] |= 1
 	}
 
-	// also need to concatenate the schemas for all other fields
+	// fixme:
+	// update this to write as a fixed len int
+	tmp := byte(len(s.Fields))
+	schemaBytes = append(schemaBytes, tmp)
 
-	return schema
+	// also need to concatenate the schemas for all other fields
+	for _, f := range s.Fields {
+		schemaBytes = append(schemaBytes, f.Schema.Bytes()...)
+	}
+
+	return schemaBytes
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
@@ -173,4 +181,12 @@ func (s FixedObjectSchema) Decode(r io.Reader, i interface{}) error {
 
 	return s.DecodeValue(r, reflect.ValueOf(i))
 
+}
+
+func (s FixedObjectSchema) Nullable() bool {
+	return s.IsNullable
+}
+
+func (s *FixedObjectSchema) SetNullable(n bool) {
+	s.IsNullable = n
 }

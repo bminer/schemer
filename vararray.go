@@ -31,6 +31,8 @@ func (s VarArraySchema) Bytes() []byte {
 		schema[0] |= 1
 	}
 
+	schema = append(schema, s.Element.Bytes()...)
+
 	return schema
 
 }
@@ -194,4 +196,12 @@ func (s VarArraySchema) Decode(r io.Reader, i interface{}) error {
 	v := reflect.ValueOf(i)
 
 	return s.DecodeValue(r, v)
+}
+
+func (s VarArraySchema) Nullable() bool {
+	return s.IsNullable
+}
+
+func (s *VarArraySchema) SetNullable(n bool) {
+	s.IsNullable = n
 }

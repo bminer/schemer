@@ -31,6 +31,8 @@ func (s FixedLenArraySchema) Bytes() []byte {
 		schema[0] |= 1
 	}
 
+	schema = append(schema, s.Element.Bytes()...)
+
 	return schema
 
 }
@@ -176,4 +178,12 @@ func (s FixedLenArraySchema) Decode(r io.Reader, i interface{}) error {
 	v := reflect.ValueOf(i)
 
 	return s.DecodeValue(r, v)
+}
+
+func (s FixedLenArraySchema) Nullable() bool {
+	return s.IsNullable
+}
+
+func (s *FixedLenArraySchema) SetNullable(n bool) {
+	s.IsNullable = n
 }

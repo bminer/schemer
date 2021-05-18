@@ -20,114 +20,46 @@ type Schema interface {
 	// UnmarshalJSON updates the schema by decoding the JSON-encoded schema in b
 	DoUnmarshalJSON(b []byte) error
 	// Nullable returns true if and only if the type is nullable
-	/*
-		Nullable() bool
-		// SetNullable sets the nullable flag for the schema
-		SetNullable(n bool)
-	*/
+
+	Nullable() bool
+	// SetNullable sets the nullable flag for the schema
+	//SetNullable(n bool)
 
 	DecodeValue(r io.Reader, v reflect.Value) error
+
+	Bytes() []byte
 }
+
+var byteIndex byte
 
 // functions to create schema
-
-func CreateFixedIntegerSchema(signed bool, bits int, isNullable bool) FixedIntSchema {
-
-	var fixedIntSchema FixedIntSchema
-
-	fixedIntSchema.Signed = signed
-	fixedIntSchema.Bits = bits
-	fixedIntSchema.IsNullable = isNullable
-
-	return fixedIntSchema
-}
-
-func CreateComplexSchema(bits int) ComplexSchema {
-	var complexSchema ComplexSchema
-
-	complexSchema.Bits = bits
-
-	return complexSchema
-}
-
-func CreateBooleanSchema() BoolSchema {
-	var boolSchema BoolSchema
-
-	return boolSchema
-}
-
-func CreateFloatSchema(bits int, isNullable bool) FloatSchema {
-
-	var floatSchema FloatSchema
-
-	floatSchema.Bits = bits
-	floatSchema.IsNullable = isNullable
-
-	return floatSchema
-}
-
-func CreateFixedLenStringSchema(IsNullable bool, FixedLength int) FixedLenStringSchema {
-
-	var fixedLenStringSchema FixedLenStringSchema
-
-	fixedLenStringSchema.IsNullable = IsNullable
-	fixedLenStringSchema.FixedLength = FixedLength
-
-	return fixedLenStringSchema
-
-}
-
-func CreateVarLenStringSchema(IsNullable bool) VarLenStringSchema {
-	var varStringSchema VarLenStringSchema
-
-	varStringSchema.IsNullable = IsNullable
-
-	return varStringSchema
-}
-
-func CreateFixedArraySchema(IsNullable bool, FixedLength int) FixedLenArraySchema {
-
-	var fixedLenArraySchema FixedLenArraySchema
-
-	fixedLenArraySchema.IsNullable = IsNullable
-	fixedLenArraySchema.Length = FixedLength
-
-	return fixedLenArraySchema
-
-}
-
-func CreateVarArraySchema(IsNullable bool) VarArraySchema {
-	var varArraySchema VarArraySchema
-
-	varArraySchema.IsNullable = IsNullable
-
-	return varArraySchema
-}
-
-func CreateFixedObjectSchema(IsNullable bool) FixedObjectSchema {
-	var fixedObjectSchema FixedObjectSchema
-
-	fixedObjectSchema.IsNullable = IsNullable
-
-	return fixedObjectSchema
-}
-
-func CreateVarObjectSchema(IsNullable bool) VarObjectSchema {
-
-	var varObjectSchema VarObjectSchema
-
-	varObjectSchema.IsNullable = IsNullable
-
-	return varObjectSchema
-}
 
 func SchemaOf(i interface{}) Schema {
 	// spec says: "SchemaOf(nil) returns a Schema for an empty struct."
 	if i == nil {
-		return CreateFixedObjectSchema(true)
+		var fixedObjectSchema FixedObjectSchema
+
+		fixedObjectSchema.IsNullable = true
+
+		return fixedObjectSchema
+
 	}
 
 	v := reflect.ValueOf(i)
+
+	// Dereference pointer / interface types
+	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+
+		// Set IsNullable flag on whatever Schema we return...
+
+		if v.IsNil() {
+			v.Set(reflect.New(v.Type().Elem()))
+		}
+
+		v = v.Elem()
+		// t = t.Elem() -- do this instead
+	}
+
 	// t := reflect.TypeOf(i)
 	// if t is a ptr or interface type, remove exactly ONE level of indirection
 	// return SchemaOfType(t)
@@ -143,15 +75,9 @@ func SchemaOfValue(v reflect.Value) Schema {
 
 		// Set IsNullable flag on whatever Schema we return...
 
-		// if v.IsNil() {
-		// 	// maybe we need way to return an error here...
-		// 	/*
-		// 		if !v.CanSet() {
-		// 			return fmt.Errorf("decode destination is not settable")
-		// 		}
-		// 	*/
-		// 	v.Set(reflect.New(v.Type().Elem()))
-		// }
+		if v.IsNil() {
+			v.Set(reflect.New(v.Type().Elem()))
+		}
 
 		v = v.Elem()
 		// t = t.Elem() -- do this instead
@@ -162,24 +88,27 @@ func SchemaOfValue(v reflect.Value) Schema {
 
 	switch k {
 	case reflect.Map:
-		varObjectSchema := CreateVarObjectSchema(true)
+		var varObjectSchema VarObjectSchema
 
-		//for _, mapKey := range v.MapKeys() {
-		// t.Elem() and t.Key() instead of v.MapIndex()
-		mapValue := v.MapIndex(mapKey)
+		varObjectSchema.IsNullable = false
 
-		varObjectSchema.Key = SchemaOfValue(mapKey)
-		varObjectSchema.Value = SchemaOfValue(mapValue)
+		for _, mapKey := range v.MapKeys() {
+			// t.Elem() and t.Key() instead of v.MapIndex()
+			mapValue := v.MapIndex(mapKey)
 
-		//}
+			varObjectSchema.Key = SchemaOfValue(mapKey)
+			varObjectSchema.Value = SchemaOfValue(mapValue)
+
+		}
 
 		return varObjectSchema
 	case reflect.Struct:
-		fixedObjectSchema := CreateFixedObjectSchema(true)
+		var fixedObjectSchema FixedObjectSchema
+		fixedObjectSchema.IsNullable = false
+
 		var of ObjectField
 
 		for i := 0; i < t.NumField(); i++ {
-
 			f := v.Field(i)
 
 			of.Name = t.Field(i).Name
@@ -187,95 +116,173 @@ func SchemaOfValue(v reflect.Value) Schema {
 			of.Schema = SchemaOfValue(f)
 
 			fixedObjectSchema.Fields = append(fixedObjectSchema.Fields, of)
-
 		}
 
 		return fixedObjectSchema
 	case reflect.Slice:
-		tmp := CreateVarArraySchema(true)
-		tmp.Element = SchemaOfValue(v.Index(0))
-		return tmp
+		var varArraySchema VarArraySchema
+		varArraySchema.IsNullable = false
+		varArraySchema.Element = SchemaOfValue(v.Index(0))
+		return varArraySchema
 	case reflect.Array:
-		tmp := CreateFixedArraySchema(true, v.Len())
-		tmp.Element = SchemaOfValue(v.Index(0))
-		return tmp
+		var fixedLenArraySchema FixedLenArraySchema
+
+		fixedLenArraySchema.IsNullable = true
+		fixedLenArraySchema.Length = v.Len()
+
+		fixedLenArraySchema.Element = SchemaOfValue(v.Index(0))
+		return fixedLenArraySchema
 	case reflect.String:
-		return CreateVarLenStringSchema(true)
+		var varStringSchema VarLenStringSchema
+
+		varStringSchema.IsNullable = true
+
+		return varStringSchema
 	case reflect.Int:
-		return CreateFixedIntegerSchema(true, uintSize, false)
+		var fixedIntSchema FixedIntSchema
 
+		fixedIntSchema.Signed = true
+		fixedIntSchema.Bits = uintSize
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
 	case reflect.Int8:
-		return CreateFixedIntegerSchema(true, 8, false)
+		var fixedIntSchema FixedIntSchema
 
+		fixedIntSchema.Signed = true
+		fixedIntSchema.Bits = 8
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
 	case reflect.Int16:
-		return CreateFixedIntegerSchema(true, 16, false)
+		var fixedIntSchema FixedIntSchema
 
+		fixedIntSchema.Signed = true
+		fixedIntSchema.Bits = 16
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
 	case reflect.Int32:
-		return CreateFixedIntegerSchema(true, 32, false)
+		var fixedIntSchema FixedIntSchema
 
+		fixedIntSchema.Signed = true
+		fixedIntSchema.Bits = 32
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
 	case reflect.Int64:
-		return CreateFixedIntegerSchema(true, 64, false)
+		var fixedIntSchema FixedIntSchema
 
+		fixedIntSchema.Signed = true
+		fixedIntSchema.Bits = 64
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
 	case reflect.Uint:
-		return CreateFixedIntegerSchema(false, uintSize, false)
+		var fixedIntSchema FixedIntSchema
 
+		fixedIntSchema.Signed = false
+		fixedIntSchema.Bits = uintSize
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
 	case reflect.Uint8:
-		return CreateFixedIntegerSchema(false, 8, false)
+		var fixedIntSchema FixedIntSchema
 
+		fixedIntSchema.Signed = false
+		fixedIntSchema.Bits = 8
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
 	case reflect.Uint16:
-		return CreateFixedIntegerSchema(false, 16, false)
+		var fixedIntSchema FixedIntSchema
 
+		fixedIntSchema.Signed = false
+		fixedIntSchema.Bits = 16
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
 	case reflect.Uint32:
-		return CreateFixedIntegerSchema(false, 32, false)
+		var fixedIntSchema FixedIntSchema
 
+		fixedIntSchema.Signed = false
+		fixedIntSchema.Bits = 32
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
 	case reflect.Uint64:
-		return CreateFixedIntegerSchema(false, 64, false)
+		var fixedIntSchema FixedIntSchema
 
+		fixedIntSchema.Signed = false
+		fixedIntSchema.Bits = 32
+		fixedIntSchema.IsNullable = false
+
+		return fixedIntSchema
 	case reflect.Complex64:
-		return CreateComplexSchema(64)
+		var complexSchema ComplexSchema
+
+		complexSchema.Bits = 64
+
+		return complexSchema
 
 	case reflect.Complex128:
-		return CreateComplexSchema(128)
+		var complexSchema ComplexSchema
+
+		complexSchema.Bits = 128
+
+		return complexSchema
 
 	case reflect.Bool:
-		return CreateBooleanSchema()
+		var boolSchema BoolSchema
 
+		boolSchema.IsNullable = false
+
+		return boolSchema
 	case reflect.Float32:
-		return CreateFloatSchema(32, false)
+		var floatSchema FloatSchema
 
+		floatSchema.Bits = 32
+		floatSchema.IsNullable = false
+
+		return floatSchema
 	case reflect.Float64:
-		return CreateFloatSchema(64, false)
+		var floatSchema FloatSchema
 
+		floatSchema.Bits = 64
+		floatSchema.IsNullable = false
+
+		return floatSchema
 	}
 
 	return nil
 
 }
 
-// NewSchema decodes a schema stored in buf and returns an error if the schema is invalid
 func NewSchema(buf []byte) (Schema, error) {
 
-	var bit3IsSet bool
+	tmp, err := newSchemaInternal(buf)
+	byteIndex = 0
 
-	var fixedIntSchema FixedIntSchema
-	var varIntSchema VarIntSchema
-	var floatSchema FloatSchema
-	var complexSchema ComplexSchema
-	var boolSchema BoolSchema
-	var fixedLenStringSchema FixedLenStringSchema
-	var varLenStringSchema VarLenStringSchema
-	var enumSchema EnumSchema
-	var fixedLenArraySchema FixedLenArraySchema
-	var varArraySchema VarArraySchema
-	var varObjectSchema VarObjectSchema
-	var fixedObjectSchema FixedObjectSchema
+	return tmp, err
+
+}
+
+// NewSchema decodes a schema stored in buf and returns an error if the schema is invalid
+func newSchemaInternal(buf []byte) (Schema, error) {
+
+	var bit3IsSet bool
+	var err error
 
 	// decode fixed int schema
 	// (bits 7 and 8 should be clear)
-	if buf[0]&192 == 0 {
-		fixedIntSchema.IsNullable = (buf[0]&1 == 1)
-		fixedIntSchema.Signed = (buf[0] & 4) == 4
-		fixedIntSchema.Bits = 8 << ((buf[0] & 56) >> 3)
+	if buf[byteIndex]&192 == 0 {
+		var fixedIntSchema FixedIntSchema
+
+		fixedIntSchema.IsNullable = (buf[byteIndex]&1 == 1)
+		fixedIntSchema.Signed = (buf[byteIndex] & 4) == 4
+		fixedIntSchema.Bits = 8 << ((buf[byteIndex] & 56) >> 3)
+
+		byteIndex++
 
 		return fixedIntSchema, nil
 	}
@@ -283,104 +290,172 @@ func NewSchema(buf []byte) (Schema, error) {
 	// decode varint schema
 	// (bits 7 should be set)
 	if buf[0]&112 == 64 {
-		varIntSchema.IsNullable = (buf[0]&1 == 1)
-		varIntSchema.Signed = (buf[0] & 4) == 4
+		var varIntSchema VarIntSchema
+
+		varIntSchema.IsNullable = (buf[byteIndex]&1 == 1)
+		varIntSchema.Signed = (buf[byteIndex] & 4) == 4
+
+		byteIndex++
 
 		return varIntSchema, nil
 	}
 
 	// decode floating point schema
 	// (bits 5 and 7 should be set)
-	if buf[0]&112 == 80 {
-		bit3IsSet = (buf[0] & 4) == 4
+	if buf[byteIndex]&112 == 80 {
+		var floatSchema FloatSchema
+
+		bit3IsSet = (buf[byteIndex] & 4) == 4
 		if bit3IsSet {
 			floatSchema.Bits = 64
 		} else {
 			floatSchema.Bits = 32
 		}
-		floatSchema.IsNullable = (buf[0]&1 == 1)
+		floatSchema.IsNullable = (buf[byteIndex]&1 == 1)
+
+		byteIndex++
 
 		return floatSchema, nil
 	}
 
 	// decode complex number
 	// (bits 6 and 7 should be set)
-	if buf[0]&112 == 96 {
-		bit3IsSet = (buf[0] & 4) == 4
+	if buf[byteIndex]&112 == 96 {
+		var complexSchema ComplexSchema
+
+		bit3IsSet = (buf[byteIndex] & 4) == 4
 		if bit3IsSet {
 			complexSchema.Bits = 128
 		} else {
 			complexSchema.Bits = 64
 		}
-		complexSchema.IsNullable = (buf[0]&1 == 1)
+		complexSchema.IsNullable = (buf[byteIndex]&1 == 1)
+
+		byteIndex++
 
 		return complexSchema, nil
 	}
 
 	// decode boolean
 	// (bits 5,6,7 are all set)
-	if buf[0]&116 == 112 {
-		boolSchema.IsNullable = (buf[0]&1 == 1)
+	if buf[byteIndex]&116 == 112 {
+		var boolSchema BoolSchema
+
+		boolSchema.IsNullable = (buf[byteIndex]&1 == 1)
+
+		byteIndex++
+
 		return boolSchema, nil
 	}
 
 	// decode enum
 	// (bits 3,5,6,7 should all be set)
-	if buf[0]&116 == 116 {
-		enumSchema.IsNullable = (buf[0]&1 == 1)
+	if buf[byteIndex]&116 == 116 {
+		var enumSchema EnumSchema
+
+		enumSchema.IsNullable = (buf[byteIndex]&1 == 1)
+
+		byteIndex++
 
 		return enumSchema, nil
 	}
 
 	// decode fixed len string
 	// (bits 8 and 3 should be set)
-	if buf[0]&252 == 132 {
-		fixedLenStringSchema.IsNullable = (buf[0]&1 == 1)
+	if buf[byteIndex]&252 == 132 {
+		var fixedLenStringSchema FixedStringSchema
+
+		fixedLenStringSchema.IsNullable = (buf[byteIndex]&1 == 1)
 		//fixedLenStringSchema.FixedLength = ???
 		//the binary schema does not encode the length
+
+		byteIndex++
 
 		return fixedLenStringSchema, nil
 	}
 
 	// decode var len string
 	// (bits 8 should be set, bit 3 should be clear)
-	if buf[0]&252 == 128 {
-		varLenStringSchema.IsNullable = (buf[0]&1 == 1)
+	if buf[byteIndex]&252 == 128 {
+		var varLenStringSchema VarLenStringSchema
+
+		varLenStringSchema.IsNullable = (buf[byteIndex]&1 == 1)
+
+		byteIndex++
 
 		return varLenStringSchema, nil
 	}
 
 	// decode fixed array schema
 	// (bits 3, 5, 8)
-	if buf[0]&252 == 148 {
-		fixedLenArraySchema.IsNullable = (buf[0]&1 == 1)
+	if buf[byteIndex]&252 == 148 {
+		var fixedLenArraySchema FixedLenArraySchema
+
+		fixedLenArraySchema.IsNullable = (buf[byteIndex]&1 == 1)
+		//fixedLenArraySchema.Length = buf[1]
+
+		byteIndex++
+
+		/*
+			fixedLenArraySchema.Element, err = NewSchema(buf[1:])
+			if err != nil {
+				return nil, err
+			}
+		*/
 
 		return fixedLenArraySchema, nil
 	}
 
 	// decode var array schema
 	// (bits 3, 5, 8)
-	if buf[0]&252 == 144 {
-		varArraySchema.IsNullable = (buf[0]&1 == 1)
+	if buf[byteIndex]&252 == 144 {
+		var varArraySchema VarArraySchema
+
+		varArraySchema.IsNullable = (buf[byteIndex]&1 == 1)
+
+		byteIndex++
 
 		return varArraySchema, nil
 	}
 
 	// decode var object schema
-	if buf[0]&252 == 160 {
+	if buf[byteIndex]&252 == 160 {
+		var varObjectSchema VarObjectSchema
+
 		varObjectSchema.IsNullable = (buf[0]&1 == 1)
+
+		byteIndex++
 
 		return varObjectSchema, nil
 	}
 
 	// fixed object schema
-	if buf[0]&252 == 164 {
-		// s := FixedObjectSchema{
-		// 	IsNullable: ,
-		// 	...
-		// }
-		// return s, nil
-		fixedObjectSchema.IsNullable = (buf[0]&1 == 1)
+	if buf[byteIndex]&252 == 164 {
+		var fixedObjectSchema FixedObjectSchema
+
+		fixedObjectSchema.IsNullable = (buf[byteIndex]&1 == 1)
+
+		byteIndex++
+
+		var numFields int = int(buf[byteIndex])
+
+		byteIndex++
+
+		var of ObjectField
+
+		for i := 0; i < numFields; i++ {
+
+			of.Name = "" // schema does not contain name of fields...
+			of.Schema, err = newSchemaInternal(buf)
+
+			// newschema call above will advance byteIndex for each field...
+
+			if err != nil {
+				return nil, err
+			}
+
+			fixedObjectSchema.Fields = append(fixedObjectSchema.Fields, of)
+		}
 
 		return fixedObjectSchema, nil
 	}

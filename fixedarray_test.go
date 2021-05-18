@@ -9,8 +9,9 @@ import (
 
 func TestDecodeFixedLenArray1(t *testing.T) {
 
-	// setup an example schema
-	fixedLenArraySchema := FixedLenArraySchema{IsNullable: false, Length: 10}
+	var testarray [10]byte = [10]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+
+	fixedLenArraySchema := SchemaOf(testarray).(FixedLenArraySchema)
 
 	// encode it
 	b := fixedLenArraySchema.Bytes()
@@ -21,7 +22,7 @@ func TestDecodeFixedLenArray1(t *testing.T) {
 
 	tmp, err := NewSchema(b)
 	if err != nil {
-		t.Error("cannot encode binary encoded enumSchema")
+		t.Error("cannot encode binary encoded fixedLenArraySchema")
 	}
 
 	decodedSchema = tmp.(FixedLenArraySchema)

@@ -12,13 +12,13 @@ import (
 func TestDecodeFixedString1(t *testing.T) {
 
 	// setup an example schema
-	schema := FixedLenStringSchema{IsNullable: true, FixedLength: 80}
+	schema := FixedStringSchema{IsNullable: true, FixedLength: 80}
 
 	// encode it
 	b := schema.Bytes()
 
 	// make sure we can successfully decode it
-	var decodedStringSchema FixedLenStringSchema
+	var decodedStringSchema FixedStringSchema
 	var err error
 
 	tmp, err := NewSchema(b)
@@ -26,19 +26,19 @@ func TestDecodeFixedString1(t *testing.T) {
 		t.Error("cannot decode binary encoded string schema")
 	}
 
-	decodedStringSchema = tmp.(FixedLenStringSchema)
+	decodedStringSchema = tmp.(FixedStringSchema)
 	if schema.IsNullable != decodedStringSchema.IsNullable {
 
 		// nothing else to test here...
 
-		t.Error("unexpected value for FixedLenStringSchema")
+		t.Error("unexpected value for FixedStringSchema")
 	}
 
 }
 
 func TestDecodeFixedString2(t *testing.T) {
 
-	fixedLenStringSchema := FixedLenStringSchema{IsNullable: true, FixedLength: 80}
+	fixedLenStringSchema := FixedStringSchema{IsNullable: true, FixedLength: 80}
 
 	var buf bytes.Buffer
 	var err error
@@ -71,7 +71,7 @@ func TestDecodeFixedString2(t *testing.T) {
 
 func TestDecodeFixedString3(t *testing.T) {
 
-	fixedLenStringSchema := FixedLenStringSchema{IsNullable: true, FixedLength: 80}
+	fixedLenStringSchema := FixedStringSchema{IsNullable: true, FixedLength: 80}
 
 	var buf bytes.Buffer
 	var err error
@@ -107,7 +107,7 @@ func TestDecodeFixedString3(t *testing.T) {
 
 func TestDecodeFixedString4(t *testing.T) {
 
-	fixedLenStringSchema := FixedLenStringSchema{IsNullable: true, FixedLength: 80}
+	fixedLenStringSchema := FixedStringSchema{IsNullable: true, FixedLength: 80}
 
 	var buf bytes.Buffer
 	var err error
@@ -143,7 +143,7 @@ func TestDecodeFixedString4(t *testing.T) {
 
 func TestDecodeFixedString5(t *testing.T) {
 
-	fixedLenStringSchema := FixedLenStringSchema{IsNullable: true, FixedLength: 80}
+	fixedLenStringSchema := FixedStringSchema{IsNullable: true, FixedLength: 80}
 
 	var buf bytes.Buffer
 	var err error
@@ -179,7 +179,7 @@ func TestDecodeFixedString5(t *testing.T) {
 
 func TestDecodeFixedString6(t *testing.T) {
 
-	fixedLenStringSchema := FixedLenStringSchema{IsNullable: true, FixedLength: 80}
+	fixedLenStringSchema := FixedStringSchema{IsNullable: true, FixedLength: 80}
 
 	var buf bytes.Buffer
 	var err error

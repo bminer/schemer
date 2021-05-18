@@ -189,3 +189,11 @@ func (s EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	return nil
 }
+
+func (s EnumSchema) Nullable() bool {
+	return s.IsNullable
+}
+
+func (s *EnumSchema) SetNullable(n bool) {
+	s.IsNullable = n
+}

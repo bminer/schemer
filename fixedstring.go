@@ -10,33 +10,33 @@ import (
 	"strings"
 )
 
-type FixedLenStringSchema struct {
+type FixedStringSchema struct {
 	IsNullable   bool
 	WeakDecoding bool
 	FixedLength  int
 }
 
-func (s FixedLenStringSchema) IsValid() bool {
+func (s FixedStringSchema) IsValid() bool {
 
 	return (s.FixedLength > 0)
 }
 
 // fixme
-func (s FixedLenStringSchema) DoMarshalJSON() ([]byte, error) {
+func (s FixedStringSchema) DoMarshalJSON() ([]byte, error) {
 
 	return json.Marshal(s)
 
 }
 
 // fixme
-func (s FixedLenStringSchema) DoUnmarshalJSON(buf []byte) error {
+func (s FixedStringSchema) DoUnmarshalJSON(buf []byte) error {
 
 	return json.Unmarshal(buf, s)
 
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s FixedLenStringSchema) Bytes() []byte {
+func (s FixedStringSchema) Bytes() []byte {
 
 	// string schemas are 1 byte long
 	var schema []byte = make([]byte, 1)
@@ -55,7 +55,7 @@ func (s FixedLenStringSchema) Bytes() []byte {
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s FixedLenStringSchema) Encode(w io.Writer, i interface{}) error {
+func (s FixedStringSchema) Encode(w io.Writer, i interface{}) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
@@ -119,7 +119,7 @@ func (s FixedLenStringSchema) Encode(w io.Writer, i interface{}) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s FixedLenStringSchema) Decode(r io.Reader, i interface{}) error {
+func (s FixedStringSchema) Decode(r io.Reader, i interface{}) error {
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
 	}
@@ -130,7 +130,7 @@ func (s FixedLenStringSchema) Decode(r io.Reader, i interface{}) error {
 }
 
 // DecodeValue uses the schema to read the next encoded value from the input stream and store it in v
-func (s FixedLenStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+func (s FixedStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
@@ -271,4 +271,12 @@ func (s FixedLenStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 
 	return nil
+}
+
+func (s FixedStringSchema) Nullable() bool {
+	return s.IsNullable
+}
+
+func (s *FixedStringSchema) SetNullable(n bool) {
+	s.IsNullable = n
 }
