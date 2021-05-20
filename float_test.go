@@ -480,7 +480,7 @@ func TestFloatingPointSchema13(t *testing.T) {
 
 }
 
-func TestFloatingPointSchema99(t *testing.T) {
+func TestFloatingPointSchema14(t *testing.T) {
 
 	fmt.Println("decode nil float")
 
@@ -516,5 +516,25 @@ func TestFloatingPointSchema99(t *testing.T) {
 			t.Error("unexpected value decoding null float")
 		}
 	*/
+
+}
+
+func TestFloatingPointSchema15(t *testing.T) {
+
+	// setup an example schema
+	floatingPointSchema := FloatSchema{Bits: 32, WeakDecoding: true, IsNullable: true}
+
+	// make sure we can successfully decode it
+	//var DecodedFloatSchema FloatSchema
+	var err error
+	var buf []byte
+
+	// encode it
+	buf, err = floatingPointSchema.MarshalJSON()
+	if err != nil {
+		t.Error(err)
+	}
+
+	fmt.Println(string(buf))
 
 }

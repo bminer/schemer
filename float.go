@@ -11,6 +11,7 @@ import (
 )
 
 type FloatSchema struct {
+	Description  string
 	Bits         int // must be 32 or 64
 	WeakDecoding bool
 	IsNullable   bool
@@ -20,11 +21,17 @@ func (s FloatSchema) Valid() bool {
 	return s.Bits == 32 || s.Bits == 64
 }
 
-/*
-func (s FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
-	return nil
+func (s FloatSchema) MarshalJSON() ([]byte, error) {
+
+	type tmpFloatSchema FloatSchema
+
+	return json.Marshal(struct {
+		tmpFloatSchema
+	}{
+		tmpFloatSchema: tmpFloatSchema(s),
+	})
+
 }
-*/
 
 // Bytes encodes the schema in a portable binary format
 func (s FloatSchema) Bytes() []byte {

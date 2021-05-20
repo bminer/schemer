@@ -191,3 +191,53 @@ func TestDecodeFixedObject3(t *testing.T) {
 	*/
 
 }
+
+// TestDecodeFixedObject5 tests our ability to decode objects to other objects, using struct tags....
+func TestDecodeFixedObject5(t *testing.T) {
+
+	type WriterSchema struct {
+		FName     string `schemer:"FirstName"`
+		LName     string `schemer:"LastName"`
+		AgeInLife int    `schemer:"Age"`
+	}
+
+	type DestinationSchema struct {
+		FirstName string
+		LastName  string
+		Age       uint8
+	}
+
+	var structToEncode = WriterSchema{FName: "ben", LName: "pritchard", AgeInLife: 42}
+
+	fixedObjectSchema := SchemaOf(&structToEncode).(FixedObjectSchema)
+
+	var err error
+	var buf bytes.Buffer
+
+	err = fixedObjectSchema.Encode(&buf, structToEncode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	r := bytes.NewReader(buf.Bytes())
+
+	var structToDecode = DestinationSchema{}
+
+	err = fixedObjectSchema.DecodeValue(r, reflect.ValueOf(&structToDecode))
+	if err != nil {
+		t.Error(err)
+	}
+
+	// and now make sure that the structs match!
+	decodeOK := true
+	decodeOK = (structToDecode.FirstName == structToEncode.FName)
+	decodeOK = decodeOK && (structToDecode.LastName == structToEncode.LName)
+	//decodeOK = decodeOK && (structToDecode.Age == int(structToEncode.AgeInLife))
+
+	if !decodeOK {
+		t.Error("unexpected struct to struct decode")
+	}
+
+	log.Println()
+
+}

@@ -4,10 +4,22 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strings"
 )
 
 // https://golangbyexample.com/go-size-range-int-uint/
 const uintSize = 32 << (^uint(0) >> 32 & 1) // 32 or 64
+
+var SchemaTagName string = "schemer"
+
+type StructFieldOptions struct {
+	FieldAliases []string
+
+	Nullable     bool
+	NotNull      bool // this is a separate field because it is an override
+	WeakDecoding bool
+	ShouldSkip   bool
+}
 
 type Schema interface {
 	// Encode uses the schema to write the encoded value of v to the output stream
@@ -28,11 +40,12 @@ type Schema interface {
 	DecodeValue(r io.Reader, v reflect.Value) error
 
 	Bytes() []byte
+
+	// returns a human readable string specifying what type of schema this
+	//NameOfSchemaType() string
 }
 
-var byteIndex byte
-
-// functions to create schema
+var byteIndex int = 0
 
 func SchemaOf(i interface{}) Schema {
 	// spec says: "SchemaOf(nil) returns a Schema for an empty struct."
@@ -64,6 +77,120 @@ func SchemaOf(i interface{}) Schema {
 	// if t is a ptr or interface type, remove exactly ONE level of indirection
 	// return SchemaOfType(t)
 	return SchemaOfValue(v)
+}
+
+// ParseTag tags a tagname as a string, parses it, and populates FieldOptions
+// the format of the tag must be:
+// tag := (alias)?("," option)*
+// alias := identifier
+//			"["identifier(","identifier)*"]"
+//	option := "weak", "null", "not null"
+func ParseTag(tagStr string, structFieldOptions *StructFieldOptions) error {
+
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println("Error parsing struct tag:", err)
+		}
+	}()
+
+	fmt.Println(tagStr)
+
+	tagStr = strings.Trim(tagStr, " ")
+	if len([]rune(tagStr)) == 0 {
+		print("empty tag; nothing to do!")
+		return nil
+	}
+
+	// special case meaning to skip this field
+	if tagStr == "-" {
+		structFieldOptions.ShouldSkip = true
+		return nil
+	}
+
+	// if first part has a "]", then extract everything up to there
+	// otherwise, extract everything up to the first comma
+
+	var i int
+	var aliasStr string
+	var optionStr string
+
+	// if the alias portion of the string contains [], then we want to grab everything up
+	// to the ] and call that our aliasStr
+	if strings.Contains(tagStr, "]") {
+
+		i = strings.Index(tagStr, "]")
+		aliasStr = tagStr[0 : i+1]
+		tagStr = tagStr[i+1:] // eat off what we just processed
+		tagStr = strings.Trim(tagStr, " ")
+
+		if len([]rune(tagStr)) > 0 {
+
+			if !strings.Contains(tagStr, ",") {
+				return fmt.Errorf("missing comma after field alias")
+			} else {
+				// our options are just whatever is left after the comma
+				optionStr = tagStr[strings.Index(tagStr, ",")+1:]
+				optionStr = strings.Trim(optionStr, " ")
+			}
+
+		} else {
+			optionStr = ""
+		}
+	} else {
+		i = strings.Index(tagStr, ",")
+
+		if i > 0 {
+
+			// alias string is everything up to the comma
+			aliasStr = tagStr[0:i]
+			aliasStr = strings.Trim(aliasStr, " ")
+			tagStr = tagStr[i+1:] // eat off what we just processed
+			tagStr = strings.Trim(tagStr, " ")
+
+			if len([]rune(tagStr)) > 0 {
+				// options are everything after the comma
+				optionStr = tagStr[strings.Index(tagStr, ",")+1:]
+				optionStr = strings.Trim(optionStr, " ")
+			} else {
+				optionStr = ""
+			}
+		} else {
+			aliasStr = strings.Trim(tagStr, " ")
+			optionStr = ""
+		}
+
+	}
+
+	// parse aliasStr, and put each field into .FieldAliases
+	structFieldOptions.FieldAliases = strings.Split(aliasStr, ",")
+
+	// parse options, and string and put each option into correct field, such as .Nullable
+	structFieldOptions.Nullable = strings.Contains(strings.ToUpper(optionStr), "NUL")
+	structFieldOptions.NotNull = strings.Contains(strings.ToUpper(optionStr), "!NUL")
+	structFieldOptions.WeakDecoding = strings.Contains(strings.ToUpper(optionStr), "WEAK")
+
+	return nil
+
+}
+
+func setSchemaOptions(schema *Schema, structFieldOptions StructFieldOptions) {
+
+	fixedStringSchema, ok := (*schema).(FixedStringSchema)
+	if ok {
+		fixedStringSchema.IsNullable = structFieldOptions.Nullable
+		fixedStringSchema.WeakDecoding = structFieldOptions.WeakDecoding
+		return
+	}
+
+	/*
+		varIntSchema, ok := (*schema).(VarIntSchema)
+		if ok {
+			varIntSchema.SchemaOptions = schemaOptions
+		}
+	*/
+
+	// update to work with other types
+
 }
 
 // SchemaOf generates a Schema from the concrete value stored in the interface i.
@@ -112,8 +239,17 @@ func SchemaOfValue(v reflect.Value) Schema {
 			f := v.Field(i)
 
 			of.Name = t.Field(i).Name
-			// TODO: Parse struct tags
 			of.Schema = SchemaOfValue(f)
+
+			structFieldOptions := StructFieldOptions{}
+
+			err := ParseTag(t.Field(i).Tag.Get(SchemaTagName), &structFieldOptions)
+			if err != nil {
+			}
+
+			of.StructFieldOptions = structFieldOptions
+
+			setSchemaOptions(&of.Schema, structFieldOptions)
 
 			fixedObjectSchema.Fields = append(fixedObjectSchema.Fields, of)
 		}
@@ -138,6 +274,7 @@ func SchemaOfValue(v reflect.Value) Schema {
 		varStringSchema.IsNullable = true
 
 		return varStringSchema
+
 	case reflect.Int:
 		var fixedIntSchema FixedIntSchema
 
@@ -304,6 +441,8 @@ func newSchemaInternal(buf []byte) (Schema, error) {
 	// (bits 5 and 7 should be set)
 	if buf[byteIndex]&112 == 80 {
 		var floatSchema FloatSchema
+
+		floatSchema.Description = "FloatSchema"
 
 		bit3IsSet = (buf[byteIndex] & 4) == 4
 		if bit3IsSet {

@@ -472,6 +472,7 @@ func (s FixedIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		if err != nil {
 			return err
 		}
+
 		// Write to destination
 		switch k {
 		case reflect.Int:
@@ -483,10 +484,10 @@ func (s FixedIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		case reflect.Int32:
 			fallthrough
 		case reflect.Int64:
-			if v.OverflowUint(uintVal) {
+			if v.OverflowInt(int64(uintVal)) {
 				return fmt.Errorf("decoded value %d overflows destination %v", uintVal, k)
 			}
-			v.SetUint(uintVal)
+			v.SetInt(int64(uintVal))
 		case reflect.Uint:
 			fallthrough
 		case reflect.Uint8:
@@ -496,7 +497,7 @@ func (s FixedIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		case reflect.Uint32:
 			fallthrough
 		case reflect.Uint64:
-			uintVal := uint64(uintVal)
+			//uintVal := uint64(uintVal)
 			if v.OverflowUint(uintVal) {
 				return fmt.Errorf("decoded value %d overflows destination %v", uintVal, k)
 			}

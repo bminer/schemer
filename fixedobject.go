@@ -8,6 +8,8 @@ import (
 )
 
 type ObjectField struct {
+	StructFieldOptions
+
 	Name   string
 	Schema Schema
 }
@@ -19,6 +21,18 @@ type FixedObjectSchema struct {
 
 func (s FixedObjectSchema) IsValid() bool {
 	return true
+}
+
+func (s FixedObjectSchema) MarshalJSON() ([]byte, error) {
+
+	type tmpFixedObjectSchema FixedObjectSchema
+
+	return json.MarshalIndent(struct {
+		tmpFixedObjectSchema
+	}{
+		tmpFixedObjectSchema: tmpFixedObjectSchema(s),
+	}, "", "  ")
+
 }
 
 func (s FixedObjectSchema) DoMarshalJSON() ([]byte, error) {
@@ -48,7 +62,7 @@ func (s FixedObjectSchema) Bytes() []byte {
 	}
 
 	// fixme:
-	// update this to write as a fixed len int
+	// update this to write as a var len int
 	tmp := byte(len(s.Fields))
 	schemaBytes = append(schemaBytes, tmp)
 
@@ -164,7 +178,14 @@ func (s FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 
 	for i := 0; i < t.NumField(); i++ {
-		err := s.Fields[i].Schema.DecodeValue(r, v.Field(i))
+
+		// this is where we figure out where to put the
+		// value we have just decoded...
+
+		x := s.Fields[i].FieldAliases[0]
+		//s.Fields[i].StructFieldOptions.FieldAliases
+
+		err := s.Fields[i].Schema.DecodeValue(r, v.FieldByName(x))
 		if err != nil {
 			return err
 		}
