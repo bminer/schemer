@@ -15,17 +15,17 @@ type VarObjectSchema struct {
 	Value Schema
 }
 
-func (s VarObjectSchema) IsValid() bool {
+func (s *VarObjectSchema) IsValid() bool {
 	return true
 }
 
-func (s VarObjectSchema) DoMarshalJSON() ([]byte, error) {
+func (s *VarObjectSchema) DoMarshalJSON() ([]byte, error) {
 
 	return json.Marshal(s)
 
 }
 
-func (s VarObjectSchema) DoUnmarshalJSON(buf []byte) error {
+func (s *VarObjectSchema) DoUnmarshalJSON(buf []byte) error {
 
 	return json.Unmarshal(buf, s)
 
@@ -33,7 +33,7 @@ func (s VarObjectSchema) DoUnmarshalJSON(buf []byte) error {
 
 // Bytes encodes the schema in a portable binary format
 // FIXME
-func (s VarObjectSchema) Bytes() []byte {
+func (s *VarObjectSchema) Bytes() []byte {
 
 	// string schemas are 1 byte long
 	var schema []byte = make([]byte, 1)
@@ -54,7 +54,7 @@ func (s VarObjectSchema) Bytes() []byte {
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s VarObjectSchema) Encode(w io.Writer, i interface{}) error {
+func (s *VarObjectSchema) Encode(w io.Writer, i interface{}) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
@@ -117,7 +117,7 @@ func (s VarObjectSchema) Encode(w io.Writer, i interface{}) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s VarObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+func (s *VarObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
@@ -198,7 +198,7 @@ func (s VarObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	return nil
 }
 
-func (s VarObjectSchema) Decode(r io.Reader, i interface{}) error {
+func (s *VarObjectSchema) Decode(r io.Reader, i interface{}) error {
 
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
@@ -207,7 +207,7 @@ func (s VarObjectSchema) Decode(r io.Reader, i interface{}) error {
 	return s.DecodeValue(r, reflect.ValueOf(i))
 }
 
-func (s VarObjectSchema) Nullable() bool {
+func (s *VarObjectSchema) Nullable() bool {
 	return s.IsNullable
 }
 

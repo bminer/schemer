@@ -3,6 +3,7 @@ package schemer
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"reflect"
 	"testing"
@@ -19,25 +20,21 @@ func TestDecodeFixedObject1(t *testing.T) {
 	var testStruct TestStruct
 
 	// setup an example schema
-	fixedObjectSchema := SchemaOf(testStruct).(FixedObjectSchema)
+	fixedObjectSchema := SchemaOf(testStruct)
 
 	// encode it
 	b := fixedObjectSchema.Bytes()
-
-	// make sure we can successfully decode it
-	var decodedIntSchema FixedObjectSchema
-	var err error
 
 	tmp, err := NewSchema(b)
 	if err != nil {
 		t.Error("cannot encode binary encoded FixedObjectSchema")
 	}
 
-	decodedIntSchema = tmp.(FixedObjectSchema)
+	decodedIntSchema := tmp.(*FixedObjectSchema)
 
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
-	if decodedIntSchema.IsNullable != fixedObjectSchema.IsNullable {
+	if decodedIntSchema.IsNullable != fixedObjectSchema.Nullable() {
 		t.Error("unexpected values when decoding binary FixedObjectSchema")
 	}
 
@@ -100,8 +97,6 @@ func TestDecodeFixedObject2(t *testing.T) {
 	}
 
 	log.Print(structToDecode)
-
-	log.Print(**structToDecode.T.J.D)
 
 	/*
 		if err != nil {
@@ -195,35 +190,40 @@ func TestDecodeFixedObject3(t *testing.T) {
 // TestDecodeFixedObject5 tests our ability to decode objects to other objects, using struct tags....
 func TestDecodeFixedObject5(t *testing.T) {
 
-	type WriterSchema struct {
-		FName     string `schemer:"FirstName"`
-		LName     string `schemer:"LastName"`
-		AgeInLife int    `schemer:"Age"`
+	type SourceStruct struct {
+		FName     string //`schemer:"FirstName"`
+		LName     string //`schemer:"LastName"`
+		AgeInLife int    //`schemer:"Age"`
 	}
 
-	type DestinationSchema struct {
-		FirstName string
-		LastName  string
-		Age       uint8
-	}
+	var structToEncode = SourceStruct{FName: "ben", LName: "pritchard"}
 
-	var structToEncode = WriterSchema{FName: "ben", LName: "pritchard", AgeInLife: 42}
+	writerSchema := SchemaOf(&structToEncode)
 
-	fixedObjectSchema := SchemaOf(&structToEncode).(FixedObjectSchema)
+	var encodedData bytes.Buffer
 
-	var err error
-	var buf bytes.Buffer
-
-	err = fixedObjectSchema.Encode(&buf, structToEncode)
+	err := writerSchema.Encode(&encodedData, structToEncode)
 	if err != nil {
 		t.Error(err)
 	}
 
-	r := bytes.NewReader(buf.Bytes())
+	type DestinationStruct struct {
+		FirstName string `schemer:"FName"`
+		LastName  string `schemer:"LName"`
+		Age       int    `schemer:"AgeInLife"`
+	}
 
-	var structToDecode = DestinationSchema{}
+	var structToDecode = DestinationStruct{}
+	r := bytes.NewReader(encodedData.Bytes())
 
-	err = fixedObjectSchema.DecodeValue(r, reflect.ValueOf(&structToDecode))
+	err = writerSchema.Decode(r, &structToDecode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// question: if certain fields cannot be decoded, we just throw an error...
+	//				but actually, some of the fields could have been decoded OK
+	//				is this OK???
 	if err != nil {
 		t.Error(err)
 	}
@@ -232,7 +232,9 @@ func TestDecodeFixedObject5(t *testing.T) {
 	decodeOK := true
 	decodeOK = (structToDecode.FirstName == structToEncode.FName)
 	decodeOK = decodeOK && (structToDecode.LastName == structToEncode.LName)
-	//decodeOK = decodeOK && (structToDecode.Age == int(structToEncode.AgeInLife))
+	decodeOK = decodeOK && (structToDecode.Age == int(structToEncode.AgeInLife))
+
+	log.Print(structToDecode)
 
 	if !decodeOK {
 		t.Error("unexpected struct to struct decode")
@@ -240,4 +242,78 @@ func TestDecodeFixedObject5(t *testing.T) {
 
 	log.Println()
 
+}
+
+func SaveToDisk(fileName string, rawBytes []byte) {
+	err := ioutil.WriteFile(fileName, rawBytes, 0644)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func ReadFromDisk(fileName string) []byte {
+	b, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return b
+}
+
+func TestWriter(t *testing.T) {
+
+	type SourceStruct struct {
+		XXX       string `schemer:"FName"`
+		LName     string `schemer:"LastName"`
+		AgeInLife int    `schemer:"Age"`
+	}
+
+	var structToEncode = SourceStruct{XXX: "ben", LName: "pritchard", AgeInLife: 42}
+
+	writerSchema := SchemaOf(&structToEncode)
+	binaryReaderSchema := writerSchema.Bytes()
+
+	var encodedData bytes.Buffer
+
+	err := writerSchema.Encode(&encodedData, structToEncode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	SaveToDisk("/tmp/test.schema", binaryReaderSchema)
+	SaveToDisk("/tmp/test.data", encodedData.Bytes())
+
+}
+
+func TestReader(t *testing.T) {
+
+	// different order
+	// different names
+	type DestinationStruct struct {
+		Age      int    `schemer:"AgeInLife"`
+		LastName string `schemer:"LName"`
+		YYY      string `schemer:"FName"`
+	}
+
+	var structToDecode = DestinationStruct{}
+
+	binarywriterSchema := ReadFromDisk("/tmp/test.schema")
+	writerSchema, err := NewSchema(binarywriterSchema)
+	if err != nil {
+		t.Error("cannot create writerSchema from raw binary data")
+	}
+
+	encodedData := ReadFromDisk("/tmp/test.data")
+	r := bytes.NewReader(encodedData)
+
+	err = writerSchema.Decode(r, &structToDecode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	log.Println(structToDecode)
+
+}
+func TestBoth(t *testing.T) {
+	TestReader(t)
+	TestWriter(t)
 }

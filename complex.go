@@ -16,13 +16,13 @@ type ComplexSchema struct {
 	WeakDecoding bool
 }
 
-func (s ComplexSchema) IsValid() bool {
+func (s *ComplexSchema) IsValid() bool {
 	return s.Bits == 64 || s.Bits == 128
 }
 
 // if this function is called MarshalJSON it seems to be called
 // recursively by the json library???
-func (s ComplexSchema) DoMarshalJSON() ([]byte, error) {
+func (s *ComplexSchema) DoMarshalJSON() ([]byte, error) {
 	if !s.IsValid() {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
@@ -32,12 +32,12 @@ func (s ComplexSchema) DoMarshalJSON() ([]byte, error) {
 
 // if this function is called UnmarshalJSON it seems to be called
 // recursively by the json library???
-func (s ComplexSchema) DoUnmarshalJSON(buf []byte) error {
+func (s *ComplexSchema) DoUnmarshalJSON(buf []byte) error {
 	return json.Unmarshal(buf, s)
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s ComplexSchema) Bytes() []byte {
+func (s *ComplexSchema) Bytes() []byte {
 
 	// floating point schemas are 1 byte long
 	var schema []byte = make([]byte, 1)
@@ -65,7 +65,7 @@ func (s ComplexSchema) Bytes() []byte {
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s ComplexSchema) Encode(w io.Writer, i interface{}) error {
+func (s *ComplexSchema) Encode(w io.Writer, i interface{}) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
@@ -164,7 +164,7 @@ func (s ComplexSchema) Encode(w io.Writer, i interface{}) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s ComplexSchema) Decode(r io.Reader, i interface{}) error {
+func (s *ComplexSchema) Decode(r io.Reader, i interface{}) error {
 
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
@@ -176,7 +176,7 @@ func (s ComplexSchema) Decode(r io.Reader, i interface{}) error {
 
 }
 
-func (s ComplexSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+func (s *ComplexSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
@@ -381,7 +381,7 @@ func (s ComplexSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	return nil
 }
 
-func (s ComplexSchema) Nullable() bool {
+func (s *ComplexSchema) Nullable() bool {
 	return s.IsNullable
 }
 

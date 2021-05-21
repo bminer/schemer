@@ -29,19 +29,17 @@ func TestDecodeEnum1(t *testing.T) {
 	b := enumSchema.Bytes()
 
 	// make sure we can successfully decode it
-	var decodedIntSchema EnumSchema
-	var err error
 
 	tmp, err := NewSchema(b)
 	if err != nil {
 		t.Error("cannot encode binary encoded enumSchema")
 	}
 
-	decodedIntSchema = tmp.(EnumSchema)
+	decodedEnumSchema := tmp.(*EnumSchema)
 
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
-	if decodedIntSchema.IsNullable != enumSchema.IsNullable {
+	if decodedEnumSchema.IsNullable != enumSchema.IsNullable {
 		t.Error("unexpected values when decoding binary EnumSchema")
 	}
 

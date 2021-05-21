@@ -16,12 +16,12 @@ type VarIntSchema struct {
 	IsNullable   bool
 }
 
-func (s VarIntSchema) IsValid() bool {
+func (s *VarIntSchema) IsValid() bool {
 	return true
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s VarIntSchema) Bytes() []byte {
+func (s *VarIntSchema) Bytes() []byte {
 
 	// fixed length schemas are 1 byte long total
 	var schema []byte = make([]byte, 1)
@@ -44,7 +44,7 @@ func (s VarIntSchema) Bytes() []byte {
 
 // if this function is called MarshalJSON it seems to be called
 // recursively by the json library???
-func (s VarIntSchema) DoMarshalJSON() ([]byte, error) {
+func (s *VarIntSchema) DoMarshalJSON() ([]byte, error) {
 	if !s.IsValid() {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
@@ -54,7 +54,7 @@ func (s VarIntSchema) DoMarshalJSON() ([]byte, error) {
 
 // if this function is called UnmarshalJSON it seems to be called
 // recursively by the json library???
-func (s VarIntSchema) DoUnmarshalJSON(buf []byte) error {
+func (s *VarIntSchema) DoUnmarshalJSON(buf []byte) error {
 	return json.Unmarshal(buf, s)
 }
 
@@ -102,7 +102,7 @@ func readVarUint(r io.Reader) (uint64, error) {
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s VarIntSchema) Encode(w io.Writer, i interface{}) error {
+func (s *VarIntSchema) Encode(w io.Writer, i interface{}) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
@@ -179,7 +179,7 @@ func (s VarIntSchema) Encode(w io.Writer, i interface{}) error {
 	return nil
 }
 
-func (s VarIntSchema) Decode(r io.Reader, i interface{}) error {
+func (s *VarIntSchema) Decode(r io.Reader, i interface{}) error {
 
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
@@ -386,7 +386,7 @@ func (s VarIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	return nil
 }
 
-func (s VarIntSchema) Nullable() bool {
+func (s *VarIntSchema) Nullable() bool {
 	return s.IsNullable
 }
 

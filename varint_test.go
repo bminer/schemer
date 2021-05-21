@@ -754,15 +754,12 @@ func TestVarIntSchema5(t *testing.T) {
 	b := varIntSchema.Bytes()
 
 	// make sure we can successfully decode it
-	var decodedVarintSchema VarIntSchema
-	var err error
-
 	tmp, err := NewSchema(b)
 	if err != nil {
 		t.Error("cannot encode binary encoded VarIntSchema")
 	}
 
-	decodedVarintSchema = tmp.(VarIntSchema)
+	decodedVarintSchema := tmp.(*VarIntSchema)
 
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values

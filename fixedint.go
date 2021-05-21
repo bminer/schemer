@@ -21,12 +21,16 @@ type FixedIntSchema struct {
 	IsNullable     bool
 }
 
-func (s FixedIntSchema) IsValid() bool {
+func (s *FixedIntSchema) SetSchemaOptions() {
+
+}
+
+func (s *FixedIntSchema) IsValid() bool {
 	return s.Bits == 8 || s.Bits == 16 || s.Bits == 32 || s.Bits == 64
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s FixedIntSchema) Bytes() []byte {
+func (s *FixedIntSchema) Bytes() []byte {
 
 	// fixed length schemas are 1 byte long total
 	var schema []byte = make([]byte, 1)
@@ -62,7 +66,7 @@ func (s FixedIntSchema) Bytes() []byte {
 
 // if this function is called MarshalJSON it seems to be called
 // recursively by the json library???
-func (s FixedIntSchema) DoMarshalJSON() ([]byte, error) {
+func (s *FixedIntSchema) DoMarshalJSON() ([]byte, error) {
 	if !s.IsValid() {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
@@ -72,11 +76,11 @@ func (s FixedIntSchema) DoMarshalJSON() ([]byte, error) {
 
 // if this function is called UnmarshalJSON it seems to be called
 // recursively by the json library???
-func (s FixedIntSchema) DoUnmarshalJSON(buf []byte) error {
+func (s *FixedIntSchema) DoUnmarshalJSON(buf []byte) error {
 	return json.Unmarshal(buf, s)
 }
 
-func writeUint(w io.Writer, v uint64, s FixedIntSchema) error {
+func writeUint(w io.Writer, v uint64, s *FixedIntSchema) error {
 	switch s.Bits {
 	case 8:
 		n, err := w.Write([]byte{byte(v)})
@@ -140,7 +144,7 @@ func writeUint(w io.Writer, v uint64, s FixedIntSchema) error {
 	}
 }
 
-func readUint(r io.Reader, s FixedIntSchema) (uint64, error) {
+func readUint(r io.Reader, s *FixedIntSchema) (uint64, error) {
 	const errVal = uint64(0)
 
 	// Read len(buf) bytes from r
@@ -191,7 +195,7 @@ func readUint(r io.Reader, s FixedIntSchema) (uint64, error) {
 
 // CheckType returns true if the integer type passed for i
 // matched the schema
-func checkType(s FixedIntSchema, k reflect.Kind) bool {
+func checkType(s *FixedIntSchema, k reflect.Kind) bool {
 
 	var typeOK bool
 
@@ -233,7 +237,7 @@ func checkType(s FixedIntSchema, k reflect.Kind) bool {
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s FixedIntSchema) Encode(w io.Writer, i interface{}) error {
+func (s *FixedIntSchema) Encode(w io.Writer, i interface{}) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
@@ -330,7 +334,7 @@ func (s FixedIntSchema) Encode(w io.Writer, i interface{}) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s FixedIntSchema) Decode(r io.Reader, i interface{}) error {
+func (s *FixedIntSchema) Decode(r io.Reader, i interface{}) error {
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
 	}
@@ -340,7 +344,7 @@ func (s FixedIntSchema) Decode(r io.Reader, i interface{}) error {
 	return s.DecodeValue(r, v)
 }
 
-func (s FixedIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+func (s *FixedIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
@@ -541,7 +545,7 @@ func (s FixedIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	return nil
 }
 
-func (s FixedIntSchema) Nullable() bool {
+func (s *FixedIntSchema) Nullable() bool {
 	return s.IsNullable
 }
 

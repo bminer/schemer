@@ -14,12 +14,12 @@ type FixedLenArraySchema struct {
 	Element Schema
 }
 
-func (s FixedLenArraySchema) IsValid() bool {
+func (s *FixedLenArraySchema) IsValid() bool {
 	return s.Length > 0
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s FixedLenArraySchema) Bytes() []byte {
+func (s *FixedLenArraySchema) Bytes() []byte {
 
 	// fixed length schemas are 1 byte long total
 	var schema []byte = make([]byte, 1)
@@ -39,7 +39,7 @@ func (s FixedLenArraySchema) Bytes() []byte {
 
 // if this function is called MarshalJSON it seems to be called
 // recursively by the json library???
-func (s FixedLenArraySchema) DoMarshalJSON() ([]byte, error) {
+func (s *FixedLenArraySchema) DoMarshalJSON() ([]byte, error) {
 	if !s.IsValid() {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
@@ -49,12 +49,12 @@ func (s FixedLenArraySchema) DoMarshalJSON() ([]byte, error) {
 
 // if this function is called UnmarshalJSON it seems to be called
 // recursively by the json library???
-func (s FixedLenArraySchema) DoUnmarshalJSON(buf []byte) error {
+func (s *FixedLenArraySchema) DoUnmarshalJSON(buf []byte) error {
 	return json.Unmarshal(buf, s)
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s FixedLenArraySchema) Encode(w io.Writer, i interface{}) error {
+func (s *FixedLenArraySchema) Encode(w io.Writer, i interface{}) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
@@ -112,7 +112,7 @@ func (s FixedLenArraySchema) Encode(w io.Writer, i interface{}) error {
 	return nil
 }
 
-func (s FixedLenArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
+func (s *FixedLenArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
@@ -169,7 +169,7 @@ func (s FixedLenArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s FixedLenArraySchema) Decode(r io.Reader, i interface{}) error {
+func (s *FixedLenArraySchema) Decode(r io.Reader, i interface{}) error {
 
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
@@ -180,7 +180,7 @@ func (s FixedLenArraySchema) Decode(r io.Reader, i interface{}) error {
 	return s.DecodeValue(r, v)
 }
 
-func (s FixedLenArraySchema) Nullable() bool {
+func (s *FixedLenArraySchema) Nullable() bool {
 	return s.IsNullable
 }
 

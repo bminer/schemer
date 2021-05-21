@@ -14,12 +14,12 @@ type VarArraySchema struct {
 	Element Schema
 }
 
-func (s VarArraySchema) IsValid() bool {
+func (s *VarArraySchema) IsValid() bool {
 	return true
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s VarArraySchema) Bytes() []byte {
+func (s *VarArraySchema) Bytes() []byte {
 
 	// fixed length schemas are 1 byte long total
 	var schema []byte = make([]byte, 1)
@@ -39,7 +39,7 @@ func (s VarArraySchema) Bytes() []byte {
 
 // if this function is called MarshalJSON it seems to be called
 // recursively by the json library???
-func (s VarArraySchema) DoMarshalJSON() ([]byte, error) {
+func (s *VarArraySchema) DoMarshalJSON() ([]byte, error) {
 	if !s.IsValid() {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
@@ -49,12 +49,12 @@ func (s VarArraySchema) DoMarshalJSON() ([]byte, error) {
 
 // if this function is called UnmarshalJSON it seems to be called
 // recursively by the json library???
-func (s VarArraySchema) DoUnmarshalJSON(buf []byte) error {
+func (s *VarArraySchema) DoUnmarshalJSON(buf []byte) error {
 	return json.Unmarshal(buf, s)
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s VarArraySchema) Encode(w io.Writer, i interface{}) error {
+func (s *VarArraySchema) Encode(w io.Writer, i interface{}) error {
 
 	if i == nil {
 		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
@@ -113,7 +113,7 @@ func (s VarArraySchema) Encode(w io.Writer, i interface{}) error {
 	return nil
 }
 
-func (s VarArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
+func (s *VarArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
@@ -187,7 +187,7 @@ func (s VarArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	return nil
 }
 
-func (s VarArraySchema) Decode(r io.Reader, i interface{}) error {
+func (s *VarArraySchema) Decode(r io.Reader, i interface{}) error {
 
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
@@ -198,7 +198,7 @@ func (s VarArraySchema) Decode(r io.Reader, i interface{}) error {
 	return s.DecodeValue(r, v)
 }
 
-func (s VarArraySchema) Nullable() bool {
+func (s *VarArraySchema) Nullable() bool {
 	return s.IsNullable
 }
 

@@ -164,11 +164,6 @@ func (s VarLenStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	t := v.Type()
 	k := t.Kind()
 
-	// Ensure v is settable
-	if !v.CanSet() {
-		return fmt.Errorf("decode destination is not settable")
-	}
-
 	expectedLen, err := readVarUint(r)
 	if err != nil {
 		return err
@@ -178,6 +173,13 @@ func (s VarLenStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	_, err = io.ReadAtLeast(r, buf, int(expectedLen))
 	if err != nil {
 		return err
+	}
+
+	// Ensure v is settable
+	// however: one important thing is to do make sure to process as many bytes as we are going to
+	// read from r before we do this
+	if !v.CanSet() {
+		return fmt.Errorf("decode destination is not settable")
 	}
 
 	// when we return as a string, we will return it with the padding intact

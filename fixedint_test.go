@@ -784,16 +784,15 @@ func TestFixedIntSchema6(t *testing.T) {
 	// encode it
 	b := fixedIntSchema.Bytes()
 
-	// make sure we can successfully decode it
-	var decodedIntSchema FixedIntSchema
 	var err error
 
-	tmp, err := NewSchema(b)
+	var tmp Schema
+
+	tmp, err = NewSchema(b)
+	decodedIntSchema := tmp.(*FixedIntSchema)
 	if err != nil {
 		t.Error("cannot encode binary encoded FixedIntSchema")
 	}
-
-	decodedIntSchema = tmp.(FixedIntSchema)
 
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values

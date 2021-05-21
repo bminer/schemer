@@ -11,30 +11,34 @@ import (
 )
 
 type FloatSchema struct {
-	Description  string
 	Bits         int // must be 32 or 64
 	WeakDecoding bool
 	IsNullable   bool
 }
 
-func (s FloatSchema) Valid() bool {
+func (s *FloatSchema) Valid() bool {
 	return s.Bits == 32 || s.Bits == 64
 }
 
-func (s FloatSchema) MarshalJSON() ([]byte, error) {
+// fixme
+func (s *FloatSchema) MarshalJSON() ([]byte, error) {
 
-	type tmpFloatSchema FloatSchema
+	/*
+		type tmpFloatSchema FloatSchema
 
-	return json.Marshal(struct {
-		tmpFloatSchema
-	}{
-		tmpFloatSchema: tmpFloatSchema(s),
-	})
+		return json.Marshal(struct {
+			tmpFloatSchema
+		}{
+			tmpFloatSchema: tmpFloatSchema(s),
+		})
+	*/
+
+	return nil, nil
 
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s FloatSchema) Bytes() []byte {
+func (s *FloatSchema) Bytes() []byte {
 
 	// floating point schemas are 1 byte long
 	var schema []byte = make([]byte, 1)
@@ -63,7 +67,7 @@ func (s FloatSchema) Bytes() []byte {
 
 // if this function is called MarshalJSON it seems to be called
 // recursively by the json library???
-func (s FloatSchema) DoMarshalJSON() ([]byte, error) {
+func (s *FloatSchema) DoMarshalJSON() ([]byte, error) {
 	if !s.Valid() {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
@@ -73,24 +77,12 @@ func (s FloatSchema) DoMarshalJSON() ([]byte, error) {
 
 // if this function is called UnmarshalJSON it seems to be called
 // recursively by the json library???
-func (s FloatSchema) DoUnmarshalJSON(buf []byte) error {
+func (s *FloatSchema) DoUnmarshalJSON(buf []byte) error {
 	return json.Unmarshal(buf, s)
 }
 
-/*
-// TODO: fixme
-func (s FloatSchema) Nullable() bool {
-	return s.IsNullable
-}
-
-// TODO: fixme
-func (s FloatSchema) SetNullable(n bool) {
-	s.IsNullable = true
-}
-*/
-
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s FloatSchema) Encode(w io.Writer, i interface{}) error {
+func (s *FloatSchema) Encode(w io.Writer, i interface{}) error {
 
 	// just double check the schema they are using
 	if !s.Valid() {
@@ -182,7 +174,7 @@ func (s FloatSchema) Encode(w io.Writer, i interface{}) error {
 	return nil
 }
 
-func (s FloatSchema) Decode(r io.Reader, i interface{}) error {
+func (s *FloatSchema) Decode(r io.Reader, i interface{}) error {
 
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
@@ -192,7 +184,7 @@ func (s FloatSchema) Decode(r io.Reader, i interface{}) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+func (s *FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.Valid() {
@@ -361,7 +353,7 @@ func (s FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	return nil
 }
 
-func (s FloatSchema) Nullable() bool {
+func (s *FloatSchema) Nullable() bool {
 	return s.IsNullable
 }
 

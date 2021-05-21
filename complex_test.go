@@ -465,26 +465,22 @@ func TestDecodeComplex10(t *testing.T) {
 func TestDecodeComplex11(t *testing.T) {
 
 	// setup an example schema
-	schema := ComplexSchema{Bits: 64, WeakDecoding: true, IsNullable: false}
+	complexSchema := ComplexSchema{Bits: 64, WeakDecoding: true, IsNullable: false}
 
 	// encode it
-	b := schema.Bytes()
-
-	// make sure we can successfully decode it
-	var DecodedComplexSchema ComplexSchema
-	var err error
+	b := complexSchema.Bytes()
 
 	tmp, err := NewSchema(b)
 	if err != nil {
 		t.Error("cannot decode binary encoded float schema")
 	}
 
-	DecodedComplexSchema = tmp.(ComplexSchema)
+	DecodedComplexSchema := tmp.(*ComplexSchema)
 
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
-	if DecodedComplexSchema.Bits != schema.Bits ||
-		DecodedComplexSchema.IsNullable != schema.IsNullable {
+	if DecodedComplexSchema.Bits != complexSchema.Bits ||
+		DecodedComplexSchema.IsNullable != complexSchema.IsNullable {
 
 		t.Error("unexpected values when decoding binary ComplexSchema")
 	}

@@ -1,6 +1,7 @@
 package schemer
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,8 +10,6 @@ import (
 
 type ObjectField struct {
 	StructFieldOptions
-
-	Name   string
 	Schema Schema
 }
 
@@ -19,29 +18,34 @@ type FixedObjectSchema struct {
 	Fields     []ObjectField
 }
 
-func (s FixedObjectSchema) IsValid() bool {
+func (s *FixedObjectSchema) IsValid() bool {
 	return true
 }
 
-func (s FixedObjectSchema) MarshalJSON() ([]byte, error) {
+// FIXME
+func (s *FixedObjectSchema) MarshalJSON() ([]byte, error) {
 
-	type tmpFixedObjectSchema FixedObjectSchema
+	/*
+		type tmpFixedObjectSchema *FixedObjectSchema
 
-	return json.MarshalIndent(struct {
-		tmpFixedObjectSchema
-	}{
-		tmpFixedObjectSchema: tmpFixedObjectSchema(s),
-	}, "", "  ")
+		return json.MarshalIndent(struct {
+			tmpFixedObjectSchema*
+		}{
+			tmpFixedObjectSchema: tmpFixedObjectSchema(s),
+		}, "", "  ")
+	*/
+
+	return nil, nil
 
 }
 
-func (s FixedObjectSchema) DoMarshalJSON() ([]byte, error) {
+func (s *FixedObjectSchema) DoMarshalJSON() ([]byte, error) {
 
 	return json.Marshal(s)
 
 }
 
-func (s FixedObjectSchema) DoUnmarshalJSON(buf []byte) error {
+func (s *FixedObjectSchema) DoUnmarshalJSON(buf []byte) error {
 
 	return json.Unmarshal(buf, s)
 
@@ -49,7 +53,7 @@ func (s FixedObjectSchema) DoUnmarshalJSON(buf []byte) error {
 
 // Bytes encodes the schema in a portable binary format
 // FIXME
-func (s FixedObjectSchema) Bytes() []byte {
+func (s *FixedObjectSchema) Bytes() []byte {
 
 	// fixedObject schemas are 1 byte long
 	var schemaBytes []byte = make([]byte, 1)
@@ -68,6 +72,21 @@ func (s FixedObjectSchema) Bytes() []byte {
 
 	// also need to concatenate the schemas for all other fields
 	for _, f := range s.Fields {
+
+		// first encode the number of aliases for this field
+		// (which will always be at least one... meaning the name of the field from the source struct at least!)
+		numAlias := byte(len(f.StructFieldOptions.FieldAliases))
+		schemaBytes = append(schemaBytes, numAlias)
+
+		// now write each field alias
+		for i := 0; i < len(f.StructFieldOptions.FieldAliases); i++ {
+			s := f.FieldAliases[i]
+			varLenStringSchema := SchemaOf(s)
+			var buf bytes.Buffer
+			varLenStringSchema.Encode(&buf, s)
+			schemaBytes = append(schemaBytes, buf.Bytes()...)
+		}
+
 		schemaBytes = append(schemaBytes, f.Schema.Bytes()...)
 	}
 
@@ -75,7 +94,7 @@ func (s FixedObjectSchema) Bytes() []byte {
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s FixedObjectSchema) Encode(w io.Writer, i interface{}) error {
+func (s *FixedObjectSchema) Encode(w io.Writer, i interface{}) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
@@ -128,8 +147,39 @@ func (s FixedObjectSchema) Encode(w io.Writer, i interface{}) error {
 	return nil
 }
 
+// s is a source alias we are tryig to figure out where to put
+// v will be a struct...
+func (s *FixedObjectSchema) findDestinationField(sourceFieldAlias string, v reflect.Value) string {
+
+	// see if there is a place in the destination struct that matches the alias passed in...
+	for i := 0; i < v.Type().NumField(); i++ {
+		fieldName := v.Type().Field(i).Name
+
+		if sourceFieldAlias == fieldName {
+			return sourceFieldAlias
+		}
+
+		// parse the tags on this field, to see if any aliases are present...
+		structFieldOptions := StructFieldOptions{}
+		parseStructTag(v.
+			Type().Field(i).Tag.Get(SchemaTagName), &structFieldOptions)
+
+		// if any of the aliases on this destination field match sourceFieldAlias, then we have a match!
+		for j := 0; j < len(structFieldOptions.FieldAliases); j++ {
+			if sourceFieldAlias == structFieldOptions.FieldAliases[j] {
+				return fieldName
+			}
+
+		}
+
+	}
+
+	return ""
+
+}
+
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
@@ -177,24 +227,41 @@ func (s FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		return fmt.Errorf("FixedObjectSchema can only decode to structures")
 	}
 
-	for i := 0; i < t.NumField(); i++ {
+	// loop through all the potential source fields
+	// and see if there is anywhere we can put them
+	for i := 0; i < len(s.Fields); i++ {
+		Foundmatch := false
 
-		// this is where we figure out where to put the
-		// value we have just decoded...
+		for j := 0; j < len(s.Fields[i].FieldAliases); j++ {
 
-		x := s.Fields[i].FieldAliases[0]
-		//s.Fields[i].StructFieldOptions.FieldAliases
+			stringToMatch := s.Fields[i].FieldAliases[j]
+			structFieldToPopulate := s.findDestinationField(stringToMatch, v)
 
-		err := s.Fields[i].Schema.DecodeValue(r, v.FieldByName(x))
-		if err != nil {
-			return err
+			if structFieldToPopulate != "" {
+				Foundmatch = true
+				err := s.Fields[i].Schema.DecodeValue(r, v.FieldByName(structFieldToPopulate))
+				if err != nil {
+					return err
+				}
+			}
+
 		}
+
+		if !Foundmatch {
+			// otherwise, there is just an extra field in the dest struct
+			// that we don't know how to populate
+			// so just skip that field
+			// (but we still need to call DecodeValue here to process the bytes of the encoded data!)
+			var ignoreMe reflect.Value = reflect.Value{}
+			s.Fields[i].Schema.Decode(r, ignoreMe)
+		}
+
 	}
 
 	return nil
 }
 
-func (s FixedObjectSchema) Decode(r io.Reader, i interface{}) error {
+func (s *FixedObjectSchema) Decode(r io.Reader, i interface{}) error {
 
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
@@ -204,7 +271,7 @@ func (s FixedObjectSchema) Decode(r io.Reader, i interface{}) error {
 
 }
 
-func (s FixedObjectSchema) Nullable() bool {
+func (s *FixedObjectSchema) Nullable() bool {
 	return s.IsNullable
 }
 

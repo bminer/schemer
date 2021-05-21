@@ -460,15 +460,12 @@ func TestFloatingPointSchema13(t *testing.T) {
 	b := floatingPointSchema.Bytes()
 
 	// make sure we can successfully decode it
-	var DecodedFloatSchema FloatSchema
-	var err error
-
 	tmp, err := NewSchema(b)
 	if err != nil {
 		t.Error("cannot decode binary encoded float schema")
 	}
 
-	DecodedFloatSchema = tmp.(FloatSchema)
+	DecodedFloatSchema := tmp.(*FloatSchema)
 
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values

@@ -13,13 +13,13 @@ type BoolSchema struct {
 	WeakDecoding bool
 }
 
-func (s BoolSchema) IsValid() bool {
+func (s *BoolSchema) IsValid() bool {
 	return true
 }
 
 // if this function is called MarshalJSON it seems to be called
 // recursively by the json library???
-func (s BoolSchema) DoMarshalJSON() ([]byte, error) {
+func (s *BoolSchema) DoMarshalJSON() ([]byte, error) {
 	if !s.IsValid() {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
@@ -29,12 +29,12 @@ func (s BoolSchema) DoMarshalJSON() ([]byte, error) {
 
 // if this function is called UnmarshalJSON it seems to be called
 // recursively by the json library???
-func (s BoolSchema) DoUnmarshalJSON(buf []byte) error {
+func (s *BoolSchema) DoUnmarshalJSON(buf []byte) error {
 	return json.Unmarshal(buf, s)
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s BoolSchema) Bytes() []byte {
+func (s *BoolSchema) Bytes() []byte {
 
 	// bool schemas are 1 byte long
 	var schema []byte = make([]byte, 1)
@@ -50,7 +50,7 @@ func (s BoolSchema) Bytes() []byte {
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s BoolSchema) Encode(w io.Writer, i interface{}) error {
+func (s *BoolSchema) Encode(w io.Writer, i interface{}) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
@@ -120,7 +120,7 @@ func (s BoolSchema) Encode(w io.Writer, i interface{}) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s BoolSchema) Decode(r io.Reader, i interface{}) error {
+func (s *BoolSchema) Decode(r io.Reader, i interface{}) error {
 
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
@@ -132,7 +132,7 @@ func (s BoolSchema) Decode(r io.Reader, i interface{}) error {
 
 }
 
-func (s BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+func (s *BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
@@ -244,7 +244,7 @@ func (s BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	return nil
 }
 
-func (s BoolSchema) Nullable() bool {
+func (s *BoolSchema) Nullable() bool {
 	return s.IsNullable
 }
 

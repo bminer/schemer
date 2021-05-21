@@ -13,24 +13,21 @@ func TestDecodeVarLenArray1(t *testing.T) {
 	slice := []int{1, 2, 3, 4}
 
 	// setup an example schema
-	varArraySchema := SchemaOf(slice).(VarArraySchema)
+	varArraySchema := SchemaOf(slice)
 	// encode i
 	b := varArraySchema.Bytes()
 
 	// make sure we can successfully decode it
-	var decodedIntSchema VarArraySchema
-	var err error
-
 	tmp, err := NewSchema(b)
 	if err != nil {
 		t.Error("cannot encode binary encoded VarLenArraySchema")
 	}
 
-	decodedIntSchema = tmp.(VarArraySchema)
+	decodedIntSchema := tmp.(*VarArraySchema)
 
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
-	if decodedIntSchema.IsNullable != varArraySchema.IsNullable {
+	if decodedIntSchema.IsNullable != varArraySchema.Nullable() {
 		t.Error("unexpected values when decoding binary EnumSchema")
 	}
 
@@ -40,7 +37,7 @@ func TestDecodeVarLenArray2(t *testing.T) {
 
 	// build up the schema programatically
 	varArraySchema := VarArraySchema{IsNullable: false}
-	varArraySchema.Element = FloatSchema{Bits: 32}
+	varArraySchema.Element = &(FloatSchema{Bits: 32})
 
 	var buf bytes.Buffer
 	var err error
@@ -72,12 +69,14 @@ func TestDecodeVarLenArray2(t *testing.T) {
 func TestDecodeVarLenArray3(t *testing.T) {
 
 	// build up the schema programatically
-	fixedLenArraySchema := VarArraySchema{IsNullable: false}
-	fixedLenArraySchema1 := VarArraySchema{IsNullable: false}
-	FloatSchema := FloatSchema{Bits: 32}
+	/*
+		fixedLenArraySchema := VarArraySchema{IsNullable: false}
+		fixedLenArraySchema1 := VarArraySchema{IsNullable: false}
+		FloatSchema := FloatSchema{Bits: 32}
 
-	fixedLenArraySchema1.Element = FloatSchema
-	fixedLenArraySchema.Element = fixedLenArraySchema1
+		fixedLenArraySchema1.Element = FloatSchema
+		fixedLenArraySchema.Element = fixedLenArraySchema1
+	*/
 
 	var buf bytes.Buffer
 	var err error
@@ -86,6 +85,9 @@ func TestDecodeVarLenArray3(t *testing.T) {
 		{4, 5, 6, 7},
 		{8, 9, 10, 11},
 	}
+
+	fixedLenArraySchema := SchemaOf(floatSlice)
+
 	buf.Reset()
 
 	err = fixedLenArraySchema.Encode(&buf, floatSlice)

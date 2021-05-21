@@ -15,17 +15,17 @@ type EnumSchema struct {
 	Values map[int]string
 }
 
-func (s EnumSchema) IsValid() bool {
+func (s *EnumSchema) IsValid() bool {
 	return true
 }
 
-func (s EnumSchema) DoMarshalJSON() ([]byte, error) {
+func (s *EnumSchema) DoMarshalJSON() ([]byte, error) {
 
 	return json.Marshal(s)
 
 }
 
-func (s EnumSchema) DoUnmarshalJSON(buf []byte) error {
+func (s *EnumSchema) DoUnmarshalJSON(buf []byte) error {
 
 	return json.Unmarshal(buf, s)
 
@@ -49,7 +49,7 @@ func (s EnumSchema) Bytes() []byte {
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s EnumSchema) Encode(w io.Writer, v interface{}) error {
+func (s *EnumSchema) Encode(w io.Writer, v interface{}) error {
 
 	varIntSchema := VarIntSchema{Signed: true, IsNullable: s.IsNullable}
 
@@ -62,7 +62,7 @@ func (s EnumSchema) Encode(w io.Writer, v interface{}) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s EnumSchema) Decode(r io.Reader, i interface{}) error {
+func (s *EnumSchema) Decode(r io.Reader, i interface{}) error {
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
 	}
@@ -72,7 +72,7 @@ func (s EnumSchema) Decode(r io.Reader, i interface{}) error {
 	return s.DecodeValue(r, v)
 }
 
-func (s EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// first we decode the actual encoded binary value
 
@@ -190,7 +190,7 @@ func (s EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	return nil
 }
 
-func (s EnumSchema) Nullable() bool {
+func (s *EnumSchema) Nullable() bool {
 	return s.IsNullable
 }
 

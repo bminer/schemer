@@ -175,15 +175,12 @@ func TestDecodeBool6(t *testing.T) {
 	b := schema.Bytes()
 
 	// make sure we can successfully decode it
-	var decodedBoolSchema BoolSchema
-	var err error
-
 	tmp, err := NewSchema(b)
+	decodedBoolSchema := tmp.(*BoolSchema)
 	if err != nil {
 		t.Error("cannot decode binary encoded bool")
 	}
-
-	decodedBoolSchema = tmp.(BoolSchema)
+	decodedBoolSchema = tmp.(*BoolSchema)
 	if decodedBoolSchema.IsNullable != schema.IsNullable {
 		t.Error("unexpected value for BoolSchema")
 	}

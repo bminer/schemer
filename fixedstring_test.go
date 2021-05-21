@@ -18,16 +18,13 @@ func TestDecodeFixedString1(t *testing.T) {
 	b := schema.Bytes()
 
 	// make sure we can successfully decode it
-	var decodedStringSchema FixedStringSchema
-	var err error
-
 	tmp, err := NewSchema(b)
 	if err != nil {
 		t.Error("cannot decode binary encoded string schema")
 	}
 
-	decodedStringSchema = tmp.(FixedStringSchema)
-	if schema.IsNullable != decodedStringSchema.IsNullable {
+	decodedStringSchema := tmp.(*FixedStringSchema)
+	if schema.IsNullable != decodedStringSchema.Nullable() {
 
 		// nothing else to test here...
 

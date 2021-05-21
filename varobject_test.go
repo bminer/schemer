@@ -11,25 +11,22 @@ func TestDecodeVarObject1(t *testing.T) {
 	m := map[int]string{1: "b"}
 
 	// setup an example schema
-	varObjectSchema := SchemaOf(m).(VarObjectSchema)
+	varObjectSchema := SchemaOf(m)
 
 	// encode it
 	b := varObjectSchema.Bytes()
 
 	// make sure we can successfully decode it
-	var decodedIntSchema VarObjectSchema
-	var err error
-
 	tmp, err := NewSchema(b)
 	if err != nil {
 		t.Error("cannot encode binary encoded VarObjectSchema")
 	}
 
-	decodedIntSchema = tmp.(VarObjectSchema)
+	decodedIntSchema := tmp.(*VarObjectSchema)
 
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
-	if decodedIntSchema.IsNullable != varObjectSchema.IsNullable {
+	if decodedIntSchema.IsNullable != varObjectSchema.Nullable() {
 		t.Error("unexpected values when decoding binary EnumSchema")
 	}
 
@@ -48,24 +45,6 @@ func TestDecodeVarObject2(t *testing.T) {
 	var err error
 
 	buf.Reset()
-
-	// build up schema programatically...
-
-	/*
-
-		varObjectSchema := CreateVarObjectSchema(true)
-
-		fixedIntSchema := CreateFixedIntegerSchema(true, 64, true)
-		VarLenStringSchema := CreateVarLenStringSchema(true)
-
-		of1 := VarObjectField{VarLenStringSchema, fixedIntSchema}
-
-		varObjectSchema.Fields = append(varObjectSchema.Fields, of1)
-		varObjectSchema.Fields = append(varObjectSchema.Fields, of1)
-		varObjectSchema.Fields = append(varObjectSchema.Fields, of1)
-		varObjectSchema.Fields = append(varObjectSchema.Fields, of1)
-
-	*/
 
 	varObjectSchema := SchemaOf(&strToIntMap)
 
