@@ -98,7 +98,7 @@ func (s *FixedObjectSchema) Encode(w io.Writer, i interface{}) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
-		return fmt.Errorf("cannot encode using invalid FixedLenArraySchema schema")
+		return fmt.Errorf("cannot encode using invalid FixedObjectSchema schema")
 	}
 
 	if i == nil {
@@ -134,14 +134,23 @@ func (s *FixedObjectSchema) Encode(w io.Writer, i interface{}) error {
 	if k != reflect.Struct {
 		return fmt.Errorf("fixedObjectSchema can only encode structs")
 	}
+	// loop through all the schemas in this object
+	// and encode each field
+	for i := 0; i < len(s.Fields); i++ {
+
+		if !s.Fields[i].StructFieldOptions.ShouldSkip {
+			f := v.Field(i)
+			err := s.Fields[i].Schema.Encode(w, f.Interface())
+			if err != nil {
+				return err
+			}
+		}
+
+	}
 
 	// loop through all the schemas, and encode each one
 	for i := 0; i < t.NumField(); i++ {
-		f := v.Field(i)
-		err := s.Fields[i].Schema.Encode(w, f.Interface())
-		if err != nil {
-			return err
-		}
+
 	}
 
 	return nil
@@ -186,6 +195,8 @@ func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		return fmt.Errorf("cannot encode using invalid FixedIntSchema schema")
 	}
 
+	// FIXME
+	// remember: the byte indicating NULL is always there...
 	// if the schema indicates this type is nullable, then the actual floating point
 	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
 	if s.IsNullable {
@@ -248,12 +259,13 @@ func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		}
 
 		if !Foundmatch {
-			// otherwise, there is just an extra field in the dest struct
-			// that we don't know how to populate
-			// so just skip that field
+			// otherwise, there is just an extra field from the source struct that we cannot match
+			// in the destination struct
+			// since there is no where to put the field, we just need to skip it
 			// (but we still need to call DecodeValue here to process the bytes of the encoded data!)
 			var ignoreMe reflect.Value = reflect.Value{}
-			s.Fields[i].Schema.Decode(r, ignoreMe)
+			s.Fields[i].Schema.Decode(r, &ignoreMe)
+			// ignore error, we just needed to process the bytes in R
 		}
 
 	}
