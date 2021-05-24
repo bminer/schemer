@@ -7,29 +7,14 @@ import (
 	"testing"
 )
 
-/*
-func dumpBuffer(buf bytes.Buffer) {
-
-	fmt.Printf("total byte: %d \n", buf.Len())
-	for i := 0; i < buf.Len(); i++ {
-		fmt.Printf("byte%d: %d\n", i, buf.Bytes()[i])
-	}
-
-}
-*/
-
 func TestFixedIntSchema1(t *testing.T) {
 
-	//fixedIntSchema := FixedIntSchema{Signed: true, Bits: 64, WeakDecoding: true}
+	fixedIntSchema := FixedIntSchema{Signed: true, Bits: 64, WeakDecoding: true}
 
 	var buf bytes.Buffer
 	var err error
-	var tmpInt64 *int64 = nil
 	var valueToEncode int64 = 100
 	buf.Reset()
-
-	fixedIntSchema := SchemaOf(tmpInt64).(*FixedIntSchema)
-	fixedIntSchema.WeakDecoding = true
 
 	fmt.Println("Testing decoding int64 value")
 

@@ -9,9 +9,6 @@ import (
 	"strings"
 )
 
-// https://golangbyexample.com/go-size-range-int-uint/
-const uintSize = 32 << (^uint(0) >> 32 & 1) // 32 or 64
-
 // SchemaTagName represents the tag prefix that the schemer library uses on struct tags
 var SchemaTagName string = "schemer"
 
@@ -28,21 +25,25 @@ type StructFieldOptions struct {
 type Schema interface {
 	// Encode uses the schema to write the encoded value of v to the output stream
 	Encode(w io.Writer, i interface{}) error
+
 	// Decode uses the schema to read the next encoded value from the input stream and store it in v
 	Decode(r io.Reader, i interface{}) error
-	// MarshalSchemer encodes the schema in a portable binary format
-	// MarshalJSON returns the JSON encoding of the schema
-	DoMarshalJSON() ([]byte, error)
-	// UnmarshalJSON updates the schema by decoding the JSON-encoded schema in b
-	DoUnmarshalJSON(b []byte) error
-	// Nullable returns true if and only if the type is nullable
 
+	// MarshalJSON returns the JSON encoding of the schema
+	MarshalJSON() ([]byte, error)
+
+	// UnmarshalJSON updates the schema by decoding the JSON-encoded schema in b
+	UnmarshalJSON(b []byte) error
+
+	// Nullable returns true if and only if the type is nullable
 	Nullable() bool
-	// SetNullable sets the nullable flag for the schema
-	//SetNullable(n bool)
+
+	//SetNullable sets the nullable flag for the schema
+	SetNullable(n bool)
 
 	DecodeValue(r io.Reader, v reflect.Value) error
 
+	// Bytes encodes the schema in a portable binary format
 	Bytes() []byte
 }
 
@@ -58,8 +59,12 @@ func SchemaOf(i interface{}) Schema {
 	}
 
 	t := reflect.TypeOf(i)
+
 	// if t is a ptr or interface type, remove exactly ONE level of indirection
-	// NOTE: i don't understand the above line, which blake said to do???
+	if t.Kind() == reflect.Ptr || t.Kind() == reflect.Interface {
+		t = t.Elem()
+	}
+
 	return SchemaOfType(t)
 }
 
@@ -159,26 +164,6 @@ func parseStructTag(tagStr string, structFieldOptions *StructFieldOptions) error
 
 }
 
-func setSchemaOptions(schema *Schema, structFieldOptions StructFieldOptions) {
-
-	fixedStringSchema, ok := (*schema).(*FixedStringSchema)
-	if ok {
-		fixedStringSchema.IsNullable = structFieldOptions.Nullable
-		fixedStringSchema.WeakDecoding = structFieldOptions.WeakDecoding
-		return
-	}
-
-	/*
-		varIntSchema, ok := (*schema).(VarIntSchema)
-		if ok {
-			varIntSchema.SchemaOptions = schemaOptions
-		}
-	*/
-
-	// update to work with other types
-
-}
-
 // SchemaOfType returns a schema for the specified reflection type
 func SchemaOfType(t reflect.Type) Schema {
 
@@ -226,7 +211,6 @@ func SchemaOfType(t reflect.Type) Schema {
 			}
 
 			of.StructFieldOptions = structFieldOptions
-			setSchemaOptions(&of.Schema, structFieldOptions)
 
 			// check if this field is not exported (by looking at PkgPath)
 			// or if the schemer tags on the field say that we should skip it...
@@ -257,95 +241,76 @@ func SchemaOfType(t reflect.Type) Schema {
 
 		return varStringSchema
 	case reflect.Int:
-		/*
-			var fixedIntSchema *FixedIntSchema = &(FixedIntSchema{})
+		var varIntSchema *VarIntSchema = &(VarIntSchema{})
 
-			fixedIntSchema.Signed = true
-			fixedIntSchema.Bits = uintSize
-			fixedIntSchema.IsNullable = shouldBeNullable
+		varIntSchema.Signed = true
+		varIntSchema.IsNullable = shouldBeNullable
 
-			return fixedIntSchema
-		*/
-
-		var VarIntSchema *VarIntSchema = &(VarIntSchema{})
-
-		VarIntSchema.Signed = true
-		VarIntSchema.IsNullable = shouldBeNullable
-
-		return VarIntSchema
+		return varIntSchema
 
 	case reflect.Int8:
-		var fixedIntSchema *FixedIntSchema = &(FixedIntSchema{})
+		var varIntSchema *VarIntSchema = &(VarIntSchema{})
 
-		fixedIntSchema.Signed = true
-		fixedIntSchema.Bits = 8
-		fixedIntSchema.IsNullable = shouldBeNullable
+		varIntSchema.Signed = true
+		varIntSchema.IsNullable = shouldBeNullable
 
-		return fixedIntSchema
+		return varIntSchema
 	case reflect.Int16:
-		var fixedIntSchema *FixedIntSchema = &(FixedIntSchema{})
+		var varIntSchema *VarIntSchema = &(VarIntSchema{})
 
-		fixedIntSchema.Signed = true
-		fixedIntSchema.Bits = 16
-		fixedIntSchema.IsNullable = shouldBeNullable
+		varIntSchema.Signed = true
+		varIntSchema.IsNullable = shouldBeNullable
 
-		return fixedIntSchema
+		return varIntSchema
 	case reflect.Int32:
-		var fixedIntSchema *FixedIntSchema = &(FixedIntSchema{})
+		var varIntSchema *VarIntSchema = &(VarIntSchema{})
 
-		fixedIntSchema.Signed = true
-		fixedIntSchema.Bits = 32
-		fixedIntSchema.IsNullable = shouldBeNullable
+		varIntSchema.Signed = true
+		varIntSchema.IsNullable = shouldBeNullable
 
-		return fixedIntSchema
+		return varIntSchema
 	case reflect.Int64:
-		var fixedIntSchema *FixedIntSchema = &(FixedIntSchema{})
+		var varIntSchema *VarIntSchema = &(VarIntSchema{})
 
-		fixedIntSchema.Signed = true
-		fixedIntSchema.Bits = 64
-		fixedIntSchema.IsNullable = shouldBeNullable
+		varIntSchema.Signed = true
+		varIntSchema.IsNullable = shouldBeNullable
 
-		return fixedIntSchema
+		return varIntSchema
 	case reflect.Uint:
-		var fixedIntSchema *FixedIntSchema = &(FixedIntSchema{})
+		var varIntSchema *VarIntSchema = &(VarIntSchema{})
 
-		fixedIntSchema.Signed = false
-		fixedIntSchema.Bits = uintSize
-		fixedIntSchema.IsNullable = shouldBeNullable
+		varIntSchema.Signed = false
+		varIntSchema.IsNullable = shouldBeNullable
 
-		return fixedIntSchema
+		return varIntSchema
 	case reflect.Uint8:
-		var fixedIntSchema *FixedIntSchema = &(FixedIntSchema{})
+		var varIntSchema *VarIntSchema = &(VarIntSchema{})
 
-		fixedIntSchema.Signed = false
-		fixedIntSchema.Bits = 8
-		fixedIntSchema.IsNullable = shouldBeNullable
+		varIntSchema.Signed = false
+		varIntSchema.IsNullable = shouldBeNullable
 
-		return fixedIntSchema
+		return varIntSchema
 	case reflect.Uint16:
-		var fixedIntSchema *FixedIntSchema = &(FixedIntSchema{})
+		var varIntSchema *VarIntSchema = &(VarIntSchema{})
 
-		fixedIntSchema.Signed = false
-		fixedIntSchema.Bits = 16
-		fixedIntSchema.IsNullable = shouldBeNullable
+		varIntSchema.Signed = false
+		varIntSchema.IsNullable = shouldBeNullable
 
-		return fixedIntSchema
+		return varIntSchema
 	case reflect.Uint32:
-		var fixedIntSchema *FixedIntSchema = &(FixedIntSchema{})
+		var varIntSchema *VarIntSchema = &(VarIntSchema{})
 
-		fixedIntSchema.Signed = false
-		fixedIntSchema.Bits = 32
-		fixedIntSchema.IsNullable = shouldBeNullable
+		varIntSchema.Signed = false
+		varIntSchema.IsNullable = shouldBeNullable
 
-		return fixedIntSchema
+		return varIntSchema
 	case reflect.Uint64:
-		var fixedIntSchema *FixedIntSchema = &(FixedIntSchema{})
+		var varIntSchema *VarIntSchema = &(VarIntSchema{})
 
-		fixedIntSchema.Signed = false
-		fixedIntSchema.Bits = 32
-		fixedIntSchema.IsNullable = shouldBeNullable
+		varIntSchema.Signed = false
+		varIntSchema.IsNullable = shouldBeNullable
 
-		return fixedIntSchema
+		return varIntSchema
 	case reflect.Complex64:
 		var complexSchema *ComplexSchema = &(ComplexSchema{})
 
@@ -585,7 +550,7 @@ func newSchemaInternal(buf []byte) (Schema, error) {
 	if buf[byteIndex]&252 == 160 {
 		var varObjectSchema *VarObjectSchema = &(VarObjectSchema{})
 
-		varObjectSchema.IsNullable = (buf[0]&1 == 1)
+		varObjectSchema.IsNullable = (buf[byteIndex]&1 == 1)
 		byteIndex++
 
 		varObjectSchema.Key, err = newSchemaInternal(buf)

@@ -9,6 +9,8 @@ import (
 	"strconv"
 )
 
+const uintSize = 32 << (^uint(0) >> 32 & 1) // 32 or 64
+
 const maxFloatInt = int64(1)<<53 - 1
 const minFloatInt = -maxFloatInt
 const maxIntUint = uint64(1)<<63 - 1
@@ -64,9 +66,7 @@ func (s *FixedIntSchema) Bytes() []byte {
 
 }
 
-// if this function is called MarshalJSON it seems to be called
-// recursively by the json library???
-func (s *FixedIntSchema) DoMarshalJSON() ([]byte, error) {
+func (s *FixedIntSchema) MarshalJSON() ([]byte, error) {
 	if !s.IsValid() {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
@@ -74,9 +74,7 @@ func (s *FixedIntSchema) DoMarshalJSON() ([]byte, error) {
 	return json.Marshal(s)
 }
 
-// if this function is called UnmarshalJSON it seems to be called
-// recursively by the json library???
-func (s *FixedIntSchema) DoUnmarshalJSON(buf []byte) error {
+func (s *FixedIntSchema) UnmarshalJSON(buf []byte) error {
 	return json.Unmarshal(buf, s)
 }
 

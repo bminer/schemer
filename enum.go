@@ -20,13 +20,13 @@ func (s *EnumSchema) IsValid() bool {
 	return true
 }
 
-func (s *EnumSchema) DoMarshalJSON() ([]byte, error) {
+func (s *EnumSchema) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal(s)
 
 }
 
-func (s *EnumSchema) DoUnmarshalJSON(buf []byte) error {
+func (s *EnumSchema) UnmarshalJSON(buf []byte) error {
 
 	return json.Unmarshal(buf, s)
 

@@ -22,14 +22,14 @@ func (s *FixedStringSchema) IsValid() bool {
 }
 
 // fixme
-func (s *FixedStringSchema) DoMarshalJSON() ([]byte, error) {
+func (s *FixedStringSchema) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal(s)
 
 }
 
 // fixme
-func (s *FixedStringSchema) DoUnmarshalJSON(buf []byte) error {
+func (s *FixedStringSchema) UnmarshalJSON(buf []byte) error {
 
 	return json.Unmarshal(buf, s)
 

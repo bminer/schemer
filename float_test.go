@@ -429,22 +429,22 @@ func TestFloatingPointSchema11(t *testing.T) {
 		jsonData := []byte("{\"Bits\":32,\"WeakDecoding\":false}")
 
 		var floatingPointSchema FloatSchema
-		err := floatingPointSchema.DoUnmarshalJSON(jsonData)
+		err := floatingPointSchema.UnmarshalJSON(jsonData)
 		if err != nil {
 			t.Error(err)
 		}
 
 		if floatingPointSchema.Bits != 32 || floatingPointSchema.WeakDecoding != false {
-			t.Error("schemer library failure; DoUnmarshalJSON unexpected result")
+			t.Error("schemer library failure; UnmarshalJSON unexpected result")
 		}
 
-		buf, _ := floatingPointSchema.DoMarshalJSON()
+		buf, _ := floatingPointSchema.MarshalJSON()
 		if err != nil {
 			t.Error(err)
 		}
 
 		if !strings.EqualFold(string(jsonData), string(buf)) {
-			t.Error("schemer library failure; DoUnmarshalJSON unexpected result")
+			t.Error("schemer library failure; UnmarshalJSON unexpected result")
 		}
 
 	*/

@@ -22,30 +22,14 @@ func (s *FixedObjectSchema) IsValid() bool {
 	return true
 }
 
-// FIXME
 func (s *FixedObjectSchema) MarshalJSON() ([]byte, error) {
 
-	/*
-		type tmpFixedObjectSchema *FixedObjectSchema
-
-		return json.MarshalIndent(struct {
-			tmpFixedObjectSchema*
-		}{
-			tmpFixedObjectSchema: tmpFixedObjectSchema(s),
-		}, "", "  ")
-	*/
-
-	return nil, nil
+	mapD := map[string]int{"apple": 5, "lettuce": 7}
+	return json.Marshal(mapD)
 
 }
 
-func (s *FixedObjectSchema) DoMarshalJSON() ([]byte, error) {
-
-	return json.Marshal(s)
-
-}
-
-func (s *FixedObjectSchema) DoUnmarshalJSON(buf []byte) error {
+func (s *FixedObjectSchema) UnmarshalJSON(buf []byte) error {
 
 	return json.Unmarshal(buf, s)
 
@@ -148,11 +132,6 @@ func (s *FixedObjectSchema) Encode(w io.Writer, i interface{}) error {
 				return err
 			}
 		}
-
-	}
-
-	// loop through all the schemas, and encode each one
-	for i := 0; i < t.NumField(); i++ {
 
 	}
 

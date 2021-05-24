@@ -219,3 +219,13 @@ func TestDecodeBool7(t *testing.T) {
 	}
 
 }
+
+func TestDecodeBool8(t *testing.T) {
+
+	boolSchema := BoolSchema{IsNullable: true}
+
+	b, _ := boolSchema.MarshalJSON()
+
+	fmt.Print(string(b))
+
+}

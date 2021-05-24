@@ -17,19 +17,12 @@ func (s *BoolSchema) IsValid() bool {
 	return true
 }
 
-// if this function is called MarshalJSON it seems to be called
-// recursively by the json library???
-func (s *BoolSchema) DoMarshalJSON() ([]byte, error) {
-	if !s.IsValid() {
-		return nil, fmt.Errorf("invalid floating point schema")
-	}
-
-	return json.Marshal(s)
+func (s *BoolSchema) MarshalJSON() ([]byte, error) {
+	tmpMap := map[string]string{"type": "bool"}
+	return json.Marshal(tmpMap)
 }
 
-// if this function is called UnmarshalJSON it seems to be called
-// recursively by the json library???
-func (s *BoolSchema) DoUnmarshalJSON(buf []byte) error {
+func (s *BoolSchema) UnmarshalJSON(buf []byte) error {
 	return json.Unmarshal(buf, s)
 }
 

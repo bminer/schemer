@@ -42,9 +42,7 @@ func (s *VarIntSchema) Bytes() []byte {
 
 }
 
-// if this function is called MarshalJSON it seems to be called
-// recursively by the json library???
-func (s *VarIntSchema) DoMarshalJSON() ([]byte, error) {
+func (s *VarIntSchema) MarshalJSON() ([]byte, error) {
 	if !s.IsValid() {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
@@ -52,9 +50,7 @@ func (s *VarIntSchema) DoMarshalJSON() ([]byte, error) {
 	return json.Marshal(s)
 }
 
-// if this function is called UnmarshalJSON it seems to be called
-// recursively by the json library???
-func (s *VarIntSchema) DoUnmarshalJSON(buf []byte) error {
+func (s *VarIntSchema) UnmarshalJSON(buf []byte) error {
 	return json.Unmarshal(buf, s)
 }
 

@@ -11,7 +11,7 @@ import (
 func TestDecodeFixedObject1(t *testing.T) {
 
 	type TestStruct struct {
-		A string
+		A string //test
 		B string
 		C [10]int
 	}
@@ -166,31 +166,30 @@ func TestFixedObjectWriter(t *testing.T) {
 	}
 
 	type SourceStruct struct {
-		IntField1 int
+		IntField1 int `schemer:"New_IntField1"`
 		IntField2 *int
 
-		Map1 map[string]bool
-		Map2 *map[string]bool
-
-		Bool1 bool
+		Map1  map[string]bool `schemer:"New_Map1"`
+		Map2  *map[string]bool
+		Bool1 bool `schemer:"New_Bool1"`
 		Bool2 *bool
 
-		Complex1 complex64
+		Complex1 complex64 `schemer:"New_Complex1"`
 		Complex2 *complex64
 
-		Array1 [5]string
+		Array1 [5]string `schemer:"New_Array1"`
 		Array2 *[5]string
 
-		Object1 EmbeddedStruct
+		Object1 EmbeddedStruct `schemer:"New_Object1"`
 		Object2 *EmbeddedStruct
 
-		Float1 float64
+		Float1 float64 `schemer:"New_Float1"`
 		Float2 *float64
 
-		String1 string
+		String1 string `schemer:"New_String1"`
 		String2 *string
 
-		Slice1 []string
+		Slice1 []string `schemer:"New_Slice1"`
 		Slice2 *[]string
 	}
 
@@ -242,37 +241,37 @@ func TestFixedObjectWriter(t *testing.T) {
 func TestFixedObjectReader(t *testing.T) {
 
 	type EmbeddedStruct struct {
-		Int1 int64
-		Int2 *int64
+		Int1 int
+		Int2 *int
 	}
 
 	type DestinationStruct struct {
-		IntField1 int
-		IntField2 *int
+		New_IntField1 int
+		New_IntField2 *int `schemer:"IntField2"`
 
-		Map1 map[string]bool
-		Map2 *map[string]bool
+		New_Map1 map[string]bool
+		New_Map2 *map[string]bool `schemer:"Map2"`
 
-		Bool1 bool
-		Bool2 *bool
+		New_Bool1 bool
+		New_Bool2 *bool `schemer:"Bool2"`
 
-		Complex1 complex64
-		Complex2 *complex64
+		New_Complex1 complex64
+		New_Complex2 *complex64 `schemer:"Complex2"`
 
-		Array1 [5]string
-		Array2 *[5]string
+		New_Array1 [5]string
+		New_Array2 *[5]string `schemer:"Array2"`
 
-		Object1 EmbeddedStruct
-		Object2 *EmbeddedStruct
+		New_Object1 EmbeddedStruct
+		New_Object2 *EmbeddedStruct `schemer:"Object2"`
 
-		Float1 float64
-		Float2 *float64
+		New_Float1 float64
+		New_Float2 *float64 `schemer:"Float2"`
 
-		String1 string
-		String2 *string
+		New_String1 string
+		New_String2 *string `schemer:"String2"`
 
-		Slice1 []string
-		Slice2 *[]string
+		New_Slice1 []string
+		New_Slice2 *[]string `schemer:"Slice2"`
 	}
 
 	var structToDecode = DestinationStruct{}

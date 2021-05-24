@@ -37,6 +37,10 @@ func (s *FloatSchema) MarshalJSON() ([]byte, error) {
 
 }
 
+func (s *FloatSchema) UnmarshalJSON(buf []byte) error {
+	return json.Unmarshal(buf, s)
+}
+
 // Bytes encodes the schema in a portable binary format
 func (s *FloatSchema) Bytes() []byte {
 
@@ -63,22 +67,6 @@ func (s *FloatSchema) Bytes() []byte {
 	// bit 4 = is reserved
 
 	return schema
-}
-
-// if this function is called MarshalJSON it seems to be called
-// recursively by the json library???
-func (s *FloatSchema) DoMarshalJSON() ([]byte, error) {
-	if !s.IsValid() {
-		return nil, fmt.Errorf("invalid floating point schema")
-	}
-
-	return json.Marshal(s)
-}
-
-// if this function is called UnmarshalJSON it seems to be called
-// recursively by the json library???
-func (s *FloatSchema) DoUnmarshalJSON(buf []byte) error {
-	return json.Unmarshal(buf, s)
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream

@@ -21,14 +21,14 @@ func (s *VarLenStringSchema) IsValid() bool {
 }
 
 // fixme
-func (s *VarLenStringSchema) DoMarshalJSON() ([]byte, error) {
+func (s *VarLenStringSchema) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal(s)
 
 }
 
 // fixme
-func (s *VarLenStringSchema) DoUnmarshalJSON(buf []byte) error {
+func (s *VarLenStringSchema) UnmarshalJSON(buf []byte) error {
 
 	return json.Unmarshal(buf, s)
 

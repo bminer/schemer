@@ -20,9 +20,7 @@ func (s *ComplexSchema) IsValid() bool {
 	return s.Bits == 64 || s.Bits == 128
 }
 
-// if this function is called MarshalJSON it seems to be called
-// recursively by the json library???
-func (s *ComplexSchema) DoMarshalJSON() ([]byte, error) {
+func (s *ComplexSchema) MarshalJSON() ([]byte, error) {
 	if !s.IsValid() {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
@@ -30,9 +28,7 @@ func (s *ComplexSchema) DoMarshalJSON() ([]byte, error) {
 	return json.Marshal(s)
 }
 
-// if this function is called UnmarshalJSON it seems to be called
-// recursively by the json library???
-func (s *ComplexSchema) DoUnmarshalJSON(buf []byte) error {
+func (s *ComplexSchema) UnmarshalJSON(buf []byte) error {
 	return json.Unmarshal(buf, s)
 }
 

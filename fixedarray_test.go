@@ -34,8 +34,6 @@ func TestDecodeFixedLenArray1(t *testing.T) {
 
 func TestDecodeFixedLenArray2(t *testing.T) {
 
-	// build up the schema programatically
-
 	var buf bytes.Buffer
 	var err error
 	floatarray := [6]float32{2.0, 3.1, 5.2, 7.3, 11.4, 13.5}
@@ -66,16 +64,6 @@ func TestDecodeFixedLenArray2(t *testing.T) {
 }
 
 func TestDecodeFixedLenArray3(t *testing.T) {
-
-	// build up the schema programatically
-	/*
-		fixedLenArraySchema := FixedLenArraySchema{IsNullable: false, Length: 3}
-		fixedLenArraySchema1 := FixedLenArraySchema{IsNullable: false, Length: 4}
-		FloatSchema := FloatSchema{Bits: 32}
-
-		fixedLenArraySchema1.Element = FloatSchema
-		fixedLenArraySchema.Element = fixedLenArraySchema1
-	*/
 
 	var buf bytes.Buffer
 	var err error

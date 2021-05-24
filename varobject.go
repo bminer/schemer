@@ -19,13 +19,13 @@ func (s *VarObjectSchema) IsValid() bool {
 	return true
 }
 
-func (s *VarObjectSchema) DoMarshalJSON() ([]byte, error) {
+func (s *VarObjectSchema) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal(s)
 
 }
 
-func (s *VarObjectSchema) DoUnmarshalJSON(buf []byte) error {
+func (s *VarObjectSchema) UnmarshalJSON(buf []byte) error {
 
 	return json.Unmarshal(buf, s)
 
