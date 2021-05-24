@@ -20,12 +20,16 @@ func dumpBuffer(buf bytes.Buffer) {
 
 func TestFixedIntSchema1(t *testing.T) {
 
-	fixedIntSchema := FixedIntSchema{Signed: true, Bits: 64, WeakDecoding: true}
+	//fixedIntSchema := FixedIntSchema{Signed: true, Bits: 64, WeakDecoding: true}
 
 	var buf bytes.Buffer
 	var err error
+	var tmpInt64 *int64 = nil
 	var valueToEncode int64 = 100
 	buf.Reset()
+
+	fixedIntSchema := SchemaOf(tmpInt64).(*FixedIntSchema)
+	fixedIntSchema.WeakDecoding = true
 
 	fmt.Println("Testing decoding int64 value")
 
@@ -761,8 +765,8 @@ func TestFixedIntSchema5(t *testing.T) {
 
 	r := bytes.NewReader(buf.Bytes())
 
-	var intToDecodeTo float64
-	var intPtr2 *float64 = &intToDecodeTo
+	var intToDecodeTo int
+	var intPtr2 *int = &intToDecodeTo
 
 	err = fixedIntSchema.Decode(r, &intPtr2)
 	if err != nil {

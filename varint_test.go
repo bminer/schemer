@@ -730,16 +730,16 @@ func TestVarIntSchema4(t *testing.T) {
 
 	r := bytes.NewReader(buf.Bytes())
 
-	var intToDecodeTo float64
-	var intPtr2 *float64 = &intToDecodeTo
+	var intToDecodeTo int
+	var intPtr1 *int = &intToDecodeTo
 
-	err = varIntSchema.Decode(r, &intPtr2)
+	err = varIntSchema.Decode(r, &intPtr1)
 	if err != nil {
 		t.Error(err)
 	}
 
-	// floatPtr should be a nil pointer once we decoded it!
-	if intPtr2 != nil {
+	/// floatPtr should be a nil pointer once we decoded it!
+	if intPtr1 != nil {
 		t.Error("unexpected value decoding null int")
 	}
 

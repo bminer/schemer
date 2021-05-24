@@ -180,7 +180,6 @@ func TestDecodeBool6(t *testing.T) {
 	if err != nil {
 		t.Error("cannot decode binary encoded bool")
 	}
-	decodedBoolSchema = tmp.(*BoolSchema)
 	if decodedBoolSchema.IsNullable != schema.IsNullable {
 		t.Error("unexpected value for BoolSchema")
 	}

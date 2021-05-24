@@ -139,28 +139,32 @@ func (s *BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		return fmt.Errorf("cannot decode using invalid BoolSchema schema")
 	}
 
+	// first byte indicates whether value is null or not...
 	buf := make([]byte, 1)
 	_, err := io.ReadAtLeast(r, buf, 1)
 	if err != nil {
 		return err
 	}
+	valueIsNull := (buf[0] == 1)
 
-	// if the schema indicates this type is nullable
+	// if the data indicates this type is nullable, then the actual
+	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
 	if s.IsNullable {
-		// if value is null, set nil to top level
-		if buf[0] != 0 {
-			if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
-				v = v.Elem()
-				if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
-					// special way to return a nil pointer
+		if valueIsNull {
+			if v.Kind() == reflect.Ptr {
+				if v.CanSet() {
 					v.Set(reflect.Zero(v.Type()))
-				} else {
-					return fmt.Errorf("cannot decode null value to non pointer to pointer type")
+					return nil
 				}
+				v = v.Elem()
+				if v.CanSet() {
+					v.Set(reflect.Zero(v.Type()))
+					return nil
+				}
+				return fmt.Errorf("destination not settable")
 			} else {
 				return fmt.Errorf("cannot decode null value to non pointer to pointer type")
 			}
-			return nil
 		}
 	}
 

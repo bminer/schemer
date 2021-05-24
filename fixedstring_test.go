@@ -3,6 +3,7 @@ package schemer
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"testing"
@@ -206,4 +207,49 @@ func TestDecodeFixedString6(t *testing.T) {
 		t.Errorf("Expected value: %d; Decoded value: %d", i, decodedValue2)
 	}
 
+}
+
+func TestFixedStrWriter(t *testing.T) {
+
+	strToEncode := ""
+	fixedLenStrSchema := FixedStringSchema{FixedLength: 8, IsNullable: false}
+
+	binaryReaderSchema := fixedLenStrSchema.Bytes()
+
+	var encodedData bytes.Buffer
+
+	err := fixedLenStrSchema.Encode(&encodedData, strToEncode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	saveToDisk("/tmp/FixedLenString.schema", binaryReaderSchema)
+	saveToDisk("/tmp/FixedLenString.data", encodedData.Bytes())
+
+}
+
+func TestFixedStrReader(t *testing.T) {
+
+	var strToDecodeTo string
+
+	binarywriterSchema := readFromDisk("/tmp/FixedLenString.schema")
+	writerSchema, err := NewSchema(binarywriterSchema)
+	if err != nil {
+		t.Error("cannot create writerSchema from raw binary data")
+	}
+
+	encodedData := readFromDisk("/tmp/FixedLenString.data")
+	r := bytes.NewReader(encodedData)
+
+	err = writerSchema.Decode(r, &strToDecodeTo)
+	if err != nil {
+		t.Error(err)
+	}
+
+	log.Println(strToDecodeTo)
+
+}
+func TestFixedStrWriterSerialize(t *testing.T) {
+	TestFixedStrWriter(t)
+	TestFixedStrReader(t)
 }

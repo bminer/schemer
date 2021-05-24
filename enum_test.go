@@ -242,3 +242,58 @@ func TestDecodeEnum6(t *testing.T) {
 	}
 
 }
+
+func TestEnumWriter(t *testing.T) {
+
+	enumSchema := EnumSchema{IsNullable: false, WeakDecoding: false}
+
+	// we have to manually fill in the writer's schema
+	enumSchema.Values = make(map[int]string)
+	enumSchema.Values[int(Sunday)] = "Sunday"
+	enumSchema.Values[int(Monday)] = "Monday"
+	enumSchema.Values[int(Tuesday)] = "Tuesday"
+	enumSchema.Values[int(Wednesday)] = "Wednesday"
+	enumSchema.Values[int(Thursday)] = "Thursday"
+	enumSchema.Values[int(Friday)] = "Friday"
+	enumSchema.Values[int(Saturday)] = "Saturday"
+
+	enumToDecode := Saturday
+	binaryReaderSchema := enumSchema.Bytes()
+
+	var encodedData bytes.Buffer
+
+	err := enumSchema.Encode(&encodedData, enumToDecode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	saveToDisk("/tmp/Enum.schema", binaryReaderSchema)
+	saveToDisk("/tmp/Enum.data", encodedData.Bytes())
+
+}
+
+func TestEnumReader(t *testing.T) {
+
+	var enumToDecode int
+
+	binarywriterSchema := readFromDisk("/tmp/Enum.schema")
+	writerSchema, err := NewSchema(binarywriterSchema)
+	if err != nil {
+		t.Error("cannot create writerSchema from raw binary data")
+	}
+
+	encodedData := readFromDisk("/tmp/Enum.data")
+	r := bytes.NewReader(encodedData)
+
+	err = writerSchema.Decode(r, &enumToDecode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	fmt.Println(enumToDecode)
+
+}
+func TestEnumSerialize(t *testing.T) {
+	TestEnumWriter(t)
+	TestEnumReader(t)
+}

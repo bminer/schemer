@@ -16,7 +16,7 @@ type FloatSchema struct {
 	IsNullable   bool
 }
 
-func (s *FloatSchema) Valid() bool {
+func (s *FloatSchema) IsValid() bool {
 	return s.Bits == 32 || s.Bits == 64
 }
 
@@ -68,7 +68,7 @@ func (s *FloatSchema) Bytes() []byte {
 // if this function is called MarshalJSON it seems to be called
 // recursively by the json library???
 func (s *FloatSchema) DoMarshalJSON() ([]byte, error) {
-	if !s.Valid() {
+	if !s.IsValid() {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
 
@@ -84,47 +84,47 @@ func (s *FloatSchema) DoUnmarshalJSON(buf []byte) error {
 // Encode uses the schema to write the encoded value of v to the output stream
 func (s *FloatSchema) Encode(w io.Writer, i interface{}) error {
 
-	// just double check the schema they are using
-	if !s.Valid() {
-		return fmt.Errorf("cannot encode using invalid floating point schema")
-	}
-
 	if i == nil {
 		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
+	}
+
+	// just double check the schema they are using
+	if !s.IsValid() {
+		return fmt.Errorf("cannot encode using invalid StringSchema schema")
 	}
 
 	v := reflect.ValueOf(i)
 
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
-		if v.IsNil() {
-			if !v.CanSet() {
-				return fmt.Errorf("decode destination is not settable")
-			}
-			v.Set(reflect.New(v.Type().Elem()))
-		}
 		v = v.Elem()
 	}
-	t := v.Type()
-	k := t.Kind()
 
 	if s.IsNullable {
-		// did the caller pass in a nil value, or a null pointer
-		if reflect.TypeOf(v).Kind() == reflect.Ptr ||
-			reflect.TypeOf(v).Kind() == reflect.Interface &&
-				reflect.ValueOf(i).IsNil() {
-			// we encode a null value by writing a single non 0 byte
+		// did the caller pass in a nil value, or a null pointer?
+		if !v.IsValid() {
+
+			fmt.Println("value encoded as a null...")
+
+			// per the revised spec, 1 indicates null
 			w.Write([]byte{1})
 			return nil
 		} else {
-			// 0 means not null (with actual encoded bytes to follow)
+			// 0 indicates not null
 			w.Write([]byte{0})
 		}
 	} else {
-		if i == nil {
+		// if nullable is false
+		// but they are trying to encode a nil value.. then that is an error
+		if !v.IsValid() {
 			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
 		}
+		// 0 indicates not null
+		w.Write([]byte{0})
 	}
+
+	t := v.Type()
+	k := t.Kind()
 
 	if k != reflect.Float32 && k != reflect.Float64 {
 		return fmt.Errorf("FloatSchema only supports encoding float32 and float64 values")
@@ -187,57 +187,51 @@ func (s *FloatSchema) Decode(r io.Reader, i interface{}) error {
 func (s *FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
-	if !s.Valid() {
+	if !s.IsValid() {
 		return fmt.Errorf("cannot decode using invalid floating point schema")
 	}
 
-	// if the schema indicates this type is nullable, then the actual floating point
+	// first byte indicates whether value is null or not....
+	buf := make([]byte, 1)
+	_, err := io.ReadAtLeast(r, buf, 1)
+	if err != nil {
+		return err
+	}
+	valueIsNull := (buf[0] == 1)
+
+	// if the data indicates this type is nullable, then the actual floating point
 	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
 	if s.IsNullable {
-		buf := make([]byte, 1)
-		_, err := io.ReadAtLeast(r, buf, 1)
-		if err != nil {
-			return err
-		}
-		// if value is null,
-		if buf[0] != 0 {
-			if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface ||
-				v.Kind() == reflect.Slice || v.Kind() == reflect.Map {
-				v = v.Elem()
-				if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface ||
-					v.Kind() == reflect.Slice || v.Kind() == reflect.Map {
-					// special way to return a nil pointer
+		if valueIsNull {
+			if v.Kind() == reflect.Ptr {
+				if v.CanSet() {
 					v.Set(reflect.Zero(v.Type()))
-				} else {
-					return fmt.Errorf("cannot decode null value to non pointer to pointer type")
+					return nil
 				}
+				v = v.Elem()
+				if v.CanSet() {
+					v.Set(reflect.Zero(v.Type()))
+					return nil
+				}
+				return fmt.Errorf("destination not settable")
 			} else {
 				return fmt.Errorf("cannot decode null value to non pointer to pointer type")
 			}
-			return nil
 		}
 	}
 
 	// Dereference pointer / interface types
-	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface ||
-		k == reflect.Slice || k == reflect.Map; k = v.Kind() {
-
+	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
 		if v.IsNil() {
 			if !v.CanSet() {
 				return fmt.Errorf("decode destination is not settable")
 			}
 			v.Set(reflect.New(v.Type().Elem()))
 		}
-
 		v = v.Elem()
 	}
 	t := v.Type()
 	k := t.Kind()
-
-	// Ensure v is settable
-	if !v.CanSet() {
-		return fmt.Errorf("decode destination is not settable")
-	}
 
 	var decodedFloat64 float64
 
@@ -272,6 +266,11 @@ func (s *FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 			uint64(buf[7])<<56
 		decodedFloat64 = math.Float64frombits(raw64)
 
+	}
+
+	// Ensure v is settable
+	if !v.CanSet() {
+		return fmt.Errorf("decode destination is not settable")
 	}
 
 	// Write to destination

@@ -19,15 +19,12 @@ func TestVarString1(t *testing.T) {
 	b := schema.Bytes()
 
 	// make sure we can successfully decode it
-	var decodedStringSchema VarLenStringSchema
-	var err error
-
 	tmp, err := NewSchema(b)
 	if err != nil {
 		t.Error("cannot decode binary encoded string schema")
 	}
 
-	decodedStringSchema = tmp.(VarLenStringSchema)
+	decodedStringSchema := tmp.(*VarLenStringSchema)
 	if schema.IsNullable != decodedStringSchema.IsNullable {
 
 		// nothing else to test here...

@@ -1,8 +1,8 @@
 package schemer
 
 import (
+	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -51,6 +51,12 @@ func (s *FixedStringSchema) Bytes() []byte {
 	// set bit 3, which indicates this is fixed len string
 	schema[0] |= 4
 
+	// encode fixed length as a varint
+	buf := make([]byte, binary.MaxVarintLen64)
+	varIntByteLength := binary.PutVarint(buf, int64(s.FixedLength))
+
+	schema = append(schema, buf[0:varIntByteLength]...)
+
 	return schema
 }
 
@@ -82,6 +88,9 @@ func (s *FixedStringSchema) Encode(w io.Writer, i interface{}) error {
 		if i == nil {
 			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
 		}
+
+		// 0 indicates not null
+		w.Write([]byte{0})
 	}
 
 	v := reflect.ValueOf(i)
@@ -110,10 +119,17 @@ func (s *FixedStringSchema) Encode(w io.Writer, i interface{}) error {
 	formatString := "%-" + strconv.Itoa(s.FixedLength) + "v"
 	stringToEncode = fmt.Sprintf(formatString, stringToEncode)
 
-	n, err := w.Write([]byte(stringToEncode))
-	if err == nil && n != s.FixedLength {
-		return errors.New("unexpected number of bytes written")
+	_, err := w.Write([]byte(stringToEncode))
+	if err != nil {
+		return err
 	}
+	/*
+		this is not true, because n represents the number of BYTES written
+		whereas fixedLength really means the number of RUNES
+		if n != s.FixedLength {
+			return errors.New("unexpected number of bytes written")
+		}
+	*/
 
 	return nil
 }
@@ -137,7 +153,7 @@ func (s *FixedStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		return fmt.Errorf("cannot decode using invalid StringSchema schema")
 	}
 
-	// data is proceeded by one byte, which means
+	// data is proceeded by one byte, which says if the field is nullable
 	buf := make([]byte, 1)
 	_, err := io.ReadAtLeast(r, buf, 1)
 	if err != nil {
@@ -150,31 +166,35 @@ func (s *FixedStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	if s.IsNullable {
 		if tmpByte == 1 {
 			if v.Kind() == reflect.Ptr {
-				v = v.Elem()
-				if v.Kind() == reflect.Ptr {
-					// special way to return a nil pointer
+				if v.CanSet() {
 					v.Set(reflect.Zero(v.Type()))
-				} else {
-					return fmt.Errorf("cannot decode null value to non pointer to (bool) pointer type")
+					return nil
 				}
+				v = v.Elem()
+				if v.CanSet() {
+					v.Set(reflect.Zero(v.Type()))
+					return nil
+				}
+				return fmt.Errorf("destination not settable")
 			} else {
-				return fmt.Errorf("cannot decode null value to non pointer to (bool) pointer type")
+				return fmt.Errorf("cannot decode null value to non pointer to pointer type")
 			}
-			return nil
 		}
 	}
 
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+		if v.IsNil() {
+			if !v.CanSet() {
+				return fmt.Errorf("decode destination is not settable")
+			}
+			v.Set(reflect.New(v.Type().Elem()))
+		}
+
 		v = v.Elem()
 	}
 	t := v.Type()
 	k := t.Kind()
-
-	// Ensure v is settable
-	if !v.CanSet() {
-		return fmt.Errorf("decode destination is not settable")
-	}
 
 	var decodedString string
 
@@ -189,6 +209,11 @@ func (s *FixedStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// but for conversions, having a trimmed up string will make things easier
 	trimString := strings.Trim(decodedString, " ")
+
+	// Ensure v is settable
+	if !v.CanSet() {
+		return fmt.Errorf("decode destination is not settable")
+	}
 
 	// take a look at the destination
 	// bools can be decoded to integer types, bools, and strings

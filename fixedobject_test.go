@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"reflect"
 	"testing"
 )
 
@@ -40,34 +39,14 @@ func TestDecodeFixedObject1(t *testing.T) {
 
 }
 
+// TestDecodeFixedObject2 tests encoding a nil string value
 func TestDecodeFixedObject2(t *testing.T) {
 
-	type TestStructToNest2 struct {
-		A [3]int8
-		B []string
-		C *string
-		D **int
+	type StructToEncode struct {
+		XX *string `schemer:""`
 	}
 
-	type TestStructToNest struct {
-		Test123 float64
-		M       map[string]int
-		J       TestStructToNest2
-	}
-
-	type TestStruct struct {
-		A string
-		T TestStructToNest
-	}
-
-	i := 10
-	var iptr *int = &i
-
-	var structToEncode = TestStruct{"ben", TestStructToNest{99.9, map[string]int{
-		"a": 1,
-		"b": 2,
-		"d": 3},
-		TestStructToNest2{[3]int8{4, 5, 6}, []string{"go", "reflection", "rocks"}, nil, &iptr}}}
+	var structToEncode *StructToEncode = &(StructToEncode{})
 
 	var buf bytes.Buffer
 	var err error
@@ -76,53 +55,8 @@ func TestDecodeFixedObject2(t *testing.T) {
 
 	fixedObjectSchema := SchemaOf(&structToEncode)
 
-	err = fixedObjectSchema.Encode(&buf, structToEncode)
-	if err != nil {
-		t.Error(err)
-	}
-
-	log.Print(buf.Bytes())
-
-	fmt.Println("struct to struct")
-
-	r := bytes.NewReader(buf.Bytes())
-
-	var structToDecode = TestStruct{}
-
-	log.Print(structToEncode)
-
-	err = fixedObjectSchema.DecodeValue(r, reflect.ValueOf(&structToDecode))
-	if err != nil {
-		t.Error(err)
-	}
-
-	log.Print(structToDecode)
-
-	/*
-		if err != nil {
-			t.Error(err)
-		}
-
-		if !reflect.DeepEqual(structToEncode, structToDecode) {
-			t.Error("unexpected struct to struct decode")
-		}
-
-	*/
-
-}
-
-func TestDecodeFixedObject4(t *testing.T) {
-
-	type TestStruct struct {
-		A string
-	}
-
-	var structToEncode *TestStruct
-
-	var buf bytes.Buffer
-	var err error
-
-	fixedObjectSchema := SchemaOf(&structToEncode)
+	// test overririding the nullability of the string...
+	//fixedObjectSchema.(*FixedObjectSchema).Fields[0].Schema.(*VarLenStringSchema).IsNullable = false
 
 	err = fixedObjectSchema.Encode(&buf, structToEncode)
 	if err != nil {
@@ -131,59 +65,24 @@ func TestDecodeFixedObject4(t *testing.T) {
 
 	r := bytes.NewReader(buf.Bytes())
 
-	var structToDecode = TestStruct{}
+	type StructToDecode struct {
+		YY *string `schemer:"[XX]"`
+	}
 
-	err = fixedObjectSchema.DecodeValue(r, reflect.ValueOf(&structToDecode))
+	var structToDecode = StructToDecode{}
 
+	fmt.Println(structToEncode)
+
+	err = fixedObjectSchema.Decode(r, &structToDecode)
 	if err != nil {
 		t.Error(err)
 	}
 
-}
-
-func TestDecodeFixedObject3(t *testing.T) {
-
-	type TestStructToNest struct {
-		Test123 float64
-		M       map[string]int
+	if structToDecode.YY == nil {
+		fmt.Println("YY decoded as null value...")
+	} else {
+		fmt.Println(*structToDecode.YY)
 	}
-
-	type TestStruct struct {
-		A string
-		T *TestStructToNest
-	}
-
-	var structToEncode = TestStruct{}
-	structToEncode.A = "ben"
-	structToEncode.T = nil
-
-	//var buf bytes.Buffer
-	//var err error
-
-	_ = SchemaOf(&structToEncode)
-
-	//err = fixedObjectSchema.Encode(&buf, structToEncode)
-	//if err != nil {
-	//t.Error(err)
-	//}
-
-	//r := bytes.NewReader(buf.Bytes())
-
-	//var structToDecode = TestStruct{}
-
-	//err = fixedObjectSchema.DecodeValue(r, reflect.ValueOf(&structToDecode))
-
-	//structToDecode.T.Test123 = 3.14
-	//structToDecode.T.M["a"] = 1
-
-	//log.Print(structToDecode.T.Test123)
-	//log.Print(structToDecode.T.M)
-
-	/*
-		if err != nil {
-			t.Error(err)
-		}
-	*/
 
 }
 
@@ -244,14 +143,14 @@ func TestDecodeFixedObject5(t *testing.T) {
 
 }
 
-func SaveToDisk(fileName string, rawBytes []byte) {
+func saveToDisk(fileName string, rawBytes []byte) {
 	err := ioutil.WriteFile(fileName, rawBytes, 0644)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func ReadFromDisk(fileName string) []byte {
+func readFromDisk(fileName string) []byte {
 	b, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		log.Fatal(err)
@@ -259,18 +158,74 @@ func ReadFromDisk(fileName string) []byte {
 	return b
 }
 
-func TestWriter(t *testing.T) {
+func TestFixedObjectWriter(t *testing.T) {
 
-	type SourceStruct struct {
-		XXX       string `schemer:"FName"`
-		LName     string `schemer:"LastName"`
-		AgeInLife int    `schemer:"Age"`
+	type EmbeddedStruct struct {
+		Int1 int64
+		Int2 *int64
 	}
 
-	var structToEncode = SourceStruct{XXX: "ben", LName: "pritchard", AgeInLife: 42}
+	type SourceStruct struct {
+		IntField1 int
+		IntField2 *int
+
+		Map1 map[string]bool
+		Map2 *map[string]bool
+
+		Bool1 bool
+		Bool2 *bool
+
+		Complex1 complex64
+		Complex2 *complex64
+
+		Array1 [5]string
+		Array2 *[5]string
+
+		Object1 EmbeddedStruct
+		Object2 *EmbeddedStruct
+
+		Float1 float64
+		Float2 *float64
+
+		String1 string
+		String2 *string
+
+		Slice1 []string
+		Slice2 *[]string
+	}
+
+	// encode a nill value for field1
+	var structToEncode SourceStruct
+
+	structToEncode.IntField1 = 101
+	structToEncode.IntField2 = nil
+
+	structToEncode.Map1 = map[string]bool{"A": true, "B": false}
+	structToEncode.Map2 = nil
+
+	structToEncode.Bool1 = true
+	structToEncode.Bool2 = nil
+
+	structToEncode.Complex1 = 3 + 2i
+	structToEncode.Complex2 = nil
+
+	structToEncode.Array1 = [5]string{"1", "2", "3", "4", "5"}
+	structToEncode.Array2 = nil
+
+	structToEncode.Object1 = EmbeddedStruct{Int1: 3, Int2: nil}
+	structToEncode.Object2 = nil
+
+	structToEncode.Float1 = 3.14
+	structToEncode.Float2 = nil
+
+	structToEncode.String1 = "hello, world"
+	structToEncode.String2 = nil
+
+	structToEncode.Slice1 = []string{"a", "b", "c"}
+	structToEncode.Slice2 = nil
 
 	writerSchema := SchemaOf(&structToEncode)
-	binaryReaderSchema := writerSchema.Bytes()
+	binaryWriterSchema := writerSchema.Bytes()
 
 	var encodedData bytes.Buffer
 
@@ -279,30 +234,56 @@ func TestWriter(t *testing.T) {
 		t.Error(err)
 	}
 
-	SaveToDisk("/tmp/test.schema", binaryReaderSchema)
-	SaveToDisk("/tmp/test.data", encodedData.Bytes())
+	saveToDisk("/tmp/test.schema", binaryWriterSchema)
+	saveToDisk("/tmp/test.data", encodedData.Bytes())
 
 }
 
-func TestReader(t *testing.T) {
+func TestFixedObjectReader(t *testing.T) {
 
-	// different order
-	// different names
+	type EmbeddedStruct struct {
+		Int1 int64
+		Int2 *int64
+	}
+
 	type DestinationStruct struct {
-		Age      int    `schemer:"AgeInLife"`
-		LastName string `schemer:"LName"`
-		YYY      string `schemer:"FName"`
+		IntField1 int
+		IntField2 *int
+
+		Map1 map[string]bool
+		Map2 *map[string]bool
+
+		Bool1 bool
+		Bool2 *bool
+
+		Complex1 complex64
+		Complex2 *complex64
+
+		Array1 [5]string
+		Array2 *[5]string
+
+		Object1 EmbeddedStruct
+		Object2 *EmbeddedStruct
+
+		Float1 float64
+		Float2 *float64
+
+		String1 string
+		String2 *string
+
+		Slice1 []string
+		Slice2 *[]string
 	}
 
 	var structToDecode = DestinationStruct{}
 
-	binarywriterSchema := ReadFromDisk("/tmp/test.schema")
+	binarywriterSchema := readFromDisk("/tmp/test.schema")
 	writerSchema, err := NewSchema(binarywriterSchema)
 	if err != nil {
 		t.Error("cannot create writerSchema from raw binary data")
 	}
 
-	encodedData := ReadFromDisk("/tmp/test.data")
+	encodedData := readFromDisk("/tmp/test.data")
 	r := bytes.NewReader(encodedData)
 
 	err = writerSchema.Decode(r, &structToDecode)
@@ -310,10 +291,11 @@ func TestReader(t *testing.T) {
 		t.Error(err)
 	}
 
-	log.Println(structToDecode)
+	fmt.Println(structToDecode)
 
 }
-func TestBoth(t *testing.T) {
-	TestReader(t)
-	TestWriter(t)
+func TestFixedObjectSerialize(t *testing.T) {
+	TestFixedObjectWriter(t)
+	TestFixedObjectReader(t)
+
 }

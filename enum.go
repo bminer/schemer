@@ -1,6 +1,7 @@
 package schemer
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -43,6 +44,17 @@ func (s EnumSchema) Bytes() []byte {
 	if s.IsNullable {
 		schema[0] |= 1
 	}
+
+	// write all the enumerated values as part of the schema...
+	var buf bytes.Buffer
+
+	varObjectSchema := SchemaOf(s.Values)
+	err := varObjectSchema.Encode(&buf, s.Values)
+	if err != nil {
+		return nil
+	}
+
+	schema = append(schema, buf.Bytes()...)
 
 	return schema
 
@@ -90,13 +102,16 @@ func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	// now we check to see if varIntSchema.Decode returned us a nil value
 	if intPtr == nil {
 		if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
-			v = v.Elem()
-			if v.Kind() == reflect.Ptr {
-				// special way to return a nil pointer
+			if v.CanSet() {
 				v.Set(reflect.Zero(v.Type()))
-			} else {
-				return fmt.Errorf("cannot decode null value to non pointer to pointer type")
+				return nil
 			}
+			v = v.Elem()
+			if v.CanSet() {
+				v.Set(reflect.Zero(v.Type()))
+				return nil
+			}
+			return fmt.Errorf("destination not settable")
 		} else {
 			return fmt.Errorf("cannot decode null value to non pointer to pointer type")
 		}

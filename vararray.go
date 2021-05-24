@@ -65,32 +65,36 @@ func (s *VarArraySchema) Encode(w io.Writer, i interface{}) error {
 		return fmt.Errorf("cannot encode using invalid VarArraySchema schema")
 	}
 
-	if s.IsNullable {
-		// did the caller pass in a nil value, or a null pointer?
-		if reflect.TypeOf(i).Kind() == reflect.Ptr ||
-			reflect.TypeOf(i).Kind() == reflect.Interface &&
-				reflect.ValueOf(i).IsNil() {
-
-			/// per the revised spec, 1 indicates null
-			w.Write([]byte{1})
-			return nil
-		} else {
-			// TODO: update the SPEC (encoding-format.md)
-			// 0 means not null (with actual encoded bytes to follow)
-			w.Write([]byte{0})
-		}
-	} else {
-		if i == nil {
-			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
-		}
-	}
-
 	v := reflect.ValueOf(i)
 
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
-		i = v.Elem()
+		v = v.Elem()
 	}
+
+	if s.IsNullable {
+		// did the caller pass in a nil value, or a null pointer?
+		if !v.IsValid() {
+
+			fmt.Println("value encoded as a null...")
+
+			// per the revised spec, 1 indicates null
+			w.Write([]byte{1})
+			return nil
+		} else {
+			// 0 indicates not null
+			w.Write([]byte{0})
+		}
+	} else {
+		// if nullable is false
+		// but they are trying to encode a nil value.. then that is an error
+		if !v.IsValid() {
+			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
+		}
+		// 0 indicates not null
+		w.Write([]byte{0})
+	}
+
 	t := v.Type()
 	k := t.Kind()
 
@@ -117,35 +121,48 @@ func (s *VarArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
-		return fmt.Errorf("cannot encode using invalid FixedIntSchema schema")
+		return fmt.Errorf("cannot encode using invalid VarArraySchema schema")
 	}
 
-	// if the schema indicates this type is nullable, then the actual floating point
+	// first byte indicates whether value is null or not...
+	buf := make([]byte, 1)
+	_, err := io.ReadAtLeast(r, buf, 1)
+	if err != nil {
+		return err
+	}
+	valueIsNull := (buf[0] == 1)
+
+	// if the data indicates this type is nullable, then the actual
 	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
 	if s.IsNullable {
-		buf := make([]byte, 1)
-		_, err := io.ReadAtLeast(r, buf, 1)
-		if err != nil {
-			return err
-		}
-		if buf[0] != 0 {
+		if valueIsNull {
 			if v.Kind() == reflect.Ptr {
-				v = v.Elem()
-				if v.Kind() == reflect.Ptr {
-					// special way to return a nil pointer
+				if v.CanSet() {
 					v.Set(reflect.Zero(v.Type()))
-				} else {
-					return fmt.Errorf("cannot decode null value to non pointer to pointer type")
+					return nil
 				}
+				v = v.Elem()
+				if v.CanSet() {
+					v.Set(reflect.Zero(v.Type()))
+					return nil
+				}
+				return fmt.Errorf("destination not settable")
 			} else {
 				return fmt.Errorf("cannot decode null value to non pointer to pointer type")
 			}
-			return nil
 		}
 	}
 
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+
+		if v.IsNil() {
+			if !v.CanSet() {
+				return fmt.Errorf("decode destination is not settable")
+			}
+			v.Set(reflect.New(v.Type().Elem()))
+		}
+
 		v = v.Elem()
 	}
 	t := v.Type()

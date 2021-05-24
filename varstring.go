@@ -15,27 +15,27 @@ type VarLenStringSchema struct {
 	WeakDecoding bool
 }
 
-func (s VarLenStringSchema) IsValid() bool {
+func (s *VarLenStringSchema) IsValid() bool {
 
 	return true
 }
 
 // fixme
-func (s VarLenStringSchema) DoMarshalJSON() ([]byte, error) {
+func (s *VarLenStringSchema) DoMarshalJSON() ([]byte, error) {
 
 	return json.Marshal(s)
 
 }
 
 // fixme
-func (s VarLenStringSchema) DoUnmarshalJSON(buf []byte) error {
+func (s *VarLenStringSchema) DoUnmarshalJSON(buf []byte) error {
 
 	return json.Unmarshal(buf, s)
 
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s VarLenStringSchema) Bytes() []byte {
+func (s *VarLenStringSchema) Bytes() []byte {
 
 	// string schemas are 1 byte long
 	var schema []byte = make([]byte, 1)
@@ -53,7 +53,7 @@ func (s VarLenStringSchema) Bytes() []byte {
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s VarLenStringSchema) Encode(w io.Writer, i interface{}) error {
+func (s *VarLenStringSchema) Encode(w io.Writer, i interface{}) error {
 
 	if i == nil {
 		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
@@ -70,14 +70,12 @@ func (s VarLenStringSchema) Encode(w io.Writer, i interface{}) error {
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
 		v = v.Elem()
 	}
-	t := v.Type()
-	k := t.Kind()
 
 	if s.IsNullable {
 		// did the caller pass in a nil value, or a null pointer?
-		if (reflect.TypeOf(i).Kind() == reflect.Ptr ||
-			reflect.TypeOf(i).Kind() == reflect.Interface) &&
-			reflect.ValueOf(i).IsNil() {
+		if !v.IsValid() {
+
+			fmt.Println("value encoded as a null...")
 
 			// per the revised spec, 1 indicates null
 			w.Write([]byte{1})
@@ -87,13 +85,17 @@ func (s VarLenStringSchema) Encode(w io.Writer, i interface{}) error {
 			w.Write([]byte{0})
 		}
 	} else {
-		if i == nil {
+		// if nullable is false
+		// but they are trying to encode a nil value.. then that is an error
+		if !v.IsValid() {
 			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
 		}
-
 		// 0 indicates not null
 		w.Write([]byte{0})
 	}
+
+	t := v.Type()
+	k := t.Kind()
 
 	if k != reflect.String {
 		return fmt.Errorf("StringSchema only supports encoding string values")
@@ -116,38 +118,35 @@ func (s VarLenStringSchema) Encode(w io.Writer, i interface{}) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s VarLenStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+func (s *VarLenStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
 		return fmt.Errorf("cannot decode using invalid VarLenStringSchema schema")
 	}
 
-	// TODO: update the spec to reflect this change
-	// data is proceeded by one byte which tells us if the data is null or not
+	// first byte indicates whether value is null or not....
 	buf := make([]byte, 1)
 	_, err := io.ReadAtLeast(r, buf, 1)
 	if err != nil {
 		return err
 	}
-	tmpByte := buf[0]
+	valueIsNull := (buf[0] == 1)
 
-	// if the data indicates this type is nullable, then the actual floating point
+	// if the data indicates this type is nullable, then the actual
 	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
 	if s.IsNullable {
-		if tmpByte == 1 {
+		if valueIsNull {
 			if v.Kind() == reflect.Ptr {
-				v = v.Elem()
-				if v.Kind() == reflect.Ptr {
-					// special way to return a nil pointer
+				if v.CanSet() {
 					v.Set(reflect.Zero(v.Type()))
+					return nil
 				} else {
-					return fmt.Errorf("cannot decode null value to non pointer to (string) pointer type")
+					return fmt.Errorf("destination not settable")
 				}
 			} else {
 				return fmt.Errorf("cannot decode null value to non pointer to (string) pointer type")
 			}
-			return nil
 		}
 	}
 
@@ -175,18 +174,18 @@ func (s VarLenStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		return err
 	}
 
+	// when we return as a string, we will return it with the padding intact
+	decodedString := string(buf)
+
+	// but for conversions, having a trimmed up string will make things easier
+	trimString := strings.Trim(decodedString, " ")
+
 	// Ensure v is settable
 	// however: one important thing is to do make sure to process as many bytes as we are going to
 	// read from r before we do this
 	if !v.CanSet() {
 		return fmt.Errorf("decode destination is not settable")
 	}
-
-	// when we return as a string, we will return it with the padding intact
-	decodedString := string(buf)
-
-	// but for conversions, having a trimmed up string will make things easier
-	trimString := strings.Trim(decodedString, " ")
 
 	// take a look at the destination
 	// bools can be decoded to integer types, bools, and strings
@@ -272,7 +271,7 @@ func (s VarLenStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s VarLenStringSchema) Decode(r io.Reader, i interface{}) error {
+func (s *VarLenStringSchema) Decode(r io.Reader, i interface{}) error {
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
 	}
@@ -282,7 +281,7 @@ func (s VarLenStringSchema) Decode(r io.Reader, i interface{}) error {
 	return s.DecodeValue(r, v)
 }
 
-func (s VarLenStringSchema) Nullable() bool {
+func (s *VarLenStringSchema) Nullable() bool {
 	return s.IsNullable
 }
 

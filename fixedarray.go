@@ -1,6 +1,7 @@
 package schemer
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,6 +32,12 @@ func (s *FixedLenArraySchema) Bytes() []byte {
 		schema[0] |= 1
 	}
 
+	// encode array fixed length as a varint
+	buf := make([]byte, binary.MaxVarintLen64)
+	varIntByteLength := binary.PutVarint(buf, int64(s.Length))
+	schema = append(schema, buf[0:varIntByteLength]...)
+
+	// now encode the schema for the type of this array
 	schema = append(schema, s.Element.Bytes()...)
 
 	return schema
@@ -116,7 +123,7 @@ func (s *FixedLenArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.IsValid() {
-		return fmt.Errorf("cannot encode using invalid FixedIntSchema schema")
+		return fmt.Errorf("cannot decode using invalid FixedLenArraySchema schema")
 	}
 
 	// if the schema indicates this type is nullable, then the actual floating point
@@ -129,22 +136,31 @@ func (s *FixedLenArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		}
 		if buf[0] != 0 {
 			if v.Kind() == reflect.Ptr {
-				v = v.Elem()
-				if v.Kind() == reflect.Ptr {
-					// special way to return a nil pointer
+				if v.CanSet() {
 					v.Set(reflect.Zero(v.Type()))
-				} else {
-					return fmt.Errorf("cannot decode null value to non pointer to pointer type")
+					return nil
 				}
+				v = v.Elem()
+				if v.CanSet() {
+					v.Set(reflect.Zero(v.Type()))
+					return nil
+				}
+				return fmt.Errorf("destination not settable")
 			} else {
 				return fmt.Errorf("cannot decode null value to non pointer to pointer type")
 			}
-			return nil
 		}
 	}
 
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+		if v.IsNil() {
+			if !v.CanSet() {
+				return fmt.Errorf("decode destination is not settable")
+			}
+			v.Set(reflect.New(v.Type().Elem()))
+		}
+
 		v = v.Elem()
 	}
 	t := v.Type()
