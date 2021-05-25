@@ -1,9 +1,6 @@
 # Notes
 
-- issues
-    - how to implement SetNullable() in Schema Interface if it requires a pointer receiver?
-
-- Schema
+- Done
     - JSON encoding / decoding
     - Nullable() / SetNullable()
     - Remove Create...Schema() functions
@@ -25,9 +22,6 @@
     - Rename fixedlenstring to fixedstring
     - Remove spaces at top / bottom of functions / cases in switch statements, etc.
     - casing of variables
-
-
-type Person struct {
-    LastName string `schemer:"lname"`
-    FirstName string `schemer:"fname"`
-}
+- 2020-05-25
+    - schemer.go
+        - 
