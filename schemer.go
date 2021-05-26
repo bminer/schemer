@@ -32,9 +32,6 @@ type Schema interface {
 	// MarshalJSON returns the JSON encoding of the schema
 	MarshalJSON() ([]byte, error)
 
-	// UnmarshalJSON updates the schema by decoding the JSON-encoded schema in b
-	UnmarshalJSON(b []byte) error
-
 	// Nullable returns true if and only if the type is nullable
 	Nullable() bool
 
@@ -351,16 +348,30 @@ func SchemaOfType(t reflect.Type) Schema {
 
 }
 
-func NewSchema(buf []byte) (Schema, error) {
+// DecodeSchema takes a buffer of bytes representing a binary schema, and returns a Schema (by
+// calling the routine decodeSchemaInternal.) After the schema is decoded, byteIndex is
+// reset, so that we can process another Schema
+func DecodeSchema(buf []byte) (Schema, error) {
 
-	tmp, err := newSchemaInternal(buf)
-	byteIndex = 0
+	byteIndex = 0 // always start at the beginning of the buffer
+
+	// and then decodeSchemaInternal() will advance byteIndex as it goes
+	tmp, err := decodeSchemaInternal(buf)
 
 	return tmp, err
 }
 
-// NewSchema decodes a schema stored in buf and returns an error if the schema is invalid
-func newSchemaInternal(buf []byte) (Schema, error) {
+// DecodeJSONSchema takes a buffer of JSON data and parses it to create a schema
+func DecodeJSONSchema(buf []byte) (Schema, error) {
+	return nil, nil
+}
+
+// decodeSchemaInternal processes buf[] to actually decode the binary schema.
+// As each byte is processed, this routine advances byteIndex, which indicates
+// how far into the buffer we have processed already.
+// Note that any recursive calls inside of this routine should call decodeSchemaInternal()
+// not DecodeSchema
+func decodeSchemaInternal(buf []byte) (Schema, error) {
 
 	var bit3IsSet bool
 	var err error
@@ -522,7 +533,7 @@ func newSchemaInternal(buf []byte) (Schema, error) {
 		// advance ahead into the buffer as many bytes as ReadVarint consumed...
 		byteIndex = byteIndex + (origBufferSize - r.Len())
 
-		fixedLenArraySchema.Element, err = newSchemaInternal(buf)
+		fixedLenArraySchema.Element, err = decodeSchemaInternal(buf)
 		if err != nil {
 			return nil, err
 		}
@@ -538,7 +549,7 @@ func newSchemaInternal(buf []byte) (Schema, error) {
 		varArraySchema.IsNullable = (buf[byteIndex]&1 == 1)
 		byteIndex++
 
-		varArraySchema.Element, err = newSchemaInternal(buf)
+		varArraySchema.Element, err = decodeSchemaInternal(buf)
 		if err != nil {
 			return nil, err
 		}
@@ -553,12 +564,12 @@ func newSchemaInternal(buf []byte) (Schema, error) {
 		varObjectSchema.IsNullable = (buf[byteIndex]&1 == 1)
 		byteIndex++
 
-		varObjectSchema.Key, err = newSchemaInternal(buf)
+		varObjectSchema.Key, err = decodeSchemaInternal(buf)
 		if err != nil {
 			return nil, err
 		}
 
-		varObjectSchema.Value, err = newSchemaInternal(buf)
+		varObjectSchema.Value, err = decodeSchemaInternal(buf)
 		if err != nil {
 			return nil, err
 		}
@@ -571,19 +582,37 @@ func newSchemaInternal(buf []byte) (Schema, error) {
 		var fixedObjectSchema *FixedObjectSchema = &(FixedObjectSchema{})
 
 		fixedObjectSchema.IsNullable = (buf[byteIndex]&1 == 1)
-
 		byteIndex++
 
-		var numFields int = int(buf[byteIndex])
-		byteIndex++
+		// read out total number of fields (which was encoded as a varInt)
+		r := bytes.NewReader(buf[byteIndex:])
+		origBufferSize := r.Len()
+		numFields, err := binary.ReadVarint(r)
 
-		for i := 0; i < numFields; i++ {
+		if err != nil {
+			return nil, err
+		}
+
+		// advance ahead into the buffer as many bytes as ReadVarint consumed...
+		byteIndex = byteIndex + (origBufferSize - r.Len())
+
+		for i := 0; i < int(numFields); i++ {
 			var of ObjectField = ObjectField{}
-			var numAlias int = int(buf[byteIndex])
-			byteIndex++
+
+			// read out total number of aliases for this field (which was encoded as a varInt)
+			r := bytes.NewReader(buf[byteIndex:])
+			origBufferSize = r.Len()
+			numAlias, err := binary.ReadVarint(r)
+
+			if err != nil {
+				return nil, err
+			}
+
+			// advance ahead into the buffer as many bytes as ReadVarint consumed...
+			byteIndex = byteIndex + (origBufferSize - r.Len())
 
 			// read out each alias name...
-			for j := 0; j < numAlias; j++ {
+			for j := 0; j < int(numAlias); j++ {
 				AliasName := ""
 				varLenStringSchema := SchemaOf(AliasName)
 				r := bytes.NewReader(buf[byteIndex:])
@@ -594,8 +623,8 @@ func newSchemaInternal(buf []byte) (Schema, error) {
 				byteIndex = byteIndex + (origBufferSize - r.Len())
 			}
 
-			// newSchemaInternal recursive call will advance byteIndex for each field...
-			of.Schema, err = newSchemaInternal(buf)
+			// decodeSchemaInternal recursive call will advance byteIndex for each field...
+			of.Schema, err = decodeSchemaInternal(buf)
 			if err != nil {
 				return nil, err
 			}

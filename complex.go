@@ -16,20 +16,16 @@ type ComplexSchema struct {
 	WeakDecoding bool
 }
 
-func (s *ComplexSchema) IsValid() bool {
+func (s *ComplexSchema) Valid() bool {
 	return s.Bits == 64 || s.Bits == 128
 }
 
 func (s *ComplexSchema) MarshalJSON() ([]byte, error) {
-	if !s.IsValid() {
+	if !s.Valid() {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
 
 	return json.Marshal(s)
-}
-
-func (s *ComplexSchema) UnmarshalJSON(buf []byte) error {
-	return json.Unmarshal(buf, s)
 }
 
 // Bytes encodes the schema in a portable binary format
@@ -64,7 +60,7 @@ func (s *ComplexSchema) Bytes() []byte {
 func (s *ComplexSchema) Encode(w io.Writer, i interface{}) error {
 
 	// just double check the schema they are using
-	if !s.IsValid() {
+	if !s.Valid() {
 		return fmt.Errorf("cannot encode using invalid ComplexNumber schema")
 	}
 
@@ -181,7 +177,7 @@ func (s *ComplexSchema) Decode(r io.Reader, i interface{}) error {
 func (s *ComplexSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
-	if !s.IsValid() {
+	if !s.Valid() {
 		return fmt.Errorf("cannot decode using invalid ComplexNumber schema")
 	}
 

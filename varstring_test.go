@@ -19,7 +19,7 @@ func TestVarString1(t *testing.T) {
 	b := schema.Bytes()
 
 	// make sure we can successfully decode it
-	tmp, err := NewSchema(b)
+	tmp, err := DecodeSchema(b)
 	if err != nil {
 		t.Error("cannot decode binary encoded string schema")
 	}

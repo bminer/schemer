@@ -13,17 +13,9 @@ type BoolSchema struct {
 	WeakDecoding bool
 }
 
-func (s *BoolSchema) IsValid() bool {
-	return true
-}
-
 func (s *BoolSchema) MarshalJSON() ([]byte, error) {
 	tmpMap := map[string]string{"type": "bool"}
 	return json.Marshal(tmpMap)
-}
-
-func (s *BoolSchema) UnmarshalJSON(buf []byte) error {
-	return json.Unmarshal(buf, s)
 }
 
 // Bytes encodes the schema in a portable binary format
@@ -44,11 +36,6 @@ func (s *BoolSchema) Bytes() []byte {
 
 // Encode uses the schema to write the encoded value of v to the output stream
 func (s *BoolSchema) Encode(w io.Writer, i interface{}) error {
-
-	// just double check the schema they are using
-	if !s.IsValid() {
-		return fmt.Errorf("cannot encode using invalid BoolSchema schema")
-	}
 
 	if i == nil {
 		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
@@ -126,11 +113,6 @@ func (s *BoolSchema) Decode(r io.Reader, i interface{}) error {
 }
 
 func (s *BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
-
-	// just double check the schema they are using
-	if !s.IsValid() {
-		return fmt.Errorf("cannot decode using invalid BoolSchema schema")
-	}
 
 	// first byte indicates whether value is null or not...
 	buf := make([]byte, 1)

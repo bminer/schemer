@@ -16,19 +16,9 @@ type EnumSchema struct {
 	Values map[int]string
 }
 
-func (s *EnumSchema) IsValid() bool {
-	return true
-}
-
 func (s *EnumSchema) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal(s)
-
-}
-
-func (s *EnumSchema) UnmarshalJSON(buf []byte) error {
-
-	return json.Unmarshal(buf, s)
 
 }
 
@@ -115,7 +105,6 @@ func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		} else {
 			return fmt.Errorf("cannot decode null value to non pointer to pointer type")
 		}
-		return nil
 	}
 
 	// check to see if the decoded value is in our map of enumerated values

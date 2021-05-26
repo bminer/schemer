@@ -30,7 +30,7 @@ func TestDecodeEnum1(t *testing.T) {
 
 	// make sure we can successfully decode it
 
-	tmp, err := NewSchema(b)
+	tmp, err := DecodeSchema(b)
 	if err != nil {
 		t.Error("cannot encode binary encoded enumSchema")
 	}
@@ -277,7 +277,7 @@ func TestEnumReader(t *testing.T) {
 	var enumToDecode int
 
 	binarywriterSchema := readFromDisk("/tmp/Enum.schema")
-	writerSchema, err := NewSchema(binarywriterSchema)
+	writerSchema, err := DecodeSchema(binarywriterSchema)
 	if err != nil {
 		t.Error("cannot create writerSchema from raw binary data")
 	}

@@ -1,7 +1,6 @@
 package schemer
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -16,29 +15,13 @@ type FloatSchema struct {
 	IsNullable   bool
 }
 
-func (s *FloatSchema) IsValid() bool {
+func (s *FloatSchema) Valid() bool {
 	return s.Bits == 32 || s.Bits == 64
 }
 
 // fixme
 func (s *FloatSchema) MarshalJSON() ([]byte, error) {
-
-	/*
-		type tmpFloatSchema FloatSchema
-
-		return json.Marshal(struct {
-			tmpFloatSchema
-		}{
-			tmpFloatSchema: tmpFloatSchema(s),
-		})
-	*/
-
 	return nil, nil
-
-}
-
-func (s *FloatSchema) UnmarshalJSON(buf []byte) error {
-	return json.Unmarshal(buf, s)
 }
 
 // Bytes encodes the schema in a portable binary format
@@ -77,7 +60,7 @@ func (s *FloatSchema) Encode(w io.Writer, i interface{}) error {
 	}
 
 	// just double check the schema they are using
-	if !s.IsValid() {
+	if !s.Valid() {
 		return fmt.Errorf("cannot encode using invalid StringSchema schema")
 	}
 
@@ -175,7 +158,7 @@ func (s *FloatSchema) Decode(r io.Reader, i interface{}) error {
 func (s *FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
-	if !s.IsValid() {
+	if !s.Valid() {
 		return fmt.Errorf("cannot decode using invalid floating point schema")
 	}
 

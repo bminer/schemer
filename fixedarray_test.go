@@ -17,7 +17,7 @@ func TestDecodeFixedLenArray1(t *testing.T) {
 	b := fixedLenArraySchema.Bytes()
 
 	// make sure we can successfully decode it
-	tmp, err := NewSchema(b)
+	tmp, err := DecodeSchema(b)
 	if err != nil {
 		t.Error("cannot encode binary encoded fixedLenArraySchema")
 	}

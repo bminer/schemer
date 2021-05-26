@@ -15,22 +15,10 @@ type VarLenStringSchema struct {
 	WeakDecoding bool
 }
 
-func (s *VarLenStringSchema) IsValid() bool {
-
-	return true
-}
-
 // fixme
 func (s *VarLenStringSchema) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal(s)
-
-}
-
-// fixme
-func (s *VarLenStringSchema) UnmarshalJSON(buf []byte) error {
-
-	return json.Unmarshal(buf, s)
 
 }
 
@@ -57,11 +45,6 @@ func (s *VarLenStringSchema) Encode(w io.Writer, i interface{}) error {
 
 	if i == nil {
 		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
-	}
-
-	// just double check the schema they are using
-	if !s.IsValid() {
-		return fmt.Errorf("cannot encode using invalid StringSchema schema")
 	}
 
 	v := reflect.ValueOf(i)
@@ -119,11 +102,6 @@ func (s *VarLenStringSchema) Encode(w io.Writer, i interface{}) error {
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
 func (s *VarLenStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
-
-	// just double check the schema they are using
-	if !s.IsValid() {
-		return fmt.Errorf("cannot decode using invalid VarLenStringSchema schema")
-	}
 
 	// first byte indicates whether value is null or not....
 	buf := make([]byte, 1)

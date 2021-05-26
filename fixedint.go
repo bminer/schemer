@@ -23,11 +23,7 @@ type FixedIntSchema struct {
 	IsNullable     bool
 }
 
-func (s *FixedIntSchema) SetSchemaOptions() {
-
-}
-
-func (s *FixedIntSchema) IsValid() bool {
+func (s *FixedIntSchema) Valid() bool {
 	return s.Bits == 8 || s.Bits == 16 || s.Bits == 32 || s.Bits == 64
 }
 
@@ -67,15 +63,11 @@ func (s *FixedIntSchema) Bytes() []byte {
 }
 
 func (s *FixedIntSchema) MarshalJSON() ([]byte, error) {
-	if !s.IsValid() {
+	if !s.Valid() {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
 
 	return json.Marshal(s)
-}
-
-func (s *FixedIntSchema) UnmarshalJSON(buf []byte) error {
-	return json.Unmarshal(buf, s)
 }
 
 func writeUint(w io.Writer, v uint64, s *FixedIntSchema) error {
@@ -238,7 +230,7 @@ func checkType(s *FixedIntSchema, k reflect.Kind) bool {
 func (s *FixedIntSchema) Encode(w io.Writer, i interface{}) error {
 
 	// just double check the schema they are using
-	if !s.IsValid() {
+	if !s.Valid() {
 		return fmt.Errorf("cannot encode using invalid FixedIntSchema schema")
 	}
 
@@ -352,7 +344,7 @@ func (s *FixedIntSchema) Decode(r io.Reader, i interface{}) error {
 func (s *FixedIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
-	if !s.IsValid() {
+	if !s.Valid() {
 		return fmt.Errorf("cannot decode using invalid FixedIntSchema schema")
 	}
 

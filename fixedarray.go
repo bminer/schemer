@@ -15,8 +15,8 @@ type FixedLenArraySchema struct {
 	Element Schema
 }
 
-func (s *FixedLenArraySchema) IsValid() bool {
-	return s.Length > 0
+func (s *FixedLenArraySchema) Valid() bool {
+	return s.Length >= 0
 }
 
 // Bytes encodes the schema in a portable binary format
@@ -45,22 +45,18 @@ func (s *FixedLenArraySchema) Bytes() []byte {
 }
 
 func (s *FixedLenArraySchema) MarshalJSON() ([]byte, error) {
-	if !s.IsValid() {
+	if !s.Valid() {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
 
 	return json.Marshal(s)
 }
 
-func (s *FixedLenArraySchema) UnmarshalJSON(buf []byte) error {
-	return json.Unmarshal(buf, s)
-}
-
 // Encode uses the schema to write the encoded value of v to the output stream
 func (s *FixedLenArraySchema) Encode(w io.Writer, i interface{}) error {
 
 	// just double check the schema they are using
-	if !s.IsValid() {
+	if !s.Valid() {
 		return fmt.Errorf("cannot encode using invalid FixedLenArraySchema schema")
 	}
 
@@ -118,7 +114,7 @@ func (s *FixedLenArraySchema) Encode(w io.Writer, i interface{}) error {
 func (s *FixedLenArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
-	if !s.IsValid() {
+	if !s.Valid() {
 		return fmt.Errorf("cannot decode using invalid FixedLenArraySchema schema")
 	}
 

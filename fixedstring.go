@@ -16,7 +16,7 @@ type FixedStringSchema struct {
 	FixedLength  int
 }
 
-func (s *FixedStringSchema) IsValid() bool {
+func (s *FixedStringSchema) Valid() bool {
 
 	return (s.FixedLength > 0)
 }
@@ -25,13 +25,6 @@ func (s *FixedStringSchema) IsValid() bool {
 func (s *FixedStringSchema) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal(s)
-
-}
-
-// fixme
-func (s *FixedStringSchema) UnmarshalJSON(buf []byte) error {
-
-	return json.Unmarshal(buf, s)
 
 }
 
@@ -64,7 +57,7 @@ func (s *FixedStringSchema) Bytes() []byte {
 func (s *FixedStringSchema) Encode(w io.Writer, i interface{}) error {
 
 	// just double check the schema they are using
-	if !s.IsValid() {
+	if !s.Valid() {
 		return fmt.Errorf("cannot encode using invalid StringSchema schema")
 	}
 
@@ -149,7 +142,7 @@ func (s *FixedStringSchema) Decode(r io.Reader, i interface{}) error {
 func (s *FixedStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
-	if !s.IsValid() {
+	if !s.Valid() {
 		return fmt.Errorf("cannot decode using invalid StringSchema schema")
 	}
 

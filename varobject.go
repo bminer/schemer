@@ -15,24 +15,13 @@ type VarObjectSchema struct {
 	Value Schema
 }
 
-func (s *VarObjectSchema) IsValid() bool {
-	return true
-}
-
 func (s *VarObjectSchema) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal(s)
 
 }
 
-func (s *VarObjectSchema) UnmarshalJSON(buf []byte) error {
-
-	return json.Unmarshal(buf, s)
-
-}
-
 // Bytes encodes the schema in a portable binary format
-// FIXME
 func (s *VarObjectSchema) Bytes() []byte {
 
 	// string schemas are 1 byte long
@@ -55,11 +44,6 @@ func (s *VarObjectSchema) Bytes() []byte {
 
 // Encode uses the schema to write the encoded value of v to the output stream
 func (s *VarObjectSchema) Encode(w io.Writer, i interface{}) error {
-
-	// just double check the schema they are using
-	if !s.IsValid() {
-		return fmt.Errorf("cannot encode using invalid FixedLenArraySchema schema")
-	}
 
 	if i == nil {
 		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
@@ -120,11 +104,6 @@ func (s *VarObjectSchema) Encode(w io.Writer, i interface{}) error {
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
 func (s *VarObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
-
-	// just double check the schema they are using
-	if !s.IsValid() {
-		return fmt.Errorf("cannot decode using invalid DecodeValue schema")
-	}
 
 	// first byte indicates whether value is null or not...
 	buf := make([]byte, 1)

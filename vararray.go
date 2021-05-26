@@ -14,10 +14,6 @@ type VarArraySchema struct {
 	Element Schema
 }
 
-func (s *VarArraySchema) IsValid() bool {
-	return true
-}
-
 // Bytes encodes the schema in a portable binary format
 func (s *VarArraySchema) Bytes() []byte {
 
@@ -38,15 +34,7 @@ func (s *VarArraySchema) Bytes() []byte {
 }
 
 func (s *VarArraySchema) MarshalJSON() ([]byte, error) {
-	if !s.IsValid() {
-		return nil, fmt.Errorf("invalid floating point schema")
-	}
-
 	return json.Marshal(s)
-}
-
-func (s *VarArraySchema) UnmarshalJSON(buf []byte) error {
-	return json.Unmarshal(buf, s)
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
@@ -54,11 +42,6 @@ func (s *VarArraySchema) Encode(w io.Writer, i interface{}) error {
 
 	if i == nil {
 		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
-	}
-
-	// just double check the schema they are using
-	if !s.IsValid() {
-		return fmt.Errorf("cannot encode using invalid VarArraySchema schema")
 	}
 
 	v := reflect.ValueOf(i)
@@ -114,11 +97,6 @@ func (s *VarArraySchema) Encode(w io.Writer, i interface{}) error {
 }
 
 func (s *VarArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
-
-	// just double check the schema they are using
-	if !s.IsValid() {
-		return fmt.Errorf("cannot encode using invalid VarArraySchema schema")
-	}
 
 	// first byte indicates whether value is null or not...
 	buf := make([]byte, 1)

@@ -24,7 +24,7 @@ func TestDecodeFixedObject1(t *testing.T) {
 	// encode it
 	b := fixedObjectSchema.Bytes()
 
-	tmp, err := NewSchema(b)
+	tmp, err := DecodeSchema(b)
 	if err != nil {
 		t.Error("cannot encode binary encoded FixedObjectSchema")
 	}
@@ -277,7 +277,7 @@ func TestFixedObjectReader(t *testing.T) {
 	var structToDecode = DestinationStruct{}
 
 	binarywriterSchema := readFromDisk("/tmp/test.schema")
-	writerSchema, err := NewSchema(binarywriterSchema)
+	writerSchema, err := DecodeSchema(binarywriterSchema)
 	if err != nil {
 		t.Error("cannot create writerSchema from raw binary data")
 	}

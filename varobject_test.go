@@ -17,7 +17,7 @@ func TestDecodeVarObject1(t *testing.T) {
 	b := varObjectSchema.Bytes()
 
 	// make sure we can successfully decode it
-	tmp, err := NewSchema(b)
+	tmp, err := DecodeSchema(b)
 	if err != nil {
 		t.Error("cannot encode binary encoded VarObjectSchema")
 	}

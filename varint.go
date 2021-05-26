@@ -16,10 +16,6 @@ type VarIntSchema struct {
 	IsNullable   bool
 }
 
-func (s *VarIntSchema) IsValid() bool {
-	return true
-}
-
 // Bytes encodes the schema in a portable binary format
 func (s *VarIntSchema) Bytes() []byte {
 
@@ -43,15 +39,7 @@ func (s *VarIntSchema) Bytes() []byte {
 }
 
 func (s *VarIntSchema) MarshalJSON() ([]byte, error) {
-	if !s.IsValid() {
-		return nil, fmt.Errorf("invalid floating point schema")
-	}
-
 	return json.Marshal(s)
-}
-
-func (s *VarIntSchema) UnmarshalJSON(buf []byte) error {
-	return json.Unmarshal(buf, s)
 }
 
 func writeVarUint(w io.Writer, v uint64) error {
@@ -99,11 +87,6 @@ func readVarUint(r io.Reader) (uint64, error) {
 
 // Encode uses the schema to write the encoded value of v to the output stream
 func (s *VarIntSchema) Encode(w io.Writer, i interface{}) error {
-
-	// just double check the schema they are using
-	if !s.IsValid() {
-		return fmt.Errorf("cannot encode using invalid VarIntSchema schema")
-	}
 
 	if i == nil {
 		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
@@ -188,11 +171,6 @@ func (s *VarIntSchema) Decode(r io.Reader, i interface{}) error {
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
 func (s VarIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
-
-	// just double check the schema they are using
-	if !s.IsValid() {
-		return fmt.Errorf("cannot encode using invalid VarIntSchema schema")
-	}
 
 	// first byte indicates whether value is null or not...
 	buf := make([]byte, 1)

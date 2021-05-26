@@ -420,37 +420,6 @@ func TestFloatingPointSchema10(t *testing.T) {
 
 }
 
-// make sure we can create a scheme from JSON encoded data, and make sure the
-// data we get back matches what we passed in
-func TestFloatingPointSchema11(t *testing.T) {
-
-	/*
-
-		jsonData := []byte("{\"Bits\":32,\"WeakDecoding\":false}")
-
-		var floatingPointSchema FloatSchema
-		err := floatingPointSchema.UnmarshalJSON(jsonData)
-		if err != nil {
-			t.Error(err)
-		}
-
-		if floatingPointSchema.Bits != 32 || floatingPointSchema.WeakDecoding != false {
-			t.Error("schemer library failure; UnmarshalJSON unexpected result")
-		}
-
-		buf, _ := floatingPointSchema.MarshalJSON()
-		if err != nil {
-			t.Error(err)
-		}
-
-		if !strings.EqualFold(string(jsonData), string(buf)) {
-			t.Error("schemer library failure; UnmarshalJSON unexpected result")
-		}
-
-	*/
-
-}
-
 func TestFloatingPointSchema13(t *testing.T) {
 
 	// setup an example schema
@@ -460,7 +429,7 @@ func TestFloatingPointSchema13(t *testing.T) {
 	b := floatingPointSchema.Bytes()
 
 	// make sure we can successfully decode it
-	tmp, err := NewSchema(b)
+	tmp, err := DecodeSchema(b)
 	if err != nil {
 		t.Error("cannot decode binary encoded float schema")
 	}

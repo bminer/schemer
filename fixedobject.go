@@ -2,7 +2,7 @@ package schemer
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"reflect"
@@ -18,25 +18,12 @@ type FixedObjectSchema struct {
 	Fields     []ObjectField
 }
 
-func (s *FixedObjectSchema) IsValid() bool {
-	return true
-}
-
+// fixme
 func (s *FixedObjectSchema) MarshalJSON() ([]byte, error) {
-
-	mapD := map[string]int{"apple": 5, "lettuce": 7}
-	return json.Marshal(mapD)
-
-}
-
-func (s *FixedObjectSchema) UnmarshalJSON(buf []byte) error {
-
-	return json.Unmarshal(buf, s)
-
+	return nil, nil
 }
 
 // Bytes encodes the schema in a portable binary format
-// FIXME
 func (s *FixedObjectSchema) Bytes() []byte {
 
 	// fixedObject schemas are 1 byte long
@@ -49,18 +36,21 @@ func (s *FixedObjectSchema) Bytes() []byte {
 		schemaBytes[0] |= 1
 	}
 
-	// fixme:
-	// update this to write as a var len int
-	tmp := byte(len(s.Fields))
-	schemaBytes = append(schemaBytes, tmp)
+	// encode total number of fields as a varint
+	buf := make([]byte, binary.MaxVarintLen64)
+	varIntByteLength := binary.PutVarint(buf, int64(len(s.Fields)))
+
+	schemaBytes = append(schemaBytes, buf[0:varIntByteLength]...)
 
 	// also need to concatenate the schemas for all other fields
 	for _, f := range s.Fields {
 
 		// first encode the number of aliases for this field
 		// (which will always be at least one... meaning the name of the field from the source struct at least!)
-		numAlias := byte(len(f.StructFieldOptions.FieldAliases))
-		schemaBytes = append(schemaBytes, numAlias)
+		buf := make([]byte, binary.MaxVarintLen64)
+		varIntByteLength := binary.PutVarint(buf, int64(len(f.StructFieldOptions.FieldAliases)))
+
+		schemaBytes = append(schemaBytes, buf[0:varIntByteLength]...)
 
 		// now write each field alias
 		for i := 0; i < len(f.StructFieldOptions.FieldAliases); i++ {
@@ -79,11 +69,6 @@ func (s *FixedObjectSchema) Bytes() []byte {
 
 // Encode uses the schema to write the encoded value of v to the output stream
 func (s *FixedObjectSchema) Encode(w io.Writer, i interface{}) error {
-
-	// just double check the schema they are using
-	if !s.IsValid() {
-		return fmt.Errorf("cannot encode using invalid FixedObjectSchema schema")
-	}
 
 	v := reflect.ValueOf(i)
 
@@ -171,11 +156,6 @@ func (s *FixedObjectSchema) findDestinationField(sourceFieldAlias string, v refl
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
 func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
-
-	// just double check the schema they are using
-	if !s.IsValid() {
-		return fmt.Errorf("cannot decode using invalid FixedObjectSchema schema")
-	}
 
 	// first byte indicates whether value is null or not...
 	buf := make([]byte, 1)

@@ -19,7 +19,7 @@ func TestDecodeFixedString1(t *testing.T) {
 	b := schema.Bytes()
 
 	// make sure we can successfully decode it
-	tmp, err := NewSchema(b)
+	tmp, err := DecodeSchema(b)
 	if err != nil {
 		t.Error("cannot decode binary encoded string schema")
 	}
@@ -233,7 +233,7 @@ func TestFixedStrReader(t *testing.T) {
 	var strToDecodeTo string
 
 	binarywriterSchema := readFromDisk("/tmp/FixedLenString.schema")
-	writerSchema, err := NewSchema(binarywriterSchema)
+	writerSchema, err := DecodeSchema(binarywriterSchema)
 	if err != nil {
 		t.Error("cannot create writerSchema from raw binary data")
 	}
