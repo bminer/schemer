@@ -70,8 +70,6 @@ func (s *VarArraySchema) Encode(w io.Writer, i interface{}) error {
 		if !v.IsValid() {
 			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
 		}
-		// 0 indicates not null
-		w.Write([]byte{0})
 	}
 
 	t := v.Type()
@@ -98,17 +96,18 @@ func (s *VarArraySchema) Encode(w io.Writer, i interface{}) error {
 
 func (s *VarArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
-	// first byte indicates whether value is null or not...
-	buf := make([]byte, 1)
-	_, err := io.ReadAtLeast(r, buf, 1)
-	if err != nil {
-		return err
-	}
-	valueIsNull := (buf[0] == 1)
-
 	// if the data indicates this type is nullable, then the actual
 	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
 	if s.IsNullable {
+
+		// first byte indicates whether value is null or not...
+		buf := make([]byte, 1)
+		_, err := io.ReadAtLeast(r, buf, 1)
+		if err != nil {
+			return err
+		}
+		valueIsNull := (buf[0] == 1)
+
 		if valueIsNull {
 			if v.Kind() == reflect.Ptr {
 				if v.CanSet() {

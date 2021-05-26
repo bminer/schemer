@@ -10,7 +10,7 @@ import (
 // this is the base case
 func TestDecodeComplex1(t *testing.T) {
 
-	ComplexSchema := ComplexSchema{Bits: 64, WeakDecoding: false}
+	ComplexSchema := ComplexSchema{Bits: 64, SchemaOptions: SchemaOptions{WeakDecoding: false}}
 
 	var buf bytes.Buffer
 	var err error
@@ -56,7 +56,7 @@ func TestDecodeComplex1(t *testing.T) {
 // when the imaginary component is 0
 func TestDecodeComplex2(t *testing.T) {
 
-	ComplexSchema := ComplexSchema{Bits: 64, WeakDecoding: true}
+	ComplexSchema := ComplexSchema{Bits: 64, SchemaOptions: SchemaOptions{WeakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -113,7 +113,7 @@ func TestDecodeComplex2(t *testing.T) {
 // or integer types when the complex component of the complex number is not zero
 func TestDecodeComplex3(t *testing.T) {
 
-	ComplexSchema := ComplexSchema{Bits: 64, WeakDecoding: true}
+	ComplexSchema := ComplexSchema{Bits: 64, SchemaOptions: SchemaOptions{WeakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -166,7 +166,7 @@ func TestDecodeComplex3(t *testing.T) {
 // make sure we can decode complex128 into both complex128 and complex64
 func TestDecodeComplex4(t *testing.T) {
 
-	ComplexSchema := ComplexSchema{Bits: 128, WeakDecoding: true}
+	ComplexSchema := ComplexSchema{Bits: 128, SchemaOptions: SchemaOptions{WeakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -211,7 +211,7 @@ func TestDecodeComplex4(t *testing.T) {
 // when the imaginary component is 0
 func TestDecodeComplex5(t *testing.T) {
 
-	ComplexSchema := ComplexSchema{Bits: 128, WeakDecoding: true}
+	ComplexSchema := ComplexSchema{Bits: 128, SchemaOptions: SchemaOptions{WeakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -269,7 +269,7 @@ func TestDecodeComplex5(t *testing.T) {
 // decode a negative complex64 into an uint
 func TestDecodeComplex6(t *testing.T) {
 
-	ComplexSchema := ComplexSchema{Bits: 64, WeakDecoding: true}
+	ComplexSchema := ComplexSchema{Bits: 64, SchemaOptions: SchemaOptions{WeakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -297,7 +297,7 @@ func TestDecodeComplex6(t *testing.T) {
 // decode a negative complex128 into an uint
 func TestDecodeComplex7(t *testing.T) {
 
-	ComplexSchema := ComplexSchema{Bits: 128, WeakDecoding: true}
+	ComplexSchema := ComplexSchema{Bits: 128, SchemaOptions: SchemaOptions{WeakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -324,7 +324,7 @@ func TestDecodeComplex7(t *testing.T) {
 // or integer types when the complex component of the complex number is not zero
 func TestDecodeComplex8(t *testing.T) {
 
-	ComplexSchema := ComplexSchema{Bits: 128, WeakDecoding: true}
+	ComplexSchema := ComplexSchema{Bits: 128, SchemaOptions: SchemaOptions{WeakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -377,7 +377,7 @@ func TestDecodeComplex8(t *testing.T) {
 // make sure we can decode a complex number into float32 and float64 arrays
 func TestDecodeComplex9(t *testing.T) {
 
-	ComplexSchema := ComplexSchema{Bits: 128, WeakDecoding: true}
+	ComplexSchema := ComplexSchema{Bits: 128, SchemaOptions: SchemaOptions{WeakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -421,7 +421,7 @@ func TestDecodeComplex9(t *testing.T) {
 // make sure we can decode a complex number into float and float64 slices
 func TestDecodeComplex10(t *testing.T) {
 
-	ComplexSchema := ComplexSchema{Bits: 128, WeakDecoding: true}
+	ComplexSchema := ComplexSchema{Bits: 128, SchemaOptions: SchemaOptions{WeakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -465,7 +465,7 @@ func TestDecodeComplex10(t *testing.T) {
 func TestDecodeComplex11(t *testing.T) {
 
 	// setup an example schema
-	complexSchema := ComplexSchema{Bits: 64, WeakDecoding: true, IsNullable: false}
+	complexSchema := ComplexSchema{Bits: 64, SchemaOptions: SchemaOptions{WeakDecoding: true, Nullable: false}}
 
 	// encode it
 	b := complexSchema.Bytes()
@@ -480,7 +480,7 @@ func TestDecodeComplex11(t *testing.T) {
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
 	if DecodedComplexSchema.Bits != complexSchema.Bits ||
-		DecodedComplexSchema.IsNullable != complexSchema.IsNullable {
+		DecodedComplexSchema.SchemaOptions.Nullable != complexSchema.SchemaOptions.Nullable {
 
 		t.Error("unexpected values when decoding binary ComplexSchema")
 	}
@@ -491,7 +491,7 @@ func TestDecodeComplex12(t *testing.T) {
 
 	fmt.Println("decode nil complex")
 
-	complexSchema := ComplexSchema{Bits: 64, IsNullable: true}
+	complexSchema := ComplexSchema{Bits: 64, SchemaOptions: SchemaOptions{Nullable: true}}
 
 	var buf bytes.Buffer
 	var err error

@@ -81,9 +81,6 @@ func (s *FixedStringSchema) Encode(w io.Writer, i interface{}) error {
 		if i == nil {
 			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
 		}
-
-		// 0 indicates not null
-		w.Write([]byte{0})
 	}
 
 	v := reflect.ValueOf(i)
@@ -146,17 +143,15 @@ func (s *FixedStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		return fmt.Errorf("cannot decode using invalid StringSchema schema")
 	}
 
-	// data is proceeded by one byte, which says if the field is nullable
-	buf := make([]byte, 1)
-	_, err := io.ReadAtLeast(r, buf, 1)
-	if err != nil {
-		return err
-	}
-	tmpByte := buf[0]
-
-	// if the data indicates this type is nullable, then the actual floating point
-	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
+	// if the schema is nullable
 	if s.IsNullable {
+		// data is proceeded by one byte, which says if the field is nullable
+		buf := make([]byte, 1)
+		_, err := io.ReadAtLeast(r, buf, 1)
+		if err != nil {
+			return err
+		}
+		tmpByte := buf[0]
 		if tmpByte == 1 {
 			if v.Kind() == reflect.Ptr {
 				if v.CanSet() {
@@ -191,8 +186,8 @@ func (s *FixedStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	var decodedString string
 
-	buf = make([]byte, s.FixedLength)
-	_, err = io.ReadAtLeast(r, buf, s.FixedLength)
+	buf := make([]byte, s.FixedLength)
+	_, err := io.ReadAtLeast(r, buf, s.FixedLength)
 	if err != nil {
 		return err
 	}

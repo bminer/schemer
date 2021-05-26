@@ -22,6 +22,11 @@ type StructFieldOptions struct {
 	ShouldSkip   bool
 }
 
+type SchemaOptions struct {
+	WeakDecoding bool
+	Nullable     bool
+}
+
 type Schema interface {
 	// Encode uses the schema to write the encoded value of v to the output stream
 	Encode(w io.Writer, i interface{}) error
@@ -312,20 +317,20 @@ func SchemaOfType(t reflect.Type) Schema {
 		var complexSchema *ComplexSchema = &(ComplexSchema{})
 
 		complexSchema.Bits = 64
-		complexSchema.IsNullable = shouldBeNullable
+		complexSchema.SchemaOptions.Nullable = shouldBeNullable
 
 		return complexSchema
 	case reflect.Complex128:
 		var complexSchema *ComplexSchema = &(ComplexSchema{})
 
-		complexSchema.IsNullable = shouldBeNullable
+		complexSchema.SchemaOptions.Nullable = shouldBeNullable
 		complexSchema.Bits = 128
 
 		return complexSchema
 	case reflect.Bool:
 		var boolSchema *BoolSchema = &(BoolSchema{})
 
-		boolSchema.IsNullable = shouldBeNullable
+		boolSchema.SchemaOptions.Nullable = shouldBeNullable
 
 		return boolSchema
 	case reflect.Float32:
@@ -432,7 +437,7 @@ func decodeSchemaInternal(buf []byte) (Schema, error) {
 		} else {
 			complexSchema.Bits = 64
 		}
-		complexSchema.IsNullable = (buf[byteIndex]&1 == 1)
+		complexSchema.SchemaOptions.Nullable = (buf[byteIndex]&1 == 1)
 
 		byteIndex++
 
@@ -444,7 +449,7 @@ func decodeSchemaInternal(buf []byte) (Schema, error) {
 	if buf[byteIndex]&116 == 112 {
 		var boolSchema *BoolSchema = &(BoolSchema{})
 
-		boolSchema.IsNullable = (buf[byteIndex]&1 == 1)
+		boolSchema.SchemaOptions.Nullable = (buf[byteIndex]&1 == 1)
 
 		byteIndex++
 
@@ -456,7 +461,7 @@ func decodeSchemaInternal(buf []byte) (Schema, error) {
 	if buf[byteIndex]&116 == 116 {
 		var enumSchema *EnumSchema = &(EnumSchema{})
 
-		enumSchema.IsNullable = (buf[byteIndex]&1 == 1)
+		enumSchema.SchemaOptions.Nullable = (buf[byteIndex]&1 == 1)
 		byteIndex++
 
 		// we want to read in all the enumerated values...

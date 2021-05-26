@@ -9,8 +9,7 @@ import (
 )
 
 type BoolSchema struct {
-	IsNullable   bool
-	WeakDecoding bool
+	SchemaOptions
 }
 
 func (s *BoolSchema) MarshalJSON() ([]byte, error) {
@@ -27,7 +26,7 @@ func (s *BoolSchema) Bytes() []byte {
 	schema[0] = 0b01110000
 
 	// The most signifiant bit indicates whether or not the type is nullable
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
 		schema[0] |= 1
 	}
 
@@ -41,7 +40,7 @@ func (s *BoolSchema) Encode(w io.Writer, i interface{}) error {
 		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
 	}
 
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
 		// did the caller pass in a nil value, or a null pointer
 		if reflect.TypeOf(i).Kind() == reflect.Ptr ||
 			reflect.TypeOf(i).Kind() == reflect.Interface &&
@@ -114,17 +113,19 @@ func (s *BoolSchema) Decode(r io.Reader, i interface{}) error {
 
 func (s *BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
-	// first byte indicates whether value is null or not...
 	buf := make([]byte, 1)
-	_, err := io.ReadAtLeast(r, buf, 1)
-	if err != nil {
-		return err
-	}
-	valueIsNull := (buf[0] == 1)
 
 	// if the data indicates this type is nullable, then the actual
 	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
+
+		// first byte indicates whether value is null or not...
+		_, err := io.ReadAtLeast(r, buf, 1)
+		if err != nil {
+			return err
+		}
+		valueIsNull := (buf[0] == 1)
+
 		if valueIsNull {
 			if v.Kind() == reflect.Ptr {
 				if v.CanSet() {
@@ -156,12 +157,17 @@ func (s *BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	t := v.Type()
 	k := t.Kind()
 
+	_, err := io.ReadAtLeast(r, buf, 1)
+	if err != nil {
+		return err
+	}
+
+	decodedBool := buf[0] > 0
+
 	// Ensure v is settable
 	if !v.CanSet() {
 		return fmt.Errorf("decode destination is not settable")
 	}
-
-	decodedBool := buf[0] > 0
 
 	// take a look at the destination
 	// bools can be decoded to integer types, bools, and strings
@@ -224,9 +230,9 @@ func (s *BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 }
 
 func (s *BoolSchema) Nullable() bool {
-	return s.IsNullable
+	return s.SchemaOptions.Nullable
 }
 
 func (s *BoolSchema) SetNullable(n bool) {
-	s.IsNullable = n
+	s.SchemaOptions.Nullable = n
 }

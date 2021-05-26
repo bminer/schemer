@@ -11,9 +11,9 @@ import (
 )
 
 type ComplexSchema struct {
-	Bits         int // must be 64 or 128
-	IsNullable   bool
-	WeakDecoding bool
+	SchemaOptions
+
+	Bits int // must be 64 or 128
 }
 
 func (s *ComplexSchema) Valid() bool {
@@ -25,7 +25,8 @@ func (s *ComplexSchema) MarshalJSON() ([]byte, error) {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
 
-	return json.Marshal(s)
+	tmpMap := map[string]string{"type": "complex"}
+	return json.Marshal(tmpMap)
 }
 
 // Bytes encodes the schema in a portable binary format
@@ -37,7 +38,7 @@ func (s *ComplexSchema) Bytes() []byte {
 	schema[0] = 0b01100000 // bit pattern for complex number schema
 
 	// The most signifiant bit indicates whether or not the type is nullable
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
 		schema[0] |= 1
 	}
 
@@ -75,7 +76,7 @@ func (s *ComplexSchema) Encode(w io.Writer, i interface{}) error {
 		v = v.Elem()
 	}
 
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
 		// did the caller pass in a nil value, or a null pointer?
 		if !v.IsValid() {
 
@@ -88,14 +89,8 @@ func (s *ComplexSchema) Encode(w io.Writer, i interface{}) error {
 			// 0 indicates not null
 			w.Write([]byte{0})
 		}
-	} else {
-		// if nullable is false
-		// but they are trying to encode a nil value.. then that is an error
-		if !v.IsValid() {
-			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
-		}
-		// 0 indicates not null
-		w.Write([]byte{0})
+	} else if !v.IsValid() {
+		return fmt.Errorf("cannot enoded nil value when IsNullable is false")
 	}
 
 	t := v.Type()
@@ -181,17 +176,18 @@ func (s *ComplexSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		return fmt.Errorf("cannot decode using invalid ComplexNumber schema")
 	}
 
-	// first byte indicates whether value is null or not...
-	buf := make([]byte, 1)
-	_, err := io.ReadAtLeast(r, buf, 1)
-	if err != nil {
-		return err
-	}
-	valueIsNull := (buf[0] == 1)
-
 	// if the data indicates this type is nullable, then the actual
 	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
+
+		// first byte indicates whether value is null or not...
+		buf := make([]byte, 1)
+		_, err := io.ReadAtLeast(r, buf, 1)
+		if err != nil {
+			return err
+		}
+		valueIsNull := (buf[0] == 1)
+
 		if valueIsNull {
 			if v.Kind() == reflect.Ptr {
 				if v.CanSet() {
@@ -385,9 +381,9 @@ func (s *ComplexSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 }
 
 func (s *ComplexSchema) Nullable() bool {
-	return s.IsNullable
+	return s.SchemaOptions.Nullable
 }
 
 func (s *ComplexSchema) SetNullable(n bool) {
-	s.IsNullable = n
+	s.SchemaOptions.Nullable = n
 }

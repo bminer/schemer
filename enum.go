@@ -10,8 +10,7 @@ import (
 )
 
 type EnumSchema struct {
-	IsNullable   bool
-	WeakDecoding bool
+	SchemaOptions
 
 	Values map[int]string
 }
@@ -31,7 +30,7 @@ func (s EnumSchema) Bytes() []byte {
 	schema[0] = 0b01110100 // bit pattern for enum
 
 	// The most signifiant bit indicates whether or not the type is nullable
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
 		schema[0] |= 1
 	}
 
@@ -53,7 +52,7 @@ func (s EnumSchema) Bytes() []byte {
 // Encode uses the schema to write the encoded value of v to the output stream
 func (s *EnumSchema) Encode(w io.Writer, v interface{}) error {
 
-	varIntSchema := VarIntSchema{Signed: true, IsNullable: s.IsNullable}
+	varIntSchema := VarIntSchema{Signed: true, IsNullable: s.SchemaOptions.Nullable}
 
 	if v == nil {
 		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
@@ -78,7 +77,7 @@ func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// first we decode the actual encoded binary value
 
-	varIntSchema := VarIntSchema{Signed: true, IsNullable: s.IsNullable}
+	varIntSchema := VarIntSchema{Signed: true, IsNullable: s.SchemaOptions.Nullable}
 
 	var decodedVarInt int64
 	var intPtr *int64 = &decodedVarInt // we pass in a pointer to varIntSchema.Decode so we can potentially
@@ -195,9 +194,9 @@ func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 }
 
 func (s *EnumSchema) Nullable() bool {
-	return s.IsNullable
+	return s.SchemaOptions.Nullable
 }
 
 func (s *EnumSchema) SetNullable(n bool) {
-	s.IsNullable = n
+	s.SchemaOptions.Nullable = n
 }
