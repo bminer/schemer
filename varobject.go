@@ -38,7 +38,7 @@ func (s *VarObjectSchema) MarshalJSON() ([]byte, error) {
 	tmpMap["key"] = keyMap
 
 	// now encode the schema for the value
-	ValueJSON, err := s.Key.MarshalJSON()
+	ValueJSON, err := s.Value.MarshalJSON()
 	if err != nil {
 		return nil, err
 	}

@@ -149,7 +149,7 @@ func readFromDisk(fileName string) []byte {
 	return b
 }
 
-func TestFixedObjectWriter(t *testing.T) {
+func FixedObjectWriter(t *testing.T, useJSON bool) {
 
 	type EmbeddedStruct struct {
 		Int1 int64
@@ -160,8 +160,9 @@ func TestFixedObjectWriter(t *testing.T) {
 		IntField1 int `schemer:"New_IntField1"`
 		IntField2 *int
 
-		Map1  map[string]bool `schemer:"New_Map1"`
-		Map2  *map[string]bool
+		Map1 map[string]bool `schemer:"New_Map1"`
+		Map2 *map[string]bool
+
 		Bool1 bool `schemer:"New_Bool1"`
 		Bool2 *bool
 
@@ -215,29 +216,42 @@ func TestFixedObjectWriter(t *testing.T) {
 	structToEncode.Slice2 = nil
 
 	writerSchema := SchemaOf(&structToEncode)
-	binaryWriterSchema := writerSchema.Bytes()
+
+	var binaryWriterSchema []byte
+	var err error
+
+	if useJSON {
+		binaryWriterSchema, err = writerSchema.MarshalJSON()
+
+		if err != nil {
+			t.Error(err)
+		}
+
+	} else {
+		binaryWriterSchema = writerSchema.Bytes()
+	}
 
 	var encodedData bytes.Buffer
 
-	err := writerSchema.Encode(&encodedData, structToEncode)
+	err = writerSchema.Encode(&encodedData, structToEncode)
 	if err != nil {
 		t.Error(err)
 	}
 
-	saveToDisk("/tmp/test.schema", binaryWriterSchema)
+	var schemaFileName string
+
+	if useJSON {
+		schemaFileName = "/tmp/test.schema"
+	} else {
+		schemaFileName = "/tmp/test.schema.json"
+	}
+
+	saveToDisk(schemaFileName, binaryWriterSchema)
 	saveToDisk("/tmp/test.data", encodedData.Bytes())
-
-	b, _ := writerSchema.MarshalJSON()
-
-	fmt.Println(string(b))
-
-	schema, _ := DecodeJSONSchema(b)
-
-	fmt.Println(schema)
 
 }
 
-func TestFixedObjectReader(t *testing.T) {
+func FixedObjectReader(t *testing.T, useJSON bool) {
 
 	type EmbeddedStruct struct {
 		Int1 int
@@ -274,11 +288,28 @@ func TestFixedObjectReader(t *testing.T) {
 	}
 
 	var structToDecode = DestinationStruct{}
+	var schemaFileName string
+	var writerSchema Schema
+	var err error
 
-	binarywriterSchema := readFromDisk("/tmp/test.schema")
-	writerSchema, err := DecodeSchema(binarywriterSchema)
-	if err != nil {
-		t.Error("cannot create writerSchema from raw binary data")
+	if useJSON {
+		schemaFileName = "/tmp/test.schema"
+	} else {
+		schemaFileName = "/tmp/test.schema.json"
+	}
+
+	binarywriterSchema := readFromDisk(schemaFileName)
+
+	if useJSON {
+		writerSchema, err = DecodeJSONSchema(binarywriterSchema)
+		if err != nil {
+			t.Error("cannot create writerSchema from raw JSON data")
+		}
+	} else {
+		writerSchema, err = DecodeSchema(binarywriterSchema)
+		if err != nil {
+			t.Error("cannot create writerSchema from raw binary data")
+		}
 	}
 
 	encodedData := readFromDisk("/tmp/test.data")
@@ -292,8 +323,16 @@ func TestFixedObjectReader(t *testing.T) {
 	fmt.Println(structToDecode)
 
 }
-func TestFixedObjectSerialize(t *testing.T) {
-	TestFixedObjectWriter(t)
-	TestFixedObjectReader(t)
+func TestFixedObjectSerializeBinary(t *testing.T) {
+
+	FixedObjectWriter(t, true)
+	FixedObjectReader(t, true)
+
+}
+
+func TestFixedObjectSerializeJSON(t *testing.T) {
+
+	FixedObjectWriter(t, false)
+	FixedObjectReader(t, false)
 
 }

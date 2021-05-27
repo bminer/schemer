@@ -14,16 +14,6 @@ import (
 // SchemaTagName represents the tag prefix that the schemer library uses on struct tags
 var SchemaTagName string = "schemer"
 
-// SchemerTagOptions represents information that can be read from struct field tags
-type SchemerTagOptions struct {
-	FieldAliases []string
-
-	Nullable     bool
-	WeakDecoding bool
-
-	ShouldSkip bool
-}
-
 // SchemaOptions are properties that are common to every schema
 type SchemaOptions struct {
 	WeakDecoding bool
@@ -73,101 +63,6 @@ func SchemaOf(i interface{}) Schema {
 	return SchemaOfType(t)
 }
 
-// parseStructTag tags a tagname as a string, parses it, and populates FieldOptions
-// the format of the tag must be:
-// tag := (alias)?("," option)*
-// alias := identifier
-//			"["identifier(","identifier)*"]"
-//	option := "weak", "null", "not null"
-func parseStructTag(tagStr string, schemerTagOptions *SchemerTagOptions) error {
-
-	defer func() {
-		if err := recover(); err != nil {
-			fmt.Println("Error parsing struct tag:", err)
-		}
-	}()
-
-	tagStr = strings.Trim(tagStr, " ")
-	if len([]rune(tagStr)) == 0 {
-		return nil
-	}
-
-	// special case meaning to skip this field
-	if tagStr == "-" {
-		schemerTagOptions.ShouldSkip = true
-		return nil
-	}
-
-	// if first part has a "]", then extract everything up to there
-	// otherwise, extract everything up to the first comma
-
-	var i int
-	var aliasStr string
-	var optionStr string
-
-	// if the alias portion of the string contains [], then we want to grab everything up
-	// to the ] and call that our aliasStr
-	if strings.Contains(tagStr, "]") {
-
-		i = strings.Index(tagStr, "]")
-		aliasStr = tagStr[0 : i+1]
-		tagStr = tagStr[i+1:] // eat off what we just processed
-		tagStr = strings.Trim(tagStr, " ")
-
-		if len([]rune(tagStr)) > 0 {
-
-			if !strings.Contains(tagStr, ",") {
-				return fmt.Errorf("missing comma after field alias")
-			} else {
-				// our options are just whatever is left after the comma
-				optionStr = tagStr[strings.Index(tagStr, ",")+1:]
-				optionStr = strings.Trim(optionStr, " ")
-			}
-
-		} else {
-			optionStr = ""
-		}
-	} else {
-		i = strings.Index(tagStr, ",")
-
-		if i > 0 {
-
-			// alias string is everything up to the comma
-			aliasStr = tagStr[0:i]
-			aliasStr = strings.Trim(aliasStr, " ")
-			tagStr = tagStr[i+1:] // eat off what we just processed
-			tagStr = strings.Trim(tagStr, " ")
-
-			if len([]rune(tagStr)) > 0 {
-				// options are everything after the comma
-				optionStr = tagStr[strings.Index(tagStr, ",")+1:]
-				optionStr = strings.Trim(optionStr, " ")
-			} else {
-				optionStr = ""
-			}
-		} else {
-			aliasStr = strings.Trim(tagStr, " ")
-			optionStr = ""
-		}
-
-	}
-
-	// parse aliasStr, and put each field into .FieldAliases
-	x := strings.Replace(aliasStr, "[", "", -1)
-	y := strings.Replace(x, "]", "", -1)
-	schemerTagOptions.FieldAliases = strings.Split(y, ",")
-	for i, f := range schemerTagOptions.FieldAliases {
-		schemerTagOptions.FieldAliases[i] = strings.Trim(f, " ")
-	}
-
-	// parse options, and string and put each option into correct field, such as .Nullable
-	schemerTagOptions.Nullable = strings.Contains(strings.ToUpper(optionStr), "NUL") && !strings.Contains(strings.ToUpper(optionStr), "!NUL")
-	schemerTagOptions.WeakDecoding = strings.Contains(strings.ToUpper(optionStr), "WEAK")
-
-	return nil
-
-}
-
 // SchemaOfType returns a schema for the specified reflection type
 func SchemaOfType(t reflect.Type) Schema {
 
@@ -202,9 +97,9 @@ func SchemaOfType(t reflect.Type) Schema {
 		for i := 0; i < t.NumField(); i++ {
 			of.Schema = SchemaOfType(t.Field(i).Type)
 
-			schemerTagOptions := SchemerTagOptions{}
+			var schemerTagOptions *SchemerTagOptions = &SchemerTagOptions{}
 
-			parseStructTag(t.Field(i).Tag.Get(SchemaTagName), &schemerTagOptions)
+			schemerTagOptions.ParseStructTag(t.Field(i).Tag.Get(SchemaTagName))
 			// ignore result here... if an error parsing the tags occured, just don't worry about it
 			// (in case they are in the wrong format or something)
 
@@ -429,7 +324,15 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 		var FixedArraySchema *FixedArraySchema = &(FixedArraySchema{})
 		var varArraySchema *VarArraySchema = &(VarArraySchema{})
 
-		tmpLen, ok := fields["length"].(int)
+		s, ok := fields["length"].(string)
+		var tmpLen int
+
+		if ok {
+			tmpLen, err = strconv.Atoi(s)
+			if err != nil {
+				ok = false
+			}
+		}
 
 		// if length is present, then we are dealing with a fixed length array...
 		if ok {
@@ -444,10 +347,12 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 			}
 
 			FixedArraySchema.Element, err = DecodeJSONSchema(tmp)
-
 			if err != nil {
 				return nil, err
 			}
+
+			return FixedArraySchema, nil
+
 		} else {
 			b, _ := strconv.ParseBool(fields["nullable"].(string))
 			varArraySchema.SchemaOptions.Nullable = b
@@ -458,7 +363,7 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 				return nil, err
 			}
 
-			FixedArraySchema.Element, err = DecodeJSONSchema(tmp)
+			varArraySchema.Element, err = DecodeJSONSchema(tmp)
 			if err != nil {
 				return nil, err
 			}
@@ -477,7 +382,7 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 
 			b, _ := strconv.ParseBool(fields["nullable"].(string))
 			fixedIntSchema.SchemaOptions.Nullable = b
-			b, _ = strconv.ParseBool(fields["nullable"].(string))
+			b, _ = strconv.ParseBool(fields["signed"].(string))
 			fixedIntSchema.Signed = b
 			fixedIntSchema.Bits = numBits
 
@@ -487,7 +392,7 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 
 			b, _ := strconv.ParseBool(fields["nullable"].(string))
 			varIntSchema.SchemaOptions.Nullable = b
-			b, _ = strconv.ParseBool(fields["nullable"].(string))
+			b, _ = strconv.ParseBool(fields["signed"].(string))
 			varIntSchema.Signed = b
 
 			return varIntSchema, nil
@@ -547,12 +452,12 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 				return nil, err
 			}
 
-			tmp, err = json.Marshal(fields["value"].(interface{}))
+			tmp2, err := json.Marshal(fields["value"].(interface{}))
 			if err != nil {
 				return nil, err
 			}
 
-			varObjectSchema.Value, err = DecodeJSONSchema(tmp)
+			varObjectSchema.Value, err = DecodeJSONSchema(tmp2)
 			if err != nil {
 				return nil, err
 			}
