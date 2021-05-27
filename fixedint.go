@@ -64,10 +64,11 @@ func (s *FixedIntSchema) MarshalJSON() ([]byte, error) {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
 
-	tmpMap := make(map[string]interface{}, 3)
+	tmpMap := make(map[string]interface{}, 4)
 	tmpMap["type"] = "int"
 	tmpMap["signed"] = strconv.FormatBool(s.Signed)
 	tmpMap["bits"] = strconv.Itoa(s.Bits)
+	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
 
 	return json.Marshal(tmpMap)
 }

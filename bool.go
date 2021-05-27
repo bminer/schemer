@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 )
 
 type BoolSchema struct {
@@ -13,7 +14,11 @@ type BoolSchema struct {
 }
 
 func (s *BoolSchema) MarshalJSON() ([]byte, error) {
-	tmpMap := map[string]string{"type": "bool"}
+
+	tmpMap := make(map[string]interface{}, 2)
+	tmpMap["type"] = "bool"
+	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
+
 	return json.Marshal(tmpMap)
 }
 

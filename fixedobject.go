@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 )
 
 type ObjectField struct {
@@ -20,8 +21,9 @@ type FixedObjectSchema struct {
 }
 
 func (s *FixedObjectSchema) MarshalJSON() ([]byte, error) {
-	tmpMap := make(map[string]interface{}, 2)
+	tmpMap := make(map[string]interface{}, 3)
 	tmpMap["type"] = "object"
+	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
 
 	var fieldMap []map[string]interface{}
 

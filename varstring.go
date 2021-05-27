@@ -15,8 +15,9 @@ type VarLenStringSchema struct {
 }
 
 func (s *VarLenStringSchema) MarshalJSON() ([]byte, error) {
-	tmpMap := make(map[string]interface{}, 1)
+	tmpMap := make(map[string]interface{}, 2)
 	tmpMap["type"] = "string"
+	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
 
 	return json.Marshal(tmpMap)
 }

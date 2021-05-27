@@ -17,8 +17,9 @@ type EnumSchema struct {
 
 func (s *EnumSchema) MarshalJSON() ([]byte, error) {
 
-	tmpMap := make(map[string]interface{}, 2)
+	tmpMap := make(map[string]interface{}, 3)
 	tmpMap["type"] = "enum"
+	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
 
 	if len(s.Values) > 0 {
 		tmpMap["values"] = s.Values

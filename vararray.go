@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 )
 
 type VarArraySchema struct {
@@ -33,8 +34,24 @@ func (s *VarArraySchema) Bytes() []byte {
 
 func (s *VarArraySchema) MarshalJSON() ([]byte, error) {
 
-	tmpMap := make(map[string]interface{}, 1)
+	tmpMap := make(map[string]interface{}, 2)
 	tmpMap["type"] = "array"
+	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
+
+	// now encode the schema for the element
+	elementJSON, err := s.Element.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	var elementMap map[string]interface{}
+
+	err = json.Unmarshal(elementJSON, &elementMap)
+	if err != nil {
+		return nil, err
+	}
+
+	tmpMap["element"] = elementMap
 
 	return json.Marshal(tmpMap)
 }

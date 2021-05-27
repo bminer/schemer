@@ -227,10 +227,13 @@ func TestFixedObjectWriter(t *testing.T) {
 	saveToDisk("/tmp/test.schema", binaryWriterSchema)
 	saveToDisk("/tmp/test.data", encodedData.Bytes())
 
-	/*
-		b, _ := writerSchema.MarshalJSON()
-		fmt.Println(string(b))
-	*/
+	b, _ := writerSchema.MarshalJSON()
+
+	fmt.Println(string(b))
+
+	schema, _ := DecodeJSONSchema(b)
+
+	fmt.Println(schema)
 
 }
 

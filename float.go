@@ -24,9 +24,10 @@ func (s *FloatSchema) MarshalJSON() ([]byte, error) {
 		return nil, fmt.Errorf("invalid FloatSchema")
 	}
 
-	tmpMap := make(map[string]interface{}, 2)
-	tmpMap["float"] = "string"
+	tmpMap := make(map[string]interface{}, 3)
+	tmpMap["type"] = "float"
 	tmpMap["bits"] = strconv.Itoa(s.Bits)
+	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
 
 	return json.Marshal(tmpMap)
 }

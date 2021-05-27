@@ -40,6 +40,7 @@ func (s *VarIntSchema) MarshalJSON() ([]byte, error) {
 	tmpMap := make(map[string]interface{}, 2)
 	tmpMap["type"] = "int"
 	tmpMap["signed"] = strconv.FormatBool(s.Signed)
+	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
 
 	return json.Marshal(tmpMap)
 }

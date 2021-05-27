@@ -3,9 +3,11 @@ package schemer
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -382,7 +384,220 @@ func DecodeSchema(buf []byte) (Schema, error) {
 
 // DecodeJSONSchema takes a buffer of JSON data and parses it to create a schema
 func DecodeJSONSchema(buf []byte) (Schema, error) {
-	return nil, nil
+
+	fields := make(map[string]interface{})
+
+	err := json.Unmarshal(buf, &fields)
+	if err != nil {
+		return nil, err
+	}
+
+	schemaType := strings.ToUpper(fields["type"].(string))
+
+	switch schemaType {
+
+	case "ENUM":
+		var enumSchema *EnumSchema = &(EnumSchema{})
+		b, _ := strconv.ParseBool(fields["nullable"].(string))
+		enumSchema.SchemaOptions.Nullable = b
+		return enumSchema, nil
+
+	case "BOOL":
+		var boolSchema *BoolSchema = &(BoolSchema{})
+		b, _ := strconv.ParseBool(fields["nullable"].(string))
+		boolSchema.SchemaOptions.Nullable = b
+
+		return boolSchema, nil
+
+	case "COMPLEX":
+		var complexSchema *ComplexSchema = &(ComplexSchema{})
+
+		if fields["bits"].(string) == "128" {
+			complexSchema.Bits = 128
+		} else if fields["bits"].(string) == "64" {
+			complexSchema.Bits = 64
+		} else {
+			return nil, fmt.Errorf("invalid JSON schema encountered")
+		}
+		b, _ := strconv.ParseBool(fields["nullable"].(string))
+		complexSchema.SchemaOptions.Nullable = b
+		byteIndex++
+
+		return complexSchema, nil
+
+	case "ARRAY":
+		var FixedArraySchema *FixedArraySchema = &(FixedArraySchema{})
+		var varArraySchema *VarArraySchema = &(VarArraySchema{})
+
+		tmpLen, ok := fields["length"].(int)
+
+		// if length is present, then we are dealing with a fixed length array...
+		if ok {
+			b, _ := strconv.ParseBool(fields["nullable"].(string))
+			FixedArraySchema.SchemaOptions.Nullable = b
+			FixedArraySchema.Length = tmpLen
+
+			// process the array element
+			tmp, err := json.Marshal(fields["element"])
+			if err != nil {
+				return nil, err
+			}
+
+			FixedArraySchema.Element, err = DecodeJSONSchema(tmp)
+
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			b, _ := strconv.ParseBool(fields["nullable"].(string))
+			varArraySchema.SchemaOptions.Nullable = b
+
+			// process the array element
+			tmp, err := json.Marshal(fields["element"])
+			if err != nil {
+				return nil, err
+			}
+
+			FixedArraySchema.Element, err = DecodeJSONSchema(tmp)
+			if err != nil {
+				return nil, err
+			}
+
+			return varArraySchema, nil
+		}
+
+	case "INT":
+		var fixedIntSchema *FixedIntSchema = &(FixedIntSchema{})
+		var varIntSchema *VarIntSchema = &(VarIntSchema{})
+
+		numBits, ok := fields["bits"].(int)
+
+		// if bits are present, then we are dealing with a fixed int
+		if ok {
+
+			b, _ := strconv.ParseBool(fields["nullable"].(string))
+			fixedIntSchema.SchemaOptions.Nullable = b
+			b, _ = strconv.ParseBool(fields["nullable"].(string))
+			fixedIntSchema.Signed = b
+			fixedIntSchema.Bits = numBits
+
+			return fixedIntSchema, nil
+
+		} else {
+
+			b, _ := strconv.ParseBool(fields["nullable"].(string))
+			varIntSchema.SchemaOptions.Nullable = b
+			b, _ = strconv.ParseBool(fields["nullable"].(string))
+			varIntSchema.Signed = b
+
+			return varIntSchema, nil
+		}
+
+	case "OBJECT":
+		var fixedObjectSchema *FixedObjectSchema = &(FixedObjectSchema{})
+		var varObjectSchema *VarObjectSchema = &(VarObjectSchema{})
+
+		objectFields, ok := fields["fields"].([]interface{})
+
+		// if fields are present, then we are dealing with a fixed object
+		if ok {
+
+			b, _ := strconv.ParseBool(fields["nullable"].(string))
+			fixedObjectSchema.SchemaOptions.Nullable = b
+
+			// loop through all fields in this object
+			for i := 0; i < len(objectFields); i++ {
+				var of ObjectField = ObjectField{}
+
+				// fill in the name of this field...
+				// (the json encoded data only includes the name, not a list of aliases)
+				tmpMap := objectFields[i].(map[string]interface{})
+				name := tmpMap["name"].(string)
+
+				of.Aliases = make([]string, 1)
+				of.Aliases[0] = name
+
+				tmp, err := json.Marshal(objectFields[i])
+				if err != nil {
+					return nil, err
+				}
+
+				// recursive call to process this field of this object...
+				of.Schema, err = DecodeJSONSchema(tmp)
+				if err != nil {
+					return nil, err
+				}
+
+				fixedObjectSchema.Fields = append(fixedObjectSchema.Fields, of)
+			}
+
+			return fixedObjectSchema, nil
+		} else {
+
+			b, _ := strconv.ParseBool(fields["nullable"].(string))
+			varObjectSchema.SchemaOptions.Nullable = b
+
+			tmp, err := json.Marshal(fields["key"].(interface{}))
+			if err != nil {
+				return nil, err
+			}
+
+			varObjectSchema.Key, err = DecodeJSONSchema(tmp)
+			if err != nil {
+				return nil, err
+			}
+
+			tmp, err = json.Marshal(fields["value"].(interface{}))
+			if err != nil {
+				return nil, err
+			}
+
+			varObjectSchema.Value, err = DecodeJSONSchema(tmp)
+			if err != nil {
+				return nil, err
+			}
+
+			return varObjectSchema, nil
+
+		}
+
+	case "STRING":
+		var fixedLenStringSchema *FixedStringSchema = &(FixedStringSchema{})
+		var varLenStringSchema *VarLenStringSchema = &(VarLenStringSchema{})
+
+		tmpLen, ok := fields["length"].(int)
+
+		// if string length is present, then we are dealing with a fixed string
+		if ok {
+			b, _ := strconv.ParseBool(fields["nullable"].(string))
+			fixedLenStringSchema.SchemaOptions.Nullable = b
+			fixedLenStringSchema.Length = tmpLen
+
+			return fixedLenStringSchema, nil
+		} else {
+			b, _ := strconv.ParseBool(fields["nullable"].(string))
+			varLenStringSchema.SchemaOptions.Nullable = b
+			return varLenStringSchema, nil
+		}
+
+	case "FLOAT":
+		var floatSchema *FloatSchema = &(FloatSchema{})
+
+		if fields["bits"].(string) == "64" {
+			floatSchema.Bits = 64
+		} else if fields["bits"].(string) == "32" {
+			floatSchema.Bits = 32
+		} else {
+			return nil, fmt.Errorf("invalid JSON schema encountered")
+		}
+
+		b, _ := strconv.ParseBool(fields["nullable"].(string))
+		floatSchema.SchemaOptions.Nullable = b
+
+		return floatSchema, nil
+	}
+
+	return nil, fmt.Errorf("invalid JSON schema encountered")
 }
 
 // decodeSchemaInternal processes buf[] to actually decode the binary schema.

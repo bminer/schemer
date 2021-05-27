@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 )
 
 type VarObjectSchema struct {
@@ -19,6 +20,37 @@ func (s *VarObjectSchema) MarshalJSON() ([]byte, error) {
 
 	tmpMap := make(map[string]interface{}, 1)
 	tmpMap["type"] = "object"
+	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
+
+	// now encode the schema for the key
+	keyJSON, err := s.Key.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	var keyMap map[string]interface{}
+
+	err = json.Unmarshal(keyJSON, &keyMap)
+	if err != nil {
+		return nil, err
+	}
+
+	tmpMap["key"] = keyMap
+
+	// now encode the schema for the value
+	ValueJSON, err := s.Key.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	var valueMap map[string]interface{}
+
+	err = json.Unmarshal(ValueJSON, &valueMap)
+	if err != nil {
+		return nil, err
+	}
+
+	tmpMap["value"] = valueMap
 
 	return json.Marshal(tmpMap)
 }

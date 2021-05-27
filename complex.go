@@ -25,9 +25,10 @@ func (s *ComplexSchema) MarshalJSON() ([]byte, error) {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
 
-	tmpMap := make(map[string]string, 2)
+	tmpMap := make(map[string]string, 3)
 	tmpMap["type"] = "complex"
 	tmpMap["bits"] = strconv.Itoa(s.Bits)
+	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
 
 	return json.Marshal(tmpMap)
 }

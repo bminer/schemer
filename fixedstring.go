@@ -25,9 +25,10 @@ func (s *FixedStringSchema) MarshalJSON() ([]byte, error) {
 		return nil, fmt.Errorf("invalid FixedStringSchema")
 	}
 
-	tmpMap := make(map[string]interface{}, 2)
+	tmpMap := make(map[string]interface{}, 3)
 	tmpMap["type"] = "string"
 	tmpMap["length"] = strconv.Itoa(s.Length)
+	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
 
 	return json.Marshal(tmpMap)
 

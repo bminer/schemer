@@ -45,12 +45,28 @@ func (s *FixedArraySchema) Bytes() []byte {
 
 func (s *FixedArraySchema) MarshalJSON() ([]byte, error) {
 	if !s.Valid() {
-		return nil, fmt.Errorf("invalid floating point schema")
+		return nil, fmt.Errorf("invalid FixedArraySchema")
 	}
 
-	tmpMap := make(map[string]interface{}, 2)
+	tmpMap := make(map[string]interface{}, 3)
 	tmpMap["type"] = "array"
 	tmpMap["length"] = strconv.Itoa(s.Length)
+	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
+
+	// now encode the schema for the element
+	elementJSON, err := s.Element.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	var elementMap map[string]interface{}
+
+	err = json.Unmarshal(elementJSON, &elementMap)
+	if err != nil {
+		return nil, err
+	}
+
+	tmpMap["element"] = elementMap
 
 	return json.Marshal(tmpMap)
 }
