@@ -31,37 +31,97 @@ func (s *BoolSchema) Bytes() []byte {
 	return schema
 }
 
-// Encode uses the schema to write the encoded value of v to the output stream
-func (s *BoolSchema) Encode(w io.Writer, i interface{}) error {
-
-	if i == nil {
-		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
-	}
-
-	if s.SchemaOptions.Nullable {
-		// did the caller pass in a nil value, or a null pointer
-		if reflect.TypeOf(i).Kind() == reflect.Ptr ||
-			reflect.TypeOf(i).Kind() == reflect.Interface &&
-				reflect.ValueOf(i).IsNil() {
-			// we encode a null value by writing a single non 0 byte
-			w.Write([]byte{1})
-			return nil
-		} else {
-			// 0 means not null (with actual encoded bytes to follow)
-			w.Write([]byte{0})
-		}
-	} else {
-		if i == nil {
-			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
-		}
-	}
-
-	v := reflect.ValueOf(i)
+func PreEncode(s Schema, w io.Writer, v *reflect.Value) (bool, error) {
 
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
-		i = v.Elem()
+		*v = v.Elem()
 	}
+
+	if s.Nullable() {
+		// did the caller pass in a nil value, or a null pointer?
+		if !v.IsValid() {
+
+			fmt.Println("value encoded as a null...")
+
+			// per the revised spec, 1 indicates null
+			w.Write([]byte{1})
+			return false, nil
+		} else {
+			// 0 indicates not null
+			w.Write([]byte{0})
+		}
+	} else {
+		// if nullable is false
+		// but they are trying to encode a nil value.. then that is an error
+		if !v.IsValid() {
+			return false, fmt.Errorf("cannot enoded nil value when IsNullable is false")
+		}
+	}
+
+	return true, nil
+}
+
+func PreDecode(s Schema, r io.Reader, v *reflect.Value) (bool, error) {
+
+	buf := make([]byte, 1)
+
+	// if the data indicates this type is nullable, then the actual
+	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
+	if s.Nullable() {
+
+		// first byte indicates whether value is null or not...
+		_, err := io.ReadAtLeast(r, buf, 1)
+		if err != nil {
+			return false, err
+		}
+		valueIsNull := (buf[0] == 1)
+
+		if valueIsNull {
+			if v.Kind() == reflect.Ptr {
+				if v.CanSet() {
+					v.Set(reflect.Zero(v.Type()))
+					return false, nil
+				}
+				*v = v.Elem()
+				if v.CanSet() {
+					v.Set(reflect.Zero(v.Type()))
+					return false, nil
+				}
+				return false, fmt.Errorf("destination not settable")
+			} else {
+				return false, fmt.Errorf("cannot decode null value to non pointer to pointer type")
+			}
+		}
+	}
+
+	// Dereference pointer / interface types
+	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+		if v.IsNil() {
+			if !v.CanSet() {
+				return false, fmt.Errorf("decode destination is not settable")
+			}
+			v.Set(reflect.New(v.Type().Elem()))
+		}
+		*v = v.Elem()
+	}
+
+	return true, nil
+}
+
+// Encode uses the schema to write the encoded value of v to the output stream
+func (s *BoolSchema) Encode(w io.Writer, i interface{}) error {
+
+	v := reflect.ValueOf(i)
+
+	ok, err := PreEncode(s, w, &v)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
+
 	t := v.Type()
 	k := t.Kind()
 
@@ -111,51 +171,20 @@ func (s *BoolSchema) Decode(r io.Reader, i interface{}) error {
 
 func (s *BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
-	buf := make([]byte, 1)
-
-	// if the data indicates this type is nullable, then the actual
-	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
-	if s.SchemaOptions.Nullable {
-
-		// first byte indicates whether value is null or not...
-		_, err := io.ReadAtLeast(r, buf, 1)
-		if err != nil {
-			return err
-		}
-		valueIsNull := (buf[0] == 1)
-
-		if valueIsNull {
-			if v.Kind() == reflect.Ptr {
-				if v.CanSet() {
-					v.Set(reflect.Zero(v.Type()))
-					return nil
-				}
-				v = v.Elem()
-				if v.CanSet() {
-					v.Set(reflect.Zero(v.Type()))
-					return nil
-				}
-				return fmt.Errorf("destination not settable")
-			} else {
-				return fmt.Errorf("cannot decode null value to non pointer to pointer type")
-			}
-		}
+	ok, err := PreDecode(s, r, &v)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
 	}
 
-	// Dereference pointer / interface types
-	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
-		if v.IsNil() {
-			if !v.CanSet() {
-				return fmt.Errorf("decode destination is not settable")
-			}
-			v.Set(reflect.New(v.Type().Elem()))
-		}
-		v = v.Elem()
-	}
 	t := v.Type()
 	k := t.Kind()
 
-	_, err := io.ReadAtLeast(r, buf, 1)
+	buf := make([]byte, 1)
+
+	_, err = io.ReadAtLeast(r, buf, 1)
 	if err != nil {
 		return err
 	}

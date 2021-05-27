@@ -132,6 +132,7 @@ func TestDecodeEnum4(t *testing.T) {
 	enumSchema := EnumSchema{SchemaOptions: SchemaOptions{Nullable: true, WeakDecoding: true}}
 
 	// we have to manually fill in the writer's schema
+
 	enumSchema.Values = make(map[int]string)
 	enumSchema.Values[int(Sunday)] = "Sunday"
 	enumSchema.Values[int(Monday)] = "Monday"

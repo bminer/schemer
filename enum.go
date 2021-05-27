@@ -17,8 +17,14 @@ type EnumSchema struct {
 
 func (s *EnumSchema) MarshalJSON() ([]byte, error) {
 
-	return json.Marshal(s)
+	tmpMap := make(map[string]interface{}, 2)
+	tmpMap["type"] = "enum"
 
+	if len(s.Values) > 0 {
+		tmpMap["values"] = s.Values
+	}
+
+	return json.Marshal(tmpMap)
 }
 
 // Bytes encodes the schema in a portable binary format
@@ -104,17 +110,6 @@ func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		}
 	}
 
-	// check to see if the decoded value is in our map of enumerated values
-	if s.Values != nil {
-		if _, ok := s.Values[int(decodedVarInt)]; !ok {
-			// however, maybe it makes sense to allow this scenario
-			// when weak decoding is specified??
-			if !s.WeakDecoding {
-				return fmt.Errorf("decoded enumerated value not in map")
-			}
-		}
-	}
-
 	// if we are not dealing with a nil value
 	// then we have to determine what to do with the value, based on where we are trying to decode it to
 
@@ -130,6 +125,17 @@ func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 	t := v.Type()
 	k := t.Kind()
+
+	// check to see if the decoded value is in our map of enumerated values
+	if s.Values != nil {
+		if _, ok := s.Values[int(decodedVarInt)]; !ok {
+			// however, maybe it makes sense to allow this scenario
+			// when weak decoding is specified??
+			if !s.WeakDecoding {
+				return fmt.Errorf("decoded enumerated value not in map")
+			}
+		}
+	}
 
 	// Ensure v is settable
 	if !v.CanSet() {

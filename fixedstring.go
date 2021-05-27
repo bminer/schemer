@@ -16,14 +16,20 @@ type FixedStringSchema struct {
 }
 
 func (s *FixedStringSchema) Valid() bool {
-
 	return (s.Length > 0)
 }
 
-// fixme
 func (s *FixedStringSchema) MarshalJSON() ([]byte, error) {
 
-	return json.Marshal(s)
+	if !s.Valid() {
+		return nil, fmt.Errorf("invalid FixedStringSchema")
+	}
+
+	tmpMap := make(map[string]interface{}, 2)
+	tmpMap["type"] = "string"
+	tmpMap["length"] = strconv.Itoa(s.Length)
+
+	return json.Marshal(tmpMap)
 
 }
 
@@ -58,40 +64,16 @@ func (s *FixedStringSchema) Encode(w io.Writer, i interface{}) error {
 		return fmt.Errorf("cannot encode using invalid StringSchema schema")
 	}
 
-	if i == nil {
-		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
-	}
-
-	if s.SchemaOptions.Nullable {
-		if (reflect.TypeOf(i).Kind() == reflect.Ptr ||
-			reflect.TypeOf(i).Kind() == reflect.Interface) &&
-			reflect.ValueOf(i).IsNil() {
-
-			// per the spec, we encode a null value by writing a non 0 value...
-			w.Write([]byte{1})
-			return nil
-		} else {
-			// 0 means not null (with actual encoded bytes to follow)
-			w.Write([]byte{0})
-		}
-	} else {
-		if i == nil {
-			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
-		}
-	}
-
 	v := reflect.ValueOf(i)
 
-	// Dereference pointer / interface types
-	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
-		if v.IsNil() {
-			if !v.CanSet() {
-				return fmt.Errorf("decode destination is not settable")
-			}
-			v.Set(reflect.New(v.Type().Elem()))
-		}
-		i = v.Elem()
+	ok, err := PreEncode(s, w, &v)
+	if err != nil {
+		return err
 	}
+	if !ok {
+		return nil
+	}
+
 	t := v.Type()
 	k := t.Kind()
 
@@ -106,17 +88,10 @@ func (s *FixedStringSchema) Encode(w io.Writer, i interface{}) error {
 	formatString := "%-" + strconv.Itoa(s.Length) + "v"
 	stringToEncode = fmt.Sprintf(formatString, stringToEncode)
 
-	_, err := w.Write([]byte(stringToEncode))
+	_, err = w.Write([]byte(stringToEncode))
 	if err != nil {
 		return err
 	}
-	/*
-		this is not true, because n represents the number of BYTES written
-		whereas Length really means the number of RUNES
-		if n != s.Length {
-			return errors.New("unexpected number of bytes written")
-		}
-	*/
 
 	return nil
 }
@@ -140,51 +115,21 @@ func (s *FixedStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		return fmt.Errorf("cannot decode using invalid StringSchema schema")
 	}
 
-	// if the schema is nullable
-	if s.SchemaOptions.Nullable {
-		// data is proceeded by one byte, which says if the field is nullable
-		buf := make([]byte, 1)
-		_, err := io.ReadAtLeast(r, buf, 1)
-		if err != nil {
-			return err
-		}
-		tmpByte := buf[0]
-		if tmpByte == 1 {
-			if v.Kind() == reflect.Ptr {
-				if v.CanSet() {
-					v.Set(reflect.Zero(v.Type()))
-					return nil
-				}
-				v = v.Elem()
-				if v.CanSet() {
-					v.Set(reflect.Zero(v.Type()))
-					return nil
-				}
-				return fmt.Errorf("destination not settable")
-			} else {
-				return fmt.Errorf("cannot decode null value to non pointer to pointer type")
-			}
-		}
+	ok, err := PreDecode(s, r, &v)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
 	}
 
-	// Dereference pointer / interface types
-	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
-		if v.IsNil() {
-			if !v.CanSet() {
-				return fmt.Errorf("decode destination is not settable")
-			}
-			v.Set(reflect.New(v.Type().Elem()))
-		}
-
-		v = v.Elem()
-	}
 	t := v.Type()
 	k := t.Kind()
 
 	var decodedString string
 
 	buf := make([]byte, s.Length)
-	_, err := io.ReadAtLeast(r, buf, s.Length)
+	_, err = io.ReadAtLeast(r, buf, s.Length)
 	if err != nil {
 		return err
 	}

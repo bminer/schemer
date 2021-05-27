@@ -32,42 +32,24 @@ func (s *VarArraySchema) Bytes() []byte {
 }
 
 func (s *VarArraySchema) MarshalJSON() ([]byte, error) {
-	return json.Marshal(s)
+
+	tmpMap := make(map[string]interface{}, 1)
+	tmpMap["type"] = "array"
+
+	return json.Marshal(tmpMap)
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
 func (s *VarArraySchema) Encode(w io.Writer, i interface{}) error {
 
-	if i == nil {
-		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
-	}
-
 	v := reflect.ValueOf(i)
 
-	// Dereference pointer / interface types
-	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
-		v = v.Elem()
+	ok, err := PreEncode(s, w, &v)
+	if err != nil {
+		return err
 	}
-
-	if s.SchemaOptions.Nullable {
-		// did the caller pass in a nil value, or a null pointer?
-		if !v.IsValid() {
-
-			fmt.Println("value encoded as a null...")
-
-			// per the revised spec, 1 indicates null
-			w.Write([]byte{1})
-			return nil
-		} else {
-			// 0 indicates not null
-			w.Write([]byte{0})
-		}
-	} else {
-		// if nullable is false
-		// but they are trying to encode a nil value.. then that is an error
-		if !v.IsValid() {
-			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
-		}
+	if !ok {
+		return nil
 	}
 
 	t := v.Type()
@@ -77,7 +59,7 @@ func (s *VarArraySchema) Encode(w io.Writer, i interface{}) error {
 		return fmt.Errorf("VarArraySchema can only encode slices")
 	}
 
-	err := writeVarUint(w, uint64(v.Len()))
+	err = writeVarUint(w, uint64(v.Len()))
 	if err != nil {
 		return errors.New("cannot encode var string length as var int")
 	}
@@ -94,48 +76,14 @@ func (s *VarArraySchema) Encode(w io.Writer, i interface{}) error {
 
 func (s *VarArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
-	// if the data indicates this type is nullable, then the actual
-	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
-	if s.SchemaOptions.Nullable {
-
-		// first byte indicates whether value is null or not...
-		buf := make([]byte, 1)
-		_, err := io.ReadAtLeast(r, buf, 1)
-		if err != nil {
-			return err
-		}
-		valueIsNull := (buf[0] == 1)
-
-		if valueIsNull {
-			if v.Kind() == reflect.Ptr {
-				if v.CanSet() {
-					v.Set(reflect.Zero(v.Type()))
-					return nil
-				}
-				v = v.Elem()
-				if v.CanSet() {
-					v.Set(reflect.Zero(v.Type()))
-					return nil
-				}
-				return fmt.Errorf("destination not settable")
-			} else {
-				return fmt.Errorf("cannot decode null value to non pointer to pointer type")
-			}
-		}
+	ok, err := PreDecode(s, r, &v)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
 	}
 
-	// Dereference pointer / interface types
-	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
-
-		if v.IsNil() {
-			if !v.CanSet() {
-				return fmt.Errorf("decode destination is not settable")
-			}
-			v.Set(reflect.New(v.Type().Elem()))
-		}
-
-		v = v.Elem()
-	}
 	t := v.Type()
 	k := t.Kind()
 

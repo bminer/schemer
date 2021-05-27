@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 )
 
 type FixedArraySchema struct {
@@ -47,7 +48,11 @@ func (s *FixedArraySchema) MarshalJSON() ([]byte, error) {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
 
-	return json.Marshal(s)
+	tmpMap := make(map[string]interface{}, 2)
+	tmpMap["type"] = "array"
+	tmpMap["length"] = strconv.Itoa(s.Length)
+
+	return json.Marshal(tmpMap)
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
@@ -58,39 +63,16 @@ func (s *FixedArraySchema) Encode(w io.Writer, i interface{}) error {
 		return fmt.Errorf("cannot encode using invalid FixedArraySchema schema")
 	}
 
-	if i == nil {
-		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
-	}
-
-	if s.SchemaOptions.Nullable {
-		// did the caller pass in a nil value, or a null pointer
-		if reflect.TypeOf(i).Kind() == reflect.Ptr ||
-			reflect.TypeOf(i).Kind() == reflect.Interface &&
-				reflect.ValueOf(i).IsNil() {
-			// we encode a null value by writing a single non 0 byte
-			w.Write([]byte{1})
-			return nil
-		} else {
-			// 0 means not null (with actual encoded bytes to follow)
-			w.Write([]byte{0})
-		}
-	} else {
-		if i == nil {
-			return fmt.Errorf("cannot enoded nil value when IsNullable is false")
-		}
-	}
-
 	v := reflect.ValueOf(i)
-	// Dereference pointer / interface types
-	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
-		if v.IsNil() {
-			if !v.CanSet() {
-				return fmt.Errorf("decode destination is not settable")
-			}
-			v.Set(reflect.New(v.Type().Elem()))
-		}
-		v = v.Elem()
+
+	ok, err := PreEncode(s, w, &v)
+	if err != nil {
+		return err
 	}
+	if !ok {
+		return nil
+	}
+
 	t := v.Type()
 	k := t.Kind()
 
@@ -116,43 +98,14 @@ func (s *FixedArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		return fmt.Errorf("cannot decode using invalid FixedArraySchema schema")
 	}
 
-	// if the schema indicates this type is nullable, then the actual floating point
-	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
-	if s.SchemaOptions.Nullable {
-		buf := make([]byte, 1)
-		_, err := io.ReadAtLeast(r, buf, 1)
-		if err != nil {
-			return err
-		}
-		if buf[0] != 0 {
-			if v.Kind() == reflect.Ptr {
-				if v.CanSet() {
-					v.Set(reflect.Zero(v.Type()))
-					return nil
-				}
-				v = v.Elem()
-				if v.CanSet() {
-					v.Set(reflect.Zero(v.Type()))
-					return nil
-				}
-				return fmt.Errorf("destination not settable")
-			} else {
-				return fmt.Errorf("cannot decode null value to non pointer to pointer type")
-			}
-		}
+	ok, err := PreDecode(s, r, &v)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
 	}
 
-	// Dereference pointer / interface types
-	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
-		if v.IsNil() {
-			if !v.CanSet() {
-				return fmt.Errorf("decode destination is not settable")
-			}
-			v.Set(reflect.New(v.Type().Elem()))
-		}
-
-		v = v.Elem()
-	}
 	t := v.Type()
 	k := t.Kind()
 
