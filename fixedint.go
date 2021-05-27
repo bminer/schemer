@@ -16,11 +16,10 @@ const minFloatInt = -maxFloatInt
 const maxIntUint = uint64(1)<<63 - 1
 
 type FixedIntSchema struct {
-	Signed         bool
-	Bits           int
-	WeakDecoding   bool
-	StrictEncoding bool
-	IsNullable     bool
+	SchemaOptions
+
+	Signed bool
+	Bits   int
 }
 
 func (s *FixedIntSchema) Valid() bool {
@@ -31,18 +30,16 @@ func (s *FixedIntSchema) Valid() bool {
 func (s *FixedIntSchema) Bytes() []byte {
 
 	// fixed length schemas are 1 byte long total
-	var schema []byte = make([]byte, 1)
+	var schema []byte = []byte{0b00000000}
 
-	schema[0] = 0b00000000 // bit pattern for fixed int
-
-	// The most signifiant bit indicates whether or not the type is nullable
-	if s.IsNullable {
-		schema[0] |= 1
+	// bit8 indicates whether or not the type is nullable
+	if s.SchemaOptions.Nullable {
+		schema[0] |= 128
 	}
 
-	// bit3 indicates if the the fixed length int is signed or not
+	// bit1 indicates if the the fixed length int is signed or not
 	if s.Signed {
-		schema[0] |= 4
+		schema[0] |= 1
 	}
 
 	//
@@ -50,11 +47,11 @@ func (s *FixedIntSchema) Bytes() []byte {
 	case 8:
 		//do nothing
 	case 16:
-		schema[0] |= 8
+		schema[0] |= 2
 	case 32:
-		schema[0] |= 16
+		schema[0] |= 4
 	case 64:
-		schema[0] |= 24
+		schema[0] |= 6
 	default:
 	}
 
@@ -245,7 +242,7 @@ func (s *FixedIntSchema) Encode(w io.Writer, i interface{}) error {
 		v = v.Elem()
 	}
 
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
 		// did the caller pass in a nil value, or a null pointer?
 		if !v.IsValid() {
 
@@ -348,7 +345,7 @@ func (s *FixedIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// if the data indicates this type is nullable, then the actual
 	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
 
 		// first byte indicates whether value is null or not...
 		buf := make([]byte, 1)
@@ -548,9 +545,9 @@ func (s *FixedIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 }
 
 func (s *FixedIntSchema) Nullable() bool {
-	return s.IsNullable
+	return s.SchemaOptions.Nullable
 }
 
 func (s *FixedIntSchema) SetNullable(n bool) {
-	s.IsNullable = n
+	s.SchemaOptions.Nullable = n
 }

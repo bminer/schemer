@@ -11,27 +11,24 @@ import (
 )
 
 type VarIntSchema struct {
-	Signed       bool
-	WeakDecoding bool
-	IsNullable   bool
+	SchemaOptions
+	Signed bool
 }
 
 // Bytes encodes the schema in a portable binary format
 func (s *VarIntSchema) Bytes() []byte {
 
 	// fixed length schemas are 1 byte long total
-	var schema []byte = make([]byte, 1)
-
-	schema[0] = 0b01000000 // bit pattern for fixed int
+	var schema []byte = []byte{0b00010000}
 
 	// The most signifiant bit indicates whether or not the type is nullable
-	if s.IsNullable {
-		schema[0] |= 1
+	if s.SchemaOptions.Nullable {
+		schema[0] |= 128
 	}
 
 	// next bit indicates if the the fixed length int is signed or not
 	if s.Signed {
-		schema[0] |= 4
+		schema[0] |= 1
 	}
 
 	return schema
@@ -99,7 +96,7 @@ func (s *VarIntSchema) Encode(w io.Writer, i interface{}) error {
 		v = v.Elem()
 	}
 
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
 		// did the caller pass in a nil value, or a null pointer?
 		if !v.IsValid() {
 
@@ -172,7 +169,7 @@ func (s VarIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// if the data indicates this type is nullable, then the actual
 	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
 
 		// first byte indicates whether value is null or not...
 		buf := make([]byte, 1)
@@ -378,9 +375,9 @@ func (s VarIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 }
 
 func (s *VarIntSchema) Nullable() bool {
-	return s.IsNullable
+	return s.SchemaOptions.Nullable
 }
 
 func (s *VarIntSchema) SetNullable(n bool) {
-	s.IsNullable = n
+	s.SchemaOptions.Nullable = n
 }

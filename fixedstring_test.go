@@ -13,7 +13,7 @@ import (
 func TestDecodeFixedString1(t *testing.T) {
 
 	// setup an example schema
-	schema := FixedStringSchema{IsNullable: true, FixedLength: 80}
+	schema := FixedStringSchema{SchemaOptions: SchemaOptions{Nullable: true}, Length: 80}
 
 	// encode it
 	b := schema.Bytes()
@@ -25,7 +25,7 @@ func TestDecodeFixedString1(t *testing.T) {
 	}
 
 	decodedStringSchema := tmp.(*FixedStringSchema)
-	if schema.IsNullable != decodedStringSchema.Nullable() {
+	if schema.SchemaOptions.Nullable != decodedStringSchema.Nullable() {
 
 		// nothing else to test here...
 
@@ -36,7 +36,7 @@ func TestDecodeFixedString1(t *testing.T) {
 
 func TestDecodeFixedString2(t *testing.T) {
 
-	fixedLenStringSchema := FixedStringSchema{IsNullable: true, FixedLength: 80}
+	fixedLenStringSchema := FixedStringSchema{SchemaOptions: SchemaOptions{Nullable: true}, Length: 80}
 
 	var buf bytes.Buffer
 	var err error
@@ -69,7 +69,7 @@ func TestDecodeFixedString2(t *testing.T) {
 
 func TestDecodeFixedString3(t *testing.T) {
 
-	fixedLenStringSchema := FixedStringSchema{IsNullable: true, FixedLength: 80}
+	fixedLenStringSchema := FixedStringSchema{SchemaOptions: SchemaOptions{Nullable: true}, Length: 80}
 
 	var buf bytes.Buffer
 	var err error
@@ -105,7 +105,7 @@ func TestDecodeFixedString3(t *testing.T) {
 
 func TestDecodeFixedString4(t *testing.T) {
 
-	fixedLenStringSchema := FixedStringSchema{IsNullable: true, FixedLength: 80}
+	fixedLenStringSchema := FixedStringSchema{SchemaOptions: SchemaOptions{Nullable: true}, Length: 80}
 
 	var buf bytes.Buffer
 	var err error
@@ -141,7 +141,7 @@ func TestDecodeFixedString4(t *testing.T) {
 
 func TestDecodeFixedString5(t *testing.T) {
 
-	fixedLenStringSchema := FixedStringSchema{IsNullable: true, FixedLength: 80}
+	fixedLenStringSchema := FixedStringSchema{SchemaOptions: SchemaOptions{Nullable: true}, Length: 80}
 
 	var buf bytes.Buffer
 	var err error
@@ -177,7 +177,7 @@ func TestDecodeFixedString5(t *testing.T) {
 
 func TestDecodeFixedString6(t *testing.T) {
 
-	fixedLenStringSchema := FixedStringSchema{IsNullable: true, FixedLength: 80}
+	fixedLenStringSchema := FixedStringSchema{SchemaOptions: SchemaOptions{Nullable: true}, Length: 80}
 
 	var buf bytes.Buffer
 	var err error
@@ -212,7 +212,7 @@ func TestDecodeFixedString6(t *testing.T) {
 func TestFixedStrWriter(t *testing.T) {
 
 	strToEncode := ""
-	fixedLenStrSchema := FixedStringSchema{FixedLength: 8, IsNullable: false}
+	fixedLenStrSchema := FixedStringSchema{Length: 8, SchemaOptions: SchemaOptions{Nullable: false}}
 
 	binaryReaderSchema := fixedLenStrSchema.Bytes()
 

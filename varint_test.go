@@ -9,7 +9,7 @@ import (
 
 func TestVarIntSchema1(t *testing.T) {
 
-	varIntSchema := VarIntSchema{Signed: true, WeakDecoding: true}
+	varIntSchema := VarIntSchema{Signed: true, SchemaOptions: SchemaOptions{WeakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -243,7 +243,7 @@ func TestVarIntSchema1(t *testing.T) {
 
 func TestVarIntSchema2(t *testing.T) {
 
-	varIntSchema := VarIntSchema{Signed: true, WeakDecoding: true}
+	varIntSchema := VarIntSchema{Signed: true, SchemaOptions: SchemaOptions{WeakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -477,7 +477,7 @@ func TestVarIntSchema2(t *testing.T) {
 
 func TestVarIntSchema3(t *testing.T) {
 
-	varIntSchema := VarIntSchema{Signed: true, WeakDecoding: true}
+	varIntSchema := VarIntSchema{Signed: true, SchemaOptions: SchemaOptions{WeakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -713,7 +713,7 @@ func TestVarIntSchema4(t *testing.T) {
 
 	fmt.Println("decode nil varint")
 
-	varIntSchema := VarIntSchema{Signed: true, IsNullable: true}
+	varIntSchema := VarIntSchema{Signed: true, SchemaOptions: SchemaOptions{Nullable: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -748,7 +748,7 @@ func TestVarIntSchema4(t *testing.T) {
 func TestVarIntSchema5(t *testing.T) {
 
 	// setup an example schema
-	varIntSchema := VarIntSchema{Signed: true, IsNullable: true}
+	varIntSchema := VarIntSchema{Signed: true, SchemaOptions: SchemaOptions{Nullable: true}}
 
 	// encode it
 	b := varIntSchema.Bytes()
@@ -763,7 +763,7 @@ func TestVarIntSchema5(t *testing.T) {
 
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
-	if decodedVarintSchema.IsNullable != varIntSchema.IsNullable ||
+	if decodedVarintSchema.SchemaOptions.Nullable != varIntSchema.SchemaOptions.Nullable ||
 		decodedVarintSchema.Signed != varIntSchema.Signed {
 
 		t.Error("unexpected values when decoding binary decodedVarintSchema")

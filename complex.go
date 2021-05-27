@@ -33,26 +33,20 @@ func (s *ComplexSchema) MarshalJSON() ([]byte, error) {
 func (s *ComplexSchema) Bytes() []byte {
 
 	// floating point schemas are 1 byte long
-	var schema []byte = make([]byte, 1)
+	var schema []byte = []byte{0b00011000}
 
-	schema[0] = 0b01100000 // bit pattern for complex number schema
-
-	// The most signifiant bit indicates whether or not the type is nullable
+	// bit 8 indicates whether or not the type is nullable
 	if s.SchemaOptions.Nullable {
-		schema[0] |= 1
+		schema[0] |= 128
 	}
 
-	// bit 2 unused
-
-	// bit 3 = complex number size in (64 << n) bits
+	// bit 1 = complex number size in (64 << n) bits
 	if s.Bits == 64 {
 		// do nothing; third bit should be 0
 	} else if s.Bits == 128 {
 		// third bit should be one; indicating 128 bit complex
-		schema[0] |= 4
+		schema[0] |= 1
 	}
-
-	// bit 4 = is reserved
 
 	return schema
 }

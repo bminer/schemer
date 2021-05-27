@@ -11,9 +11,7 @@ import (
 func TestDecodeFixedObject1(t *testing.T) {
 
 	type TestStruct struct {
-		A string //test
-		B string
-		C [10]int
+		A string
 	}
 
 	var testStruct TestStruct
@@ -29,11 +27,11 @@ func TestDecodeFixedObject1(t *testing.T) {
 		t.Error("cannot encode binary encoded FixedObjectSchema")
 	}
 
-	decodedIntSchema := tmp.(*FixedObjectSchema)
+	decodedSchema := tmp.(*FixedObjectSchema)
 
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
-	if decodedIntSchema.IsNullable != fixedObjectSchema.Nullable() {
+	if decodedSchema.SchemaOptions.Nullable != fixedObjectSchema.Nullable() {
 		t.Error("unexpected values when decoding binary FixedObjectSchema")
 	}
 
@@ -95,7 +93,7 @@ func TestDecodeFixedObject5(t *testing.T) {
 		AgeInLife int    //`schemer:"Age"`
 	}
 
-	var structToEncode = SourceStruct{FName: "ben", LName: "pritchard"}
+	var structToEncode = SourceStruct{FName: "ben", LName: "pritchard", AgeInLife: 42}
 
 	writerSchema := SchemaOf(&structToEncode)
 
@@ -116,13 +114,6 @@ func TestDecodeFixedObject5(t *testing.T) {
 	r := bytes.NewReader(encodedData.Bytes())
 
 	err = writerSchema.Decode(r, &structToDecode)
-	if err != nil {
-		t.Error(err)
-	}
-
-	// question: if certain fields cannot be decoded, we just throw an error...
-	//				but actually, some of the fields could have been decoded OK
-	//				is this OK???
 	if err != nil {
 		t.Error(err)
 	}

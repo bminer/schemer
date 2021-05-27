@@ -11,14 +11,13 @@ import (
 )
 
 type FixedStringSchema struct {
-	IsNullable   bool
-	WeakDecoding bool
-	FixedLength  int
+	SchemaOptions
+	Length int
 }
 
 func (s *FixedStringSchema) Valid() bool {
 
-	return (s.FixedLength > 0)
+	return (s.Length > 0)
 }
 
 // fixme
@@ -32,21 +31,19 @@ func (s *FixedStringSchema) MarshalJSON() ([]byte, error) {
 func (s *FixedStringSchema) Bytes() []byte {
 
 	// string schemas are 1 byte long
-	var schema []byte = make([]byte, 1)
-
-	schema[0] = 0b10000000
+	var schema []byte = []byte{0b00100000}
 
 	// The most signifiant bit indicates whether or not the type is nullable
-	if s.IsNullable {
-		schema[0] |= 1
+	if s.SchemaOptions.Nullable {
+		schema[0] |= 128
 	}
 
-	// set bit 3, which indicates this is fixed len string
-	schema[0] |= 4
+	// set bit 1, which indicates this is fixed len string
+	schema[0] |= 1
 
 	// encode fixed length as a varint
 	buf := make([]byte, binary.MaxVarintLen64)
-	varIntByteLength := binary.PutVarint(buf, int64(s.FixedLength))
+	varIntByteLength := binary.PutVarint(buf, int64(s.Length))
 
 	schema = append(schema, buf[0:varIntByteLength]...)
 
@@ -65,7 +62,7 @@ func (s *FixedStringSchema) Encode(w io.Writer, i interface{}) error {
 		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
 	}
 
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
 		if (reflect.TypeOf(i).Kind() == reflect.Ptr ||
 			reflect.TypeOf(i).Kind() == reflect.Interface) &&
 			reflect.ValueOf(i).IsNil() {
@@ -106,7 +103,7 @@ func (s *FixedStringSchema) Encode(w io.Writer, i interface{}) error {
 
 	// if we are encoding a fixed len string, we just need to pad it
 
-	formatString := "%-" + strconv.Itoa(s.FixedLength) + "v"
+	formatString := "%-" + strconv.Itoa(s.Length) + "v"
 	stringToEncode = fmt.Sprintf(formatString, stringToEncode)
 
 	_, err := w.Write([]byte(stringToEncode))
@@ -115,8 +112,8 @@ func (s *FixedStringSchema) Encode(w io.Writer, i interface{}) error {
 	}
 	/*
 		this is not true, because n represents the number of BYTES written
-		whereas fixedLength really means the number of RUNES
-		if n != s.FixedLength {
+		whereas Length really means the number of RUNES
+		if n != s.Length {
 			return errors.New("unexpected number of bytes written")
 		}
 	*/
@@ -144,7 +141,7 @@ func (s *FixedStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 
 	// if the schema is nullable
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
 		// data is proceeded by one byte, which says if the field is nullable
 		buf := make([]byte, 1)
 		_, err := io.ReadAtLeast(r, buf, 1)
@@ -186,8 +183,8 @@ func (s *FixedStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	var decodedString string
 
-	buf := make([]byte, s.FixedLength)
-	_, err := io.ReadAtLeast(r, buf, s.FixedLength)
+	buf := make([]byte, s.Length)
+	_, err := io.ReadAtLeast(r, buf, s.Length)
 	if err != nil {
 		return err
 	}
@@ -287,9 +284,9 @@ func (s *FixedStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 }
 
 func (s *FixedStringSchema) Nullable() bool {
-	return s.IsNullable
+	return s.SchemaOptions.Nullable
 }
 
 func (s *FixedStringSchema) SetNullable(n bool) {
-	s.IsNullable = n
+	s.SchemaOptions.Nullable = n
 }

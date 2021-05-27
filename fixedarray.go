@@ -8,28 +8,26 @@ import (
 	"reflect"
 )
 
-type FixedLenArraySchema struct {
-	IsNullable bool
+type FixedArraySchema struct {
+	SchemaOptions
 
 	Length  int
 	Element Schema
 }
 
-func (s *FixedLenArraySchema) Valid() bool {
+func (s *FixedArraySchema) Valid() bool {
 	return s.Length >= 0
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *FixedLenArraySchema) Bytes() []byte {
+func (s *FixedArraySchema) Bytes() []byte {
 
 	// fixed length schemas are 1 byte long total
-	var schema []byte = make([]byte, 1)
-
-	schema[0] = 0b10010100 // bit pattern for fixed array schema
+	var schema []byte = []byte{0b00100101}
 
 	// The most signifiant bit indicates whether or not the type is nullable
-	if s.IsNullable {
-		schema[0] |= 1
+	if s.SchemaOptions.Nullable {
+		schema[0] |= 128
 	}
 
 	// encode array fixed length as a varint
@@ -44,7 +42,7 @@ func (s *FixedLenArraySchema) Bytes() []byte {
 
 }
 
-func (s *FixedLenArraySchema) MarshalJSON() ([]byte, error) {
+func (s *FixedArraySchema) MarshalJSON() ([]byte, error) {
 	if !s.Valid() {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
@@ -53,18 +51,18 @@ func (s *FixedLenArraySchema) MarshalJSON() ([]byte, error) {
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
-func (s *FixedLenArraySchema) Encode(w io.Writer, i interface{}) error {
+func (s *FixedArraySchema) Encode(w io.Writer, i interface{}) error {
 
 	// just double check the schema they are using
 	if !s.Valid() {
-		return fmt.Errorf("cannot encode using invalid FixedLenArraySchema schema")
+		return fmt.Errorf("cannot encode using invalid FixedArraySchema schema")
 	}
 
 	if i == nil {
 		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
 	}
 
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
 		// did the caller pass in a nil value, or a null pointer
 		if reflect.TypeOf(i).Kind() == reflect.Ptr ||
 			reflect.TypeOf(i).Kind() == reflect.Interface &&
@@ -97,7 +95,7 @@ func (s *FixedLenArraySchema) Encode(w io.Writer, i interface{}) error {
 	k := t.Kind()
 
 	if k != reflect.Array {
-		return fmt.Errorf("FixedLenArraySchema can only encode fixed length arrays")
+		return fmt.Errorf("FixedArraySchema can only encode fixed length arrays")
 	}
 
 	if s.Length != v.Len() {
@@ -111,16 +109,16 @@ func (s *FixedLenArraySchema) Encode(w io.Writer, i interface{}) error {
 	return nil
 }
 
-func (s *FixedLenArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
+func (s *FixedArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.Valid() {
-		return fmt.Errorf("cannot decode using invalid FixedLenArraySchema schema")
+		return fmt.Errorf("cannot decode using invalid FixedArraySchema schema")
 	}
 
 	// if the schema indicates this type is nullable, then the actual floating point
 	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
 		buf := make([]byte, 1)
 		_, err := io.ReadAtLeast(r, buf, 1)
 		if err != nil {
@@ -159,7 +157,7 @@ func (s *FixedLenArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	k := t.Kind()
 
 	if k != reflect.Array {
-		return fmt.Errorf("FixedLenArraySchema can only encode fixed length arrays")
+		return fmt.Errorf("FixedArraySchema can only encode fixed length arrays")
 	}
 
 	if s.Length != v.Len() {
@@ -177,7 +175,7 @@ func (s *FixedLenArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
-func (s *FixedLenArraySchema) Decode(r io.Reader, i interface{}) error {
+func (s *FixedArraySchema) Decode(r io.Reader, i interface{}) error {
 
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
@@ -188,10 +186,10 @@ func (s *FixedLenArraySchema) Decode(r io.Reader, i interface{}) error {
 	return s.DecodeValue(r, v)
 }
 
-func (s *FixedLenArraySchema) Nullable() bool {
-	return s.IsNullable
+func (s *FixedArraySchema) Nullable() bool {
+	return s.SchemaOptions.Nullable
 }
 
-func (s *FixedLenArraySchema) SetNullable(n bool) {
-	s.IsNullable = n
+func (s *FixedArraySchema) SetNullable(n bool) {
+	s.SchemaOptions.Nullable = n
 }

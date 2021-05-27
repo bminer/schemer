@@ -21,13 +21,11 @@ func (s *BoolSchema) MarshalJSON() ([]byte, error) {
 func (s *BoolSchema) Bytes() []byte {
 
 	// bool schemas are 1 byte long
-	var schema []byte = make([]byte, 1)
-
-	schema[0] = 0b01110000
+	var schema []byte = []byte{0b00011100}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.SchemaOptions.Nullable {
-		schema[0] |= 1
+		schema[0] |= 128
 	}
 
 	return schema

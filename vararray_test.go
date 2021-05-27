@@ -23,11 +23,11 @@ func TestDecodeVarLenArray1(t *testing.T) {
 		t.Error("cannot encode binary encoded VarLenArraySchema")
 	}
 
-	decodedIntSchema := tmp.(*VarArraySchema)
+	decodedSchema := tmp.(*VarArraySchema)
 
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
-	if decodedIntSchema.IsNullable != varArraySchema.Nullable() {
+	if decodedSchema.SchemaOptions.Nullable != varArraySchema.Nullable() {
 		t.Error("unexpected values when decoding binary EnumSchema")
 	}
 
@@ -36,7 +36,7 @@ func TestDecodeVarLenArray1(t *testing.T) {
 func TestDecodeVarLenArray2(t *testing.T) {
 
 	// build up the schema programatically
-	varArraySchema := VarArraySchema{IsNullable: false}
+	varArraySchema := VarArraySchema{SchemaOptions: SchemaOptions{Nullable: false}}
 	varArraySchema.Element = &(FloatSchema{Bits: 32})
 
 	var buf bytes.Buffer
@@ -70,12 +70,12 @@ func TestDecodeVarLenArray3(t *testing.T) {
 
 	// build up the schema programatically
 	/*
-		fixedLenArraySchema := VarArraySchema{IsNullable: false}
+		FixedArraySchema := VarArraySchema{IsNullable: false}
 		fixedLenArraySchema1 := VarArraySchema{IsNullable: false}
 		FloatSchema := FloatSchema{Bits: 32}
 
 		fixedLenArraySchema1.Element = FloatSchema
-		fixedLenArraySchema.Element = fixedLenArraySchema1
+		FixedArraySchema.Element = fixedLenArraySchema1
 	*/
 
 	var buf bytes.Buffer
@@ -86,11 +86,11 @@ func TestDecodeVarLenArray3(t *testing.T) {
 		{8, 9, 10, 11},
 	}
 
-	fixedLenArraySchema := SchemaOf(floatSlice)
+	FixedArraySchema := SchemaOf(floatSlice)
 
 	buf.Reset()
 
-	err = fixedLenArraySchema.Encode(&buf, floatSlice)
+	err = FixedArraySchema.Encode(&buf, floatSlice)
 	if err != nil {
 		t.Error(err)
 	}
@@ -106,7 +106,7 @@ func TestDecodeVarLenArray3(t *testing.T) {
 		decodedFloats[i] = make([]float32, 4)
 	}
 
-	err = fixedLenArraySchema.Decode(r, &decodedFloats)
+	err = FixedArraySchema.Decode(r, &decodedFloats)
 	if err != nil {
 		t.Error(err)
 	}

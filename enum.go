@@ -25,13 +25,11 @@ func (s *EnumSchema) MarshalJSON() ([]byte, error) {
 func (s EnumSchema) Bytes() []byte {
 
 	// fixed length schemas are 1 byte long total
-	var schema []byte = make([]byte, 1)
-
-	schema[0] = 0b01110100 // bit pattern for enum
+	var schema []byte = []byte{0b00011101}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.SchemaOptions.Nullable {
-		schema[0] |= 1
+		schema[0] |= 128
 	}
 
 	// write all the enumerated values as part of the schema...
@@ -52,7 +50,7 @@ func (s EnumSchema) Bytes() []byte {
 // Encode uses the schema to write the encoded value of v to the output stream
 func (s *EnumSchema) Encode(w io.Writer, v interface{}) error {
 
-	varIntSchema := VarIntSchema{Signed: true, IsNullable: s.SchemaOptions.Nullable}
+	varIntSchema := VarIntSchema{Signed: true, SchemaOptions: SchemaOptions{Nullable: s.SchemaOptions.Nullable}}
 
 	if v == nil {
 		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
@@ -77,7 +75,7 @@ func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// first we decode the actual encoded binary value
 
-	varIntSchema := VarIntSchema{Signed: true, IsNullable: s.SchemaOptions.Nullable}
+	varIntSchema := VarIntSchema{Signed: true, SchemaOptions: SchemaOptions{Nullable: s.SchemaOptions.Nullable}}
 
 	var decodedVarInt int64
 	var intPtr *int64 = &decodedVarInt // we pass in a pointer to varIntSchema.Decode so we can potentially

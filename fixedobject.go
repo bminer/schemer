@@ -9,13 +9,13 @@ import (
 )
 
 type ObjectField struct {
-	StructFieldOptions
-	Schema Schema
+	Aliases []string
+	Schema  Schema
 }
 
 type FixedObjectSchema struct {
-	IsNullable bool
-	Fields     []ObjectField
+	SchemaOptions
+	Fields []ObjectField
 }
 
 // fixme
@@ -27,13 +27,11 @@ func (s *FixedObjectSchema) MarshalJSON() ([]byte, error) {
 func (s *FixedObjectSchema) Bytes() []byte {
 
 	// fixedObject schemas are 1 byte long
-	var schemaBytes []byte = make([]byte, 1)
-
-	schemaBytes[0] = 0b10100100
+	var schemaBytes []byte = []byte{0b00101001}
 
 	// The most signifiant bit indicates whether or not the type is nullable
-	if s.IsNullable {
-		schemaBytes[0] |= 1
+	if s.SchemaOptions.Nullable {
+		schemaBytes[0] |= 128
 	}
 
 	// encode total number of fields as a varint
@@ -48,13 +46,13 @@ func (s *FixedObjectSchema) Bytes() []byte {
 		// first encode the number of aliases for this field
 		// (which will always be at least one... meaning the name of the field from the source struct at least!)
 		buf := make([]byte, binary.MaxVarintLen64)
-		varIntByteLength := binary.PutVarint(buf, int64(len(f.StructFieldOptions.FieldAliases)))
+		varIntByteLength := binary.PutVarint(buf, int64(len(f.Aliases)))
 
 		schemaBytes = append(schemaBytes, buf[0:varIntByteLength]...)
 
 		// now write each field alias
-		for i := 0; i < len(f.StructFieldOptions.FieldAliases); i++ {
-			s := f.FieldAliases[i]
+		for i := 0; i < len(f.Aliases); i++ {
+			s := f.Aliases[i]
 			varLenStringSchema := SchemaOf(s)
 			var buf bytes.Buffer
 			varLenStringSchema.Encode(&buf, s)
@@ -77,7 +75,7 @@ func (s *FixedObjectSchema) Encode(w io.Writer, i interface{}) error {
 		v = v.Elem()
 	}
 
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
 		// did the caller pass in a nil value, or a null pointer?
 		if !v.IsValid() {
 
@@ -109,12 +107,10 @@ func (s *FixedObjectSchema) Encode(w io.Writer, i interface{}) error {
 	// and encode each field
 	for i := 0; i < len(s.Fields); i++ {
 
-		if !s.Fields[i].StructFieldOptions.ShouldSkip {
-			f := v.Field(i)
-			err := s.Fields[i].Schema.Encode(w, f.Interface())
-			if err != nil {
-				return err
-			}
+		f := v.Field(i)
+		err := s.Fields[i].Schema.Encode(w, f.Interface())
+		if err != nil {
+			return err
 		}
 
 	}
@@ -135,13 +131,13 @@ func (s *FixedObjectSchema) findDestinationField(sourceFieldAlias string, v refl
 		}
 
 		// parse the tags on this field, to see if any aliases are present...
-		structFieldOptions := StructFieldOptions{}
+		schemerTagOptions := SchemerTagOptions{}
 		parseStructTag(v.
-			Type().Field(i).Tag.Get(SchemaTagName), &structFieldOptions)
+			Type().Field(i).Tag.Get(SchemaTagName), &schemerTagOptions)
 
 		// if any of the aliases on this destination field match sourceFieldAlias, then we have a match!
-		for j := 0; j < len(structFieldOptions.FieldAliases); j++ {
-			if sourceFieldAlias == structFieldOptions.FieldAliases[j] {
+		for j := 0; j < len(schemerTagOptions.FieldAliases); j++ {
+			if sourceFieldAlias == schemerTagOptions.FieldAliases[j] {
 				return fieldName
 			}
 
@@ -158,7 +154,7 @@ func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// if the data indicates this type is nullable, then the actual
 	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
 
 		// first byte indicates whether value is null or not...
 		buf := make([]byte, 1)
@@ -208,9 +204,9 @@ func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	for i := 0; i < len(s.Fields); i++ {
 		Foundmatch := false
 
-		for j := 0; j < len(s.Fields[i].FieldAliases); j++ {
+		for j := 0; j < len(s.Fields[i].Aliases); j++ {
 
-			stringToMatch := s.Fields[i].FieldAliases[j]
+			stringToMatch := s.Fields[i].Aliases[j]
 			structFieldToPopulate := s.findDestinationField(stringToMatch, v)
 
 			if structFieldToPopulate != "" {
@@ -249,9 +245,9 @@ func (s *FixedObjectSchema) Decode(r io.Reader, i interface{}) error {
 }
 
 func (s *FixedObjectSchema) Nullable() bool {
-	return s.IsNullable
+	return s.SchemaOptions.Nullable
 }
 
 func (s *FixedObjectSchema) SetNullable(n bool) {
-	s.IsNullable = n
+	s.SchemaOptions.Nullable = n
 }

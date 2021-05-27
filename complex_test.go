@@ -465,7 +465,7 @@ func TestDecodeComplex10(t *testing.T) {
 func TestDecodeComplex11(t *testing.T) {
 
 	// setup an example schema
-	complexSchema := ComplexSchema{Bits: 64, SchemaOptions: SchemaOptions{WeakDecoding: true, Nullable: false}}
+	complexSchema := ComplexSchema{Bits: 128, SchemaOptions: SchemaOptions{WeakDecoding: true, Nullable: false}}
 
 	// encode it
 	b := complexSchema.Bytes()

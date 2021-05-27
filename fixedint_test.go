@@ -9,7 +9,7 @@ import (
 
 func TestFixedIntSchema1(t *testing.T) {
 
-	fixedIntSchema := FixedIntSchema{Signed: true, Bits: 64, WeakDecoding: true}
+	fixedIntSchema := FixedIntSchema{Signed: true, Bits: 64, SchemaOptions: SchemaOptions{WeakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -243,7 +243,7 @@ func TestFixedIntSchema1(t *testing.T) {
 
 func TestFixedIntSchema2(t *testing.T) {
 
-	fixedIntSchema := FixedIntSchema{Signed: true, Bits: 32, WeakDecoding: true}
+	fixedIntSchema := FixedIntSchema{Signed: true, Bits: 32, SchemaOptions: SchemaOptions{WeakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -477,7 +477,7 @@ func TestFixedIntSchema2(t *testing.T) {
 
 func TestFixedIntSchema3(t *testing.T) {
 
-	fixedIntSchema := FixedIntSchema{Signed: true, Bits: 16, WeakDecoding: true}
+	fixedIntSchema := FixedIntSchema{Signed: true, Bits: 16, SchemaOptions: SchemaOptions{WeakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -713,7 +713,7 @@ func TestFixedIntSchema3(t *testing.T) {
 //
 func TestFixedIntSchema4(t *testing.T) {
 
-	fixedIntSchema := FixedIntSchema{Signed: true, Bits: 8, WeakDecoding: true}
+	fixedIntSchema := FixedIntSchema{Signed: true, Bits: 8, SchemaOptions: SchemaOptions{WeakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -733,7 +733,7 @@ func TestFixedIntSchema5(t *testing.T) {
 
 	fmt.Println("decode nil int")
 
-	fixedIntSchema := FixedIntSchema{Bits: 64, IsNullable: true}
+	fixedIntSchema := FixedIntSchema{Bits: 64, SchemaOptions: SchemaOptions{Nullable: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -768,7 +768,7 @@ func TestFixedIntSchema5(t *testing.T) {
 func TestFixedIntSchema6(t *testing.T) {
 
 	// setup an example schema
-	fixedIntSchema := FixedIntSchema{Bits: 64, Signed: true, IsNullable: false}
+	fixedIntSchema := FixedIntSchema{Bits: 8, Signed: true, SchemaOptions: SchemaOptions{Nullable: false}}
 
 	// encode it
 	b := fixedIntSchema.Bytes()
@@ -786,7 +786,7 @@ func TestFixedIntSchema6(t *testing.T) {
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
 	if decodedIntSchema.Bits != fixedIntSchema.Bits ||
-		decodedIntSchema.IsNullable != fixedIntSchema.IsNullable ||
+		decodedIntSchema.SchemaOptions.Nullable != fixedIntSchema.Nullable() ||
 		decodedIntSchema.Signed != fixedIntSchema.Signed {
 
 		t.Error("unexpected values when decoding binary FixedIntSchema")

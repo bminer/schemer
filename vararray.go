@@ -9,7 +9,7 @@ import (
 )
 
 type VarArraySchema struct {
-	IsNullable bool
+	SchemaOptions
 
 	Element Schema
 }
@@ -18,13 +18,11 @@ type VarArraySchema struct {
 func (s *VarArraySchema) Bytes() []byte {
 
 	// fixed length schemas are 1 byte long total
-	var schema []byte = make([]byte, 1)
-
-	schema[0] = 0b10010000 // bit pattern for var array
+	var schema []byte = []byte{0b00100100}
 
 	// The most signifiant bit indicates whether or not the type is nullable
-	if s.IsNullable {
-		schema[0] |= 1
+	if s.SchemaOptions.Nullable {
+		schema[0] |= 128
 	}
 
 	schema = append(schema, s.Element.Bytes()...)
@@ -51,7 +49,7 @@ func (s *VarArraySchema) Encode(w io.Writer, i interface{}) error {
 		v = v.Elem()
 	}
 
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
 		// did the caller pass in a nil value, or a null pointer?
 		if !v.IsValid() {
 
@@ -98,7 +96,7 @@ func (s *VarArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// if the data indicates this type is nullable, then the actual
 	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
 
 		// first byte indicates whether value is null or not...
 		buf := make([]byte, 1)
@@ -189,9 +187,9 @@ func (s *VarArraySchema) Decode(r io.Reader, i interface{}) error {
 }
 
 func (s *VarArraySchema) Nullable() bool {
-	return s.IsNullable
+	return s.SchemaOptions.Nullable
 }
 
 func (s *VarArraySchema) SetNullable(n bool) {
-	s.IsNullable = n
+	s.SchemaOptions.Nullable = n
 }

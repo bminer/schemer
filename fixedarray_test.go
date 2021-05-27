@@ -11,23 +11,23 @@ func TestDecodeFixedLenArray1(t *testing.T) {
 
 	var testarray [10]byte = [10]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 
-	fixedLenArraySchema := SchemaOf(testarray)
+	fixedArraySchema := SchemaOf(testarray)
 
 	// encode it
-	b := fixedLenArraySchema.Bytes()
+	b := fixedArraySchema.Bytes()
 
 	// make sure we can successfully decode it
 	tmp, err := DecodeSchema(b)
 	if err != nil {
-		t.Error("cannot encode binary encoded fixedLenArraySchema")
+		t.Error("cannot encode binary encoded FixedArraySchema")
 	}
 
-	decodedSchema := tmp.(*FixedLenArraySchema)
+	decodedSchema := tmp.(*FixedArraySchema)
 
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
-	if decodedSchema.IsNullable != fixedLenArraySchema.Nullable() {
-		t.Error("unexpected values when decoding binary EnumSchema")
+	if decodedSchema.SchemaOptions.Nullable != fixedArraySchema.Nullable() {
+		t.Error("unexpected values when decoding binary fixedArraySchema")
 	}
 
 }
@@ -39,9 +39,9 @@ func TestDecodeFixedLenArray2(t *testing.T) {
 	floatarray := [6]float32{2.0, 3.1, 5.2, 7.3, 11.4, 13.5}
 	buf.Reset()
 
-	fixedLenArraySchema := SchemaOf(floatarray)
+	FixedArraySchema := SchemaOf(floatarray)
 
-	err = fixedLenArraySchema.Encode(&buf, floatarray)
+	err = FixedArraySchema.Encode(&buf, floatarray)
 	if err != nil {
 		t.Error(err)
 	}
@@ -51,7 +51,7 @@ func TestDecodeFixedLenArray2(t *testing.T) {
 	r := bytes.NewReader(buf.Bytes())
 
 	var decodedFloats [6]float32
-	err = fixedLenArraySchema.Decode(r, &decodedFloats)
+	err = FixedArraySchema.Decode(r, &decodedFloats)
 	if err != nil {
 		t.Error(err)
 	}
@@ -74,9 +74,9 @@ func TestDecodeFixedLenArray3(t *testing.T) {
 	}
 	buf.Reset()
 
-	fixedLenArraySchema := SchemaOf(floatArray)
+	FixedArraySchema := SchemaOf(floatArray)
 
-	err = fixedLenArraySchema.Encode(&buf, floatArray)
+	err = FixedArraySchema.Encode(&buf, floatArray)
 	if err != nil {
 		t.Error(err)
 	}
@@ -92,7 +92,7 @@ func TestDecodeFixedLenArray3(t *testing.T) {
 		{0, 0, 0, 0},
 		{0, 0, 0, 0},
 	}
-	err = fixedLenArraySchema.Decode(r, &decodedFloats)
+	err = FixedArraySchema.Decode(r, &decodedFloats)
 	if err != nil {
 		t.Error(err)
 	}
@@ -119,9 +119,9 @@ func TestDecodeFixedLenArray4(t *testing.T) {
 	}
 	buf.Reset()
 
-	fixedLenArraySchema := SchemaOf(floatArray)
+	FixedArraySchema := SchemaOf(floatArray)
 
-	err = fixedLenArraySchema.Encode(&buf, floatArray)
+	err = FixedArraySchema.Encode(&buf, floatArray)
 	if err != nil {
 		t.Error(err)
 	}
@@ -131,7 +131,7 @@ func TestDecodeFixedLenArray4(t *testing.T) {
 	r := bytes.NewReader(buf.Bytes())
 
 	var decodedBools [3][4]bool
-	err = fixedLenArraySchema.Decode(r, &decodedBools)
+	err = FixedArraySchema.Decode(r, &decodedBools)
 	if err != nil {
 		t.Error(err)
 	}

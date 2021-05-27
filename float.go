@@ -10,9 +10,8 @@ import (
 )
 
 type FloatSchema struct {
-	Bits         int // must be 32 or 64
-	WeakDecoding bool
-	IsNullable   bool
+	SchemaOptions
+	Bits int // must be 32 or 64
 }
 
 func (s *FloatSchema) Valid() bool {
@@ -28,26 +27,19 @@ func (s *FloatSchema) MarshalJSON() ([]byte, error) {
 func (s *FloatSchema) Bytes() []byte {
 
 	// floating point schemas are 1 byte long
-	var schema []byte = make([]byte, 1)
-
-	schema[0] = 0b01010000 // bit pattern for floating point number schema
+	var schema []byte = []byte{0b00010100}
 
 	// The most signifiant bit indicates whether or not the type is nullable
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
+		schema[0] |= 128
+	}
+
+	if s.Bits == 32 {
+		// do nothing; bit 1 = 0
+	} else if s.Bits == 64 {
+		// set bit 1; indicating 64 bit floating point
 		schema[0] |= 1
 	}
-
-	// bit 2 unused
-
-	// bit 3 = floating-point size in (32 << n) bits
-	if s.Bits == 32 {
-		// do nothing; third bit should be 0
-	} else if s.Bits == 64 {
-		// third bit should be one; indicating 64 bit floating point
-		schema[0] |= 4
-	}
-
-	// bit 4 = is reserved
 
 	return schema
 }
@@ -71,7 +63,7 @@ func (s *FloatSchema) Encode(w io.Writer, i interface{}) error {
 		v = v.Elem()
 	}
 
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
 		// did the caller pass in a nil value, or a null pointer?
 		if !v.IsValid() {
 
@@ -161,7 +153,7 @@ func (s *FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 	// if the data indicates this type is nullable, then the actual floating point
 	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
-	if s.IsNullable {
+	if s.SchemaOptions.Nullable {
 
 		// first byte indicates whether value is null or not....
 		buf := make([]byte, 1)
@@ -322,9 +314,9 @@ func (s *FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 }
 
 func (s *FloatSchema) Nullable() bool {
-	return s.IsNullable
+	return s.SchemaOptions.Nullable
 }
 
 func (s *FloatSchema) SetNullable(n bool) {
-	s.IsNullable = n
+	s.SchemaOptions.Nullable = n
 }
