@@ -148,11 +148,13 @@ func (s *FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	if !s.Valid() {
 		return fmt.Errorf("cannot decode using invalid floating point schema")
 	}
-	ok, err := PreDecode(s, r, &v)
+
+	v, err := PreDecode(s, r, v)
 	if err != nil {
 		return err
 	}
-	if !ok {
+	// if PreDecode() returns a zero value for v, it means we are done decoding
+	if !(v.IsValid()) {
 		return nil
 	}
 

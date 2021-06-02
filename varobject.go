@@ -127,11 +127,12 @@ func (s *VarObjectSchema) Encode(w io.Writer, i interface{}) error {
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
 func (s *VarObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
-	ok, err := PreDecode(s, r, &v)
+	v, err := PreDecode(s, r, v)
 	if err != nil {
 		return err
 	}
-	if !ok {
+	// if PreDecode() returns a zero value for v, it means we are done decoding
+	if !(v.IsValid()) {
 		return nil
 	}
 

@@ -72,10 +72,10 @@ func PreEncode(s Schema, w io.Writer, v *reflect.Value) (bool, error) {
 	return true, nil
 }
 
-func PreDecode(s Schema, r io.Reader, v *reflect.Value) (bool, error) {
+func PreDecode(s Schema, r io.Reader, v reflect.Value) (reflect.Value, error) {
 	// if t is a ptr or interface type, remove exactly ONE level of indirection
 	if k := v.Kind(); !v.CanSet() && (k == reflect.Ptr || k == reflect.Interface) {
-		*v = v.Elem()
+		v = v.Elem()
 	}
 
 	buf := make([]byte, 1)
@@ -87,7 +87,7 @@ func PreDecode(s Schema, r io.Reader, v *reflect.Value) (bool, error) {
 		// first byte indicates whether value is null or not...
 		_, err := io.ReadAtLeast(r, buf, 1)
 		if err != nil {
-			return false, err
+			return reflect.Value{}, err
 		}
 		valueIsNull := (buf[0] == 1)
 
@@ -97,22 +97,11 @@ func PreDecode(s Schema, r io.Reader, v *reflect.Value) (bool, error) {
 				if v.CanSet() {
 					// special way to set pointer to nil value
 					v.Set(reflect.Zero(v.Type()))
-					return false, nil
+					return reflect.Value{}, nil
 				}
-				// TODO: Explain the following lines
-
-				/*
-					*v = v.Elem()
-					if v.CanSet() {
-						// special way to set pointer to nil value
-						v.Set(reflect.Zero(v.Type()))
-						return false, nil
-					}
-				*/
-
-				return false, fmt.Errorf("destination not settable")
+				return reflect.Value{}, fmt.Errorf("destination not settable")
 			} else {
-				return false, fmt.Errorf("cannot decode null value to non pointer to pointer type")
+				return reflect.Value{}, fmt.Errorf("cannot decode null value to non pointer to pointer type")
 			}
 		}
 	}
@@ -124,14 +113,14 @@ func PreDecode(s Schema, r io.Reader, v *reflect.Value) (bool, error) {
 				break
 			}
 			if !v.CanSet() {
-				return false, fmt.Errorf("decode destination is not settable")
+				return reflect.Value{}, fmt.Errorf("decode destination is not settable")
 			}
 			v.Set(reflect.New(v.Type().Elem()))
 		}
-		*v = v.Elem()
+		v = v.Elem()
 	}
 
-	return true, nil
+	return v, nil
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
@@ -196,11 +185,12 @@ func (s *BoolSchema) Decode(r io.Reader, i interface{}) error {
 
 func (s *BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
-	ok, err := PreDecode(s, r, &v)
+	v, err := PreDecode(s, r, v)
 	if err != nil {
 		return err
 	}
-	if !ok {
+	// if PreDecode() returns a zero value for v, it means we are done decoding
+	if !(v.IsValid()) {
 		return nil
 	}
 

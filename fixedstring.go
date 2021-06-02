@@ -121,11 +121,12 @@ func (s *FixedStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		return fmt.Errorf("cannot decode using invalid StringSchema schema")
 	}
 
-	ok, err := PreDecode(s, r, &v)
+	v, err := PreDecode(s, r, v)
 	if err != nil {
 		return err
 	}
-	if !ok {
+	// if PreDecode() returns a zero value for v, it means we are done decoding
+	if !(v.IsValid()) {
 		return nil
 	}
 
