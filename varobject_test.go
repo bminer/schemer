@@ -14,7 +14,7 @@ func TestDecodeVarObject1(t *testing.T) {
 	varObjectSchema := SchemaOf(m)
 
 	// encode it
-	b := varObjectSchema.Bytes()
+	b := varObjectSchema.MarshalSchemer()
 
 	// make sure we can successfully decode it
 	tmp, err := DecodeSchema(b)

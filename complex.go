@@ -16,6 +16,17 @@ type ComplexSchema struct {
 	Bits int // must be 64 or 128
 }
 
+func (s *ComplexSchema) DefaultGOType() reflect.Type {
+	var c1 complex64
+	var c2 complex128
+
+	if s.Bits == 64 {
+		return reflect.TypeOf(c1)
+	} else {
+		return reflect.TypeOf(c2)
+	}
+}
+
 func (s *ComplexSchema) Valid() bool {
 	return s.Bits == 64 || s.Bits == 128
 }
@@ -34,7 +45,7 @@ func (s *ComplexSchema) MarshalJSON() ([]byte, error) {
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *ComplexSchema) Bytes() []byte {
+func (s *ComplexSchema) MarshalSchemer() []byte {
 
 	// floating point schemas are 1 byte long
 	var schema []byte = []byte{0b00011000}
@@ -166,6 +177,14 @@ func (s *ComplexSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	t := v.Type()
 	k := t.Kind()
+
+	if k == reflect.Interface {
+		v.Set(reflect.New(s.DefaultGOType()))
+
+		v = v.Elem().Elem()
+		t = v.Type()
+		k = t.Kind()
+	}
 
 	var realPart float64
 	var imagPart float64

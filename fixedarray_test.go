@@ -14,7 +14,7 @@ func TestDecodeFixedLenArray1(t *testing.T) {
 	fixedArraySchema := SchemaOf(testarray)
 
 	// encode it
-	b := fixedArraySchema.Bytes()
+	b := fixedArraySchema.MarshalSchemer()
 
 	// make sure we can successfully decode it
 	tmp, err := DecodeSchema(b)

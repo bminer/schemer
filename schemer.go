@@ -11,24 +11,27 @@ import (
 	"strings"
 )
 
-// SchemaTagName represents the tag prefix that the schemer library uses on struct tags
-var SchemaTagName string = "schemer"
+// SchemerTagName represents the tag prefix that the schemer library uses on struct tags
+const SchemerTagName string = "schemer"
 
-// SchemaOptions are properties that are common to every schema
+// SchemaOptions are options common to each Schema
 type SchemaOptions struct {
+	// Nullable indicates that the values can be of the underlying type or a null value
+	Nullable bool
+	// WeakDecoding indicates that the schemer library will be more lienient in when decoding, such as for example
+	// decoding a boolean into a string
 	WeakDecoding bool
-	Nullable     bool
 }
 
 type Schema interface {
 	// Encode uses the schema to write the encoded value of v to the output stream
 	Encode(w io.Writer, i interface{}) error
 
-	// Decode uses the schema to read the next encoded value from the input stream and store it in v
+	// Decode uses the schema to read the next encoded value from the input stream and stores it in i
 	Decode(r io.Reader, i interface{}) error
 
-	// MarshalJSON returns the JSON encoding of the schema
-	MarshalJSON() ([]byte, error)
+	// DecodeValue uses the schema to read the next encoded value from the input stream and stores it in v
+	DecodeValue(r io.Reader, v reflect.Value) error
 
 	// Nullable returns true if and only if the type is nullable
 	Nullable() bool
@@ -36,21 +39,21 @@ type Schema interface {
 	//SetNullable sets the nullable flag for the schema
 	SetNullable(n bool)
 
-	DecodeValue(r io.Reader, v reflect.Value) error
+	// MarshalJSON returns the JSON encoding of the schema
+	MarshalJSON() ([]byte, error)
 
-	// Bytes encodes the schema in a portable binary format
-	Bytes() []byte
+	// MarshalSchemer encodes the schema in a portable binary format
+	MarshalSchemer() []byte
+
+	DefaultGOType() reflect.Type
 }
 
-var byteIndex int = 0
-
+// SchemaOfType returns a schema for the specified interface
 func SchemaOf(i interface{}) Schema {
 
 	// spec says: "SchemaOf(nil) returns a Schema for an empty struct."
 	if i == nil {
-		var fixedObjectSchema *FixedObjectSchema = &(FixedObjectSchema{})
-		fixedObjectSchema.SchemaOptions.Nullable = true
-		return fixedObjectSchema
+		return &FixedObjectSchema{}
 	}
 
 	t := reflect.TypeOf(i)
@@ -65,216 +68,149 @@ func SchemaOf(i interface{}) Schema {
 
 // SchemaOfType returns a schema for the specified reflection type
 func SchemaOfType(t reflect.Type) Schema {
-
-	var shouldBeNullable = false
+	nullable := false
 
 	// Dereference pointer / interface types
 	for k := t.Kind(); k == reflect.Ptr || k == reflect.Interface; k = t.Kind() {
 		t = t.Elem()
 
-		// if we encounter any pointers, then we know it makes sense
+		// If we encounter any pointers, then we know it makes sense
 		// to allow this type to be nullable
-		shouldBeNullable = true
+		nullable = true
 	}
 
 	k := t.Kind()
 
 	switch k {
 	case reflect.Map:
-		var varObjectSchema *VarObjectSchema = &(VarObjectSchema{})
-
-		varObjectSchema.SchemaOptions.Nullable = shouldBeNullable
-		varObjectSchema.Key = SchemaOfType(t.Key())
-		varObjectSchema.Value = SchemaOfType(t.Elem())
-
-		return varObjectSchema
+		s := &VarObjectSchema{
+			Key:   SchemaOfType(t.Key()),
+			Value: SchemaOfType(t.Elem()),
+		}
+		s.SetNullable(nullable)
+		return s
 	case reflect.Struct:
-		var fixedObjectSchema *FixedObjectSchema = &(FixedObjectSchema{})
-		fixedObjectSchema.SchemaOptions.Nullable = shouldBeNullable
-
-		var of ObjectField
+		s := &FixedObjectSchema{}
+		s.SetNullable(nullable)
 
 		for i := 0; i < t.NumField(); i++ {
-			of.Schema = SchemaOfType(t.Field(i).Type)
+			f := t.Field(i)
+			of := ObjectField{
+				Schema: SchemaOfType(f.Type),
+			}
 
-			var schemerTagOptions *SchemerTagOptions = &SchemerTagOptions{}
-
-			schemerTagOptions.ParseStructTag(t.Field(i).Tag.Get(SchemaTagName))
+			tagOpts := &TagOptions{}
+			tagOpts.ParseStructTag(f.Tag.Get(SchemerTagName))
 			// ignore result here... if an error parsing the tags occured, just don't worry about it
 			// (in case they are in the wrong format or something)
 
 			// only do an over-ride if the tag option was specified...
-			if schemerTagOptions.Nullable {
-				fixedObjectSchema.SchemaOptions.Nullable = schemerTagOptions.Nullable
+			if tagOpts.Nullable {
+				s.SchemaOptions.Nullable = tagOpts.Nullable
 			}
 
 			// only do an over-ride if the tag option was specified...
-			if schemerTagOptions.WeakDecoding {
-				fixedObjectSchema.SchemaOptions.WeakDecoding = schemerTagOptions.WeakDecoding
+			if tagOpts.WeakDecoding {
+				s.SchemaOptions.WeakDecoding = tagOpts.WeakDecoding
 			}
 
 			// if no tags aliases exist, then use the actual field name from the struct
-			if len(schemerTagOptions.FieldAliases) == 0 {
+			if len(tagOpts.FieldAliases) == 0 {
 				of.Aliases = make([]string, 1)
-				of.Aliases[0] = t.Field(i).Name
+				of.Aliases[0] = f.Name
 			} else {
-				of.Aliases = make([]string, len(schemerTagOptions.FieldAliases))
+				of.Aliases = make([]string, len(tagOpts.FieldAliases))
 				// copy the aliases from the tags into the
-				for i := 0; i < len(schemerTagOptions.FieldAliases); i++ {
-					of.Aliases[i] = schemerTagOptions.FieldAliases[i]
+				for i := 0; i < len(tagOpts.FieldAliases); i++ {
+					of.Aliases[i] = tagOpts.FieldAliases[i]
 				}
 			}
 
 			// check if this field is not exported (by looking at PkgPath)
 			// or if the schemer tags on the field say that we should skip it...
-			if len(t.Field(i).PkgPath) == 0 && !schemerTagOptions.ShouldSkip {
-				fixedObjectSchema.Fields = append(fixedObjectSchema.Fields, of)
-			} else {
-				fmt.Println("skipped field:", t.Field(i).Name)
+			if len(f.PkgPath) == 0 && !tagOpts.FieldAliasesSet || len(tagOpts.FieldAliases) != 0 {
+				s.Fields = append(s.Fields, of)
 			}
 		}
-		return fixedObjectSchema
+		return s
 	case reflect.Slice:
-		var varArraySchema *VarArraySchema = &(VarArraySchema{})
-		varArraySchema.SchemaOptions.Nullable = shouldBeNullable
-		varArraySchema.Element = SchemaOfType(t.Elem())
-		return varArraySchema
+		s := &VarArraySchema{}
+		s.SchemaOptions.Nullable = nullable
+		s.Element = SchemaOfType(t.Elem())
+		return s
 	case reflect.Array:
-		var FixedArraySchema *FixedArraySchema = &(FixedArraySchema{})
-
-		FixedArraySchema.SchemaOptions.Nullable = shouldBeNullable
-		FixedArraySchema.Length = t.Len()
-
-		FixedArraySchema.Element = SchemaOfType(t.Elem())
-		return FixedArraySchema
+		s := &FixedArraySchema{}
+		s.Length = t.Len()
+		s.SetNullable(nullable)
+		s.Element = SchemaOfType(t.Elem())
+		return s
 	case reflect.String:
-		var varStringSchema *VarLenStringSchema = &(VarLenStringSchema{})
+		s := &VarLenStringSchema{}
+		s.SetNullable(nullable)
+		return s
 
-		varStringSchema.SchemaOptions.Nullable = shouldBeNullable
-
-		return varStringSchema
+	// all int types default to signed varint
 	case reflect.Int:
-		var varIntSchema *VarIntSchema = &(VarIntSchema{})
-
-		varIntSchema.Signed = true
-		varIntSchema.SchemaOptions.Nullable = shouldBeNullable
-
-		return varIntSchema
-
+		fallthrough
 	case reflect.Int8:
-		var varIntSchema *VarIntSchema = &(VarIntSchema{})
-
-		varIntSchema.Signed = true
-		varIntSchema.SchemaOptions.Nullable = shouldBeNullable
-
-		return varIntSchema
+		fallthrough
 	case reflect.Int16:
-		var varIntSchema *VarIntSchema = &(VarIntSchema{})
-
-		varIntSchema.Signed = true
-		varIntSchema.SchemaOptions.Nullable = shouldBeNullable
-
-		return varIntSchema
+		fallthrough
 	case reflect.Int32:
-		var varIntSchema *VarIntSchema = &(VarIntSchema{})
-
-		varIntSchema.Signed = true
-		varIntSchema.SchemaOptions.Nullable = shouldBeNullable
-
-		return varIntSchema
+		fallthrough
 	case reflect.Int64:
-		var varIntSchema *VarIntSchema = &(VarIntSchema{})
+		s := &VarIntSchema{Signed: true}
+		s.SetNullable(nullable)
+		return s
 
-		varIntSchema.Signed = true
-		varIntSchema.SchemaOptions.Nullable = shouldBeNullable
+	// all unint types default to unsigned varint
 
-		return varIntSchema
 	case reflect.Uint:
-		var varIntSchema *VarIntSchema = &(VarIntSchema{})
-
-		varIntSchema.Signed = false
-		varIntSchema.SchemaOptions.Nullable = shouldBeNullable
-
-		return varIntSchema
+		fallthrough
 	case reflect.Uint8:
-		var varIntSchema *VarIntSchema = &(VarIntSchema{})
-
-		varIntSchema.Signed = false
-		varIntSchema.SchemaOptions.Nullable = shouldBeNullable
-
-		return varIntSchema
+		fallthrough
 	case reflect.Uint16:
-		var varIntSchema *VarIntSchema = &(VarIntSchema{})
-
-		varIntSchema.Signed = false
-		varIntSchema.SchemaOptions.Nullable = shouldBeNullable
-
-		return varIntSchema
+		fallthrough
 	case reflect.Uint32:
-		var varIntSchema *VarIntSchema = &(VarIntSchema{})
-
-		varIntSchema.Signed = false
-		varIntSchema.SchemaOptions.Nullable = shouldBeNullable
-
-		return varIntSchema
+		fallthrough
 	case reflect.Uint64:
-		var varIntSchema *VarIntSchema = &(VarIntSchema{})
+		s := &VarIntSchema{Signed: false}
+		s.SetNullable(nullable)
+		return s
 
-		varIntSchema.Signed = false
-		varIntSchema.SchemaOptions.Nullable = shouldBeNullable
-
-		return varIntSchema
 	case reflect.Complex64:
-		var complexSchema *ComplexSchema = &(ComplexSchema{})
+		s := &ComplexSchema{}
+		s.Bits = 64
+		s.SetNullable(nullable)
+		return s
 
-		complexSchema.Bits = 64
-		complexSchema.SchemaOptions.Nullable = shouldBeNullable
-
-		return complexSchema
 	case reflect.Complex128:
-		var complexSchema *ComplexSchema = &(ComplexSchema{})
+		s := &ComplexSchema{}
+		s.Bits = 128
+		s.SetNullable(nullable)
+		return s
 
-		complexSchema.SchemaOptions.Nullable = shouldBeNullable
-		complexSchema.Bits = 128
-
-		return complexSchema
 	case reflect.Bool:
-		var boolSchema *BoolSchema = &(BoolSchema{})
+		s := &BoolSchema{}
+		s.SetNullable(nullable)
+		return s
 
-		boolSchema.SchemaOptions.Nullable = shouldBeNullable
-
-		return boolSchema
 	case reflect.Float32:
-		var floatSchema *FloatSchema = &(FloatSchema{})
+		s := &FloatSchema{}
+		s.Bits = 32
+		s.SetNullable(nullable)
+		return s
 
-		floatSchema.Bits = 32
-		floatSchema.SchemaOptions.Nullable = shouldBeNullable
-
-		return floatSchema
 	case reflect.Float64:
-		var floatSchema *FloatSchema = &(FloatSchema{})
+		s := &FloatSchema{}
+		s.Bits = 64
+		s.SetNullable(nullable)
+		return s
 
-		floatSchema.Bits = 64
-		floatSchema.SchemaOptions.Nullable = shouldBeNullable
-
-		return floatSchema
 	}
 
 	return nil
 
-}
-
-// DecodeSchema takes a buffer of bytes representing a binary schema, and returns a Schema (by
-// calling the routine decodeSchemaInternal.) After the schema is decoded, byteIndex is
-// reset, so that we can process another Schema
-func DecodeSchema(buf []byte) (Schema, error) {
-
-	byteIndex = 0 // always start at the beginning of the buffer
-
-	// and then decodeSchemaInternal() will advance byteIndex as it goes
-	tmp, err := decodeSchemaInternal(buf)
-
-	return tmp, err
 }
 
 // DecodeJSONSchema takes a buffer of JSON data and parses it to create a schema
@@ -292,37 +228,33 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 	switch schemaType {
 
 	case "ENUM":
-		var enumSchema *EnumSchema = &(EnumSchema{})
+		s := &EnumSchema{}
 		b, _ := strconv.ParseBool(fields["nullable"].(string))
-		enumSchema.SchemaOptions.Nullable = b
-		return enumSchema, nil
+		s.SchemaOptions.Nullable = b
+		return s, nil
 
 	case "BOOL":
-		var boolSchema *BoolSchema = &(BoolSchema{})
+		s := &BoolSchema{}
 		b, _ := strconv.ParseBool(fields["nullable"].(string))
-		boolSchema.SchemaOptions.Nullable = b
-
-		return boolSchema, nil
+		s.SchemaOptions.Nullable = b
+		return s, nil
 
 	case "COMPLEX":
-		var complexSchema *ComplexSchema = &(ComplexSchema{})
+		s := &ComplexSchema{}
 
 		if fields["bits"].(string) == "128" {
-			complexSchema.Bits = 128
+			s.Bits = 128
 		} else if fields["bits"].(string) == "64" {
-			complexSchema.Bits = 64
+			s.Bits = 64
 		} else {
 			return nil, fmt.Errorf("invalid JSON schema encountered")
 		}
 		b, _ := strconv.ParseBool(fields["nullable"].(string))
-		complexSchema.SchemaOptions.Nullable = b
-		byteIndex++
+		s.SchemaOptions.Nullable = b
 
-		return complexSchema, nil
+		return s, nil
 
 	case "ARRAY":
-		var FixedArraySchema *FixedArraySchema = &(FixedArraySchema{})
-		var varArraySchema *VarArraySchema = &(VarArraySchema{})
 
 		s, ok := fields["length"].(string)
 		var tmpLen int
@@ -336,9 +268,11 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 
 		// if length is present, then we are dealing with a fixed length array...
 		if ok {
+			s := &FixedArraySchema{}
+
 			b, _ := strconv.ParseBool(fields["nullable"].(string))
-			FixedArraySchema.SchemaOptions.Nullable = b
-			FixedArraySchema.Length = tmpLen
+			s.SchemaOptions.Nullable = b
+			s.Length = tmpLen
 
 			// process the array element
 			tmp, err := json.Marshal(fields["element"])
@@ -346,16 +280,18 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 				return nil, err
 			}
 
-			FixedArraySchema.Element, err = DecodeJSONSchema(tmp)
+			s.Element, err = DecodeJSONSchema(tmp)
 			if err != nil {
 				return nil, err
 			}
 
-			return FixedArraySchema, nil
+			return s, nil
 
 		} else {
+			s := &VarArraySchema{}
+
 			b, _ := strconv.ParseBool(fields["nullable"].(string))
-			varArraySchema.SchemaOptions.Nullable = b
+			s.SchemaOptions.Nullable = b
 
 			// process the array element
 			tmp, err := json.Marshal(fields["element"])
@@ -363,52 +299,48 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 				return nil, err
 			}
 
-			varArraySchema.Element, err = DecodeJSONSchema(tmp)
+			s.Element, err = DecodeJSONSchema(tmp)
 			if err != nil {
 				return nil, err
 			}
 
-			return varArraySchema, nil
+			return s, nil
 		}
 
 	case "INT":
-		var fixedIntSchema *FixedIntSchema = &(FixedIntSchema{})
-		var varIntSchema *VarIntSchema = &(VarIntSchema{})
 
 		numBits, ok := fields["bits"].(int)
 
 		// if bits are present, then we are dealing with a fixed int
 		if ok {
+			s := &FixedIntSchema{}
 
 			b, _ := strconv.ParseBool(fields["nullable"].(string))
-			fixedIntSchema.SchemaOptions.Nullable = b
+			s.SchemaOptions.Nullable = b
 			b, _ = strconv.ParseBool(fields["signed"].(string))
-			fixedIntSchema.Signed = b
-			fixedIntSchema.Bits = numBits
+			s.Signed = b
+			s.Bits = numBits
 
-			return fixedIntSchema, nil
-
+			return s, nil
 		} else {
+			s := &VarIntSchema{}
 
 			b, _ := strconv.ParseBool(fields["nullable"].(string))
-			varIntSchema.SchemaOptions.Nullable = b
+			s.SchemaOptions.Nullable = b
 			b, _ = strconv.ParseBool(fields["signed"].(string))
-			varIntSchema.Signed = b
+			s.Signed = b
 
-			return varIntSchema, nil
+			return s, nil
 		}
 
 	case "OBJECT":
-		var fixedObjectSchema *FixedObjectSchema = &(FixedObjectSchema{})
-		var varObjectSchema *VarObjectSchema = &(VarObjectSchema{})
-
 		objectFields, ok := fields["fields"].([]interface{})
 
 		// if fields are present, then we are dealing with a fixed object
 		if ok {
-
+			s := &FixedObjectSchema{}
 			b, _ := strconv.ParseBool(fields["nullable"].(string))
-			fixedObjectSchema.SchemaOptions.Nullable = b
+			s.SchemaOptions.Nullable = b
 
 			// loop through all fields in this object
 			for i := 0; i < len(objectFields); i++ {
@@ -433,21 +365,22 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 					return nil, err
 				}
 
-				fixedObjectSchema.Fields = append(fixedObjectSchema.Fields, of)
+				s.Fields = append(s.Fields, of)
 			}
 
-			return fixedObjectSchema, nil
+			return s, nil
 		} else {
+			s := &VarObjectSchema{}
 
 			b, _ := strconv.ParseBool(fields["nullable"].(string))
-			varObjectSchema.SchemaOptions.Nullable = b
+			s.SchemaOptions.Nullable = b
 
 			tmp, err := json.Marshal(fields["key"].(interface{}))
 			if err != nil {
 				return nil, err
 			}
 
-			varObjectSchema.Key, err = DecodeJSONSchema(tmp)
+			s.Key, err = DecodeJSONSchema(tmp)
 			if err != nil {
 				return nil, err
 			}
@@ -457,74 +390,87 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 				return nil, err
 			}
 
-			varObjectSchema.Value, err = DecodeJSONSchema(tmp2)
+			s.Value, err = DecodeJSONSchema(tmp2)
 			if err != nil {
 				return nil, err
 			}
 
-			return varObjectSchema, nil
+			return s, nil
 
 		}
 
 	case "STRING":
-		var fixedLenStringSchema *FixedStringSchema = &(FixedStringSchema{})
-		var varLenStringSchema *VarLenStringSchema = &(VarLenStringSchema{})
-
 		tmpLen, ok := fields["length"].(int)
 
 		// if string length is present, then we are dealing with a fixed string
 		if ok {
-			b, _ := strconv.ParseBool(fields["nullable"].(string))
-			fixedLenStringSchema.SchemaOptions.Nullable = b
-			fixedLenStringSchema.Length = tmpLen
+			s := &FixedStringSchema{}
 
-			return fixedLenStringSchema, nil
-		} else {
 			b, _ := strconv.ParseBool(fields["nullable"].(string))
-			varLenStringSchema.SchemaOptions.Nullable = b
-			return varLenStringSchema, nil
+			s.SchemaOptions.Nullable = b
+			s.Length = tmpLen
+
+			return s, nil
+		} else {
+			s := &VarLenStringSchema{}
+
+			b, _ := strconv.ParseBool(fields["nullable"].(string))
+			s.SchemaOptions.Nullable = b
+			return s, nil
 		}
 
 	case "FLOAT":
-		var floatSchema *FloatSchema = &(FloatSchema{})
+		s := &FloatSchema{}
 
 		if fields["bits"].(string) == "64" {
-			floatSchema.Bits = 64
+			s.Bits = 64
 		} else if fields["bits"].(string) == "32" {
-			floatSchema.Bits = 32
+			s.Bits = 32
 		} else {
 			return nil, fmt.Errorf("invalid JSON schema encountered")
 		}
 
 		b, _ := strconv.ParseBool(fields["nullable"].(string))
-		floatSchema.SchemaOptions.Nullable = b
+		s.SchemaOptions.Nullable = b
 
-		return floatSchema, nil
+		return s, nil
 	}
 
 	return nil, fmt.Errorf("invalid JSON schema encountered")
 }
 
+// DecodeSchema takes a buffer of bytes representing a binary schema, and returns a Schema (by
+// calling the routine decodeSchemaInternal.)
+func DecodeSchema(buf []byte) (Schema, error) {
+
+	byteIndex := 0 // always start at the beginning of the buffer
+
+	// and then decodeSchemaInternal() will advance *byteIndex as it goes
+	tmp, err := decodeSchemaInternal(buf, &byteIndex)
+
+	return tmp, err
+}
+
 // decodeSchemaInternal processes buf[] to actually decode the binary schema.
-// As each byte is processed, this routine advances byteIndex, which indicates
+// As each byte is processed, this routine advances *byteIndex, which indicates
 // how far into the buffer we have processed already.
 // Note that any recursive calls inside of this routine should call decodeSchemaInternal()
 // not DecodeSchema
-func decodeSchemaInternal(buf []byte) (Schema, error) {
+func decodeSchemaInternal(buf []byte, byteIndex *int) (Schema, error) {
 
 	var err error
 
 	// decode enum
-	if buf[byteIndex]&0b00011101 == 0b00011101 {
+	if buf[*byteIndex]&0b00011101 == 0b00011101 {
 		var enumSchema *EnumSchema = &(EnumSchema{})
 
-		enumSchema.SchemaOptions.Nullable = (buf[byteIndex]&128 == 128)
-		byteIndex++
+		enumSchema.SchemaOptions.Nullable = (buf[*byteIndex]&128 == 128)
+		*byteIndex++
 
 		// we want to read in all the enumerated values...
 		mapSchema := SchemaOf(enumSchema.Values)
 
-		r := bytes.NewReader(buf[byteIndex:])
+		r := bytes.NewReader(buf[*byteIndex:])
 		origBufferSize := r.Len()
 		err := mapSchema.Decode(r, &enumSchema.Values)
 		if err != nil {
@@ -532,45 +478,45 @@ func decodeSchemaInternal(buf []byte) (Schema, error) {
 		}
 
 		// advance ahead into the buffer as many bytes as ReadVarint consumed...
-		byteIndex = byteIndex + (origBufferSize - r.Len())
+		*byteIndex = *byteIndex + (origBufferSize - r.Len())
 
 		return enumSchema, nil
 	}
 
 	// decode boolean
-	if buf[byteIndex]&0b00011100 == 0b00011100 {
+	if buf[*byteIndex]&0b00011100 == 0b00011100 {
 		var boolSchema *BoolSchema = &(BoolSchema{})
 
-		boolSchema.SchemaOptions.Nullable = (buf[byteIndex]&128 == 128)
-		byteIndex++
+		boolSchema.SchemaOptions.Nullable = (buf[*byteIndex]&128 == 128)
+		*byteIndex++
 
 		return boolSchema, nil
 	}
 
 	// decode complex number
-	if buf[byteIndex]&0b00011000 == 0b00011000 {
+	if buf[*byteIndex]&0b00011000 == 0b00011000 {
 		var complexSchema *ComplexSchema = &(ComplexSchema{})
 
-		if (buf[byteIndex] & 1) == 1 {
+		if (buf[*byteIndex] & 1) == 1 {
 			complexSchema.Bits = 128
 		} else {
 			complexSchema.Bits = 64
 		}
-		complexSchema.SchemaOptions.Nullable = (buf[byteIndex]&128 == 128)
-		byteIndex++
+		complexSchema.SchemaOptions.Nullable = (buf[*byteIndex]&128 == 128)
+		*byteIndex++
 
 		return complexSchema, nil
 	}
 
 	// decode fixed array schema
-	if buf[byteIndex]&0b00100101 == 0b00100101 {
+	if buf[*byteIndex]&0b00100101 == 0b00100101 {
 		var FixedArraySchema *FixedArraySchema = &(FixedArraySchema{})
 
-		FixedArraySchema.SchemaOptions.Nullable = (buf[byteIndex]&128 == 128)
-		byteIndex++
+		FixedArraySchema.SchemaOptions.Nullable = (buf[*byteIndex]&128 == 128)
+		*byteIndex++
 
 		// read out the fixed len array length as a varint
-		r := bytes.NewReader(buf[byteIndex:])
+		r := bytes.NewReader(buf[*byteIndex:])
 		origBufferSize := r.Len()
 		tmp, err := binary.ReadVarint(r)
 		FixedArraySchema.Length = int(tmp)
@@ -580,9 +526,9 @@ func decodeSchemaInternal(buf []byte) (Schema, error) {
 		}
 
 		// advance ahead into the buffer as many bytes as ReadVarint consumed...
-		byteIndex = byteIndex + (origBufferSize - r.Len())
+		*byteIndex = *byteIndex + (origBufferSize - r.Len())
 
-		FixedArraySchema.Element, err = decodeSchemaInternal(buf)
+		FixedArraySchema.Element, err = decodeSchemaInternal(buf, byteIndex)
 		if err != nil {
 			return nil, err
 		}
@@ -591,39 +537,39 @@ func decodeSchemaInternal(buf []byte) (Schema, error) {
 	}
 
 	// decode fixed int schema
-	if buf[byteIndex]&0b00110000 == 0 {
+	if buf[*byteIndex]&0b00110000 == 0 {
 		var fixedIntSchema *FixedIntSchema = &(FixedIntSchema{})
 
-		fixedIntSchema.SchemaOptions.Nullable = (buf[byteIndex]&128 == 128)
-		fixedIntSchema.Signed = (buf[byteIndex] & 1) == 1
-		fixedIntSchema.Bits = 8 << ((buf[byteIndex] & 14) >> 1)
+		fixedIntSchema.SchemaOptions.Nullable = (buf[*byteIndex]&128 == 128)
+		fixedIntSchema.Signed = (buf[*byteIndex] & 1) == 1
+		fixedIntSchema.Bits = 8 << ((buf[*byteIndex] & 14) >> 1)
 
-		byteIndex++
+		*byteIndex++
 
 		return fixedIntSchema, nil
 	}
 
 	// decode varint schema
-	if buf[byteIndex]&0b00111110 == 0b00010000 {
+	if buf[*byteIndex]&0b00111110 == 0b00010000 {
 		var varIntSchema *VarIntSchema = &(VarIntSchema{})
 
-		varIntSchema.SchemaOptions.Nullable = (buf[byteIndex]&128 == 128)
-		varIntSchema.Signed = (buf[byteIndex] & 1) == 1
+		varIntSchema.SchemaOptions.Nullable = (buf[*byteIndex]&128 == 128)
+		varIntSchema.Signed = (buf[*byteIndex] & 1) == 1
 
-		byteIndex++
+		*byteIndex++
 
 		return varIntSchema, nil
 	}
 
 	// fixed object schema
-	if buf[byteIndex]&0b00111111 == 0b00101001 {
+	if buf[*byteIndex]&0b00111111 == 0b00101001 {
 		var fixedObjectSchema *FixedObjectSchema = &(FixedObjectSchema{})
 
-		fixedObjectSchema.SchemaOptions.Nullable = (buf[byteIndex]&128 == 128)
-		byteIndex++
+		fixedObjectSchema.SchemaOptions.Nullable = (buf[*byteIndex]&128 == 128)
+		*byteIndex++
 
 		// read out total number of fields (which was encoded as a varInt)
-		r := bytes.NewReader(buf[byteIndex:])
+		r := bytes.NewReader(buf[*byteIndex:])
 		origBufferSize := r.Len()
 		numFields, err := binary.ReadVarint(r)
 
@@ -632,13 +578,13 @@ func decodeSchemaInternal(buf []byte) (Schema, error) {
 		}
 
 		// advance ahead into the buffer as many bytes as ReadVarint consumed...
-		byteIndex = byteIndex + (origBufferSize - r.Len())
+		*byteIndex = *byteIndex + (origBufferSize - r.Len())
 
 		for i := 0; i < int(numFields); i++ {
 			var of ObjectField = ObjectField{}
 
 			// read out total number of aliases for this field (which was encoded as a varInt)
-			r := bytes.NewReader(buf[byteIndex:])
+			r := bytes.NewReader(buf[*byteIndex:])
 			origBufferSize = r.Len()
 			numAlias, err := binary.ReadVarint(r)
 
@@ -647,22 +593,22 @@ func decodeSchemaInternal(buf []byte) (Schema, error) {
 			}
 
 			// advance ahead into the buffer as many bytes as ReadVarint consumed...
-			byteIndex = byteIndex + (origBufferSize - r.Len())
+			*byteIndex = *byteIndex + (origBufferSize - r.Len())
 
 			// read out each alias name...
 			for j := 0; j < int(numAlias); j++ {
 				AliasName := ""
 				varLenStringSchema := SchemaOf(AliasName)
-				r := bytes.NewReader(buf[byteIndex:])
+				r := bytes.NewReader(buf[*byteIndex:])
 				origBufferSize := r.Len()
 				var tmp string
 				varLenStringSchema.Decode(r, &tmp)
 				of.Aliases = append(of.Aliases, tmp)
-				byteIndex = byteIndex + (origBufferSize - r.Len())
+				*byteIndex = *byteIndex + (origBufferSize - r.Len())
 			}
 
-			// decodeSchemaInternal recursive call will advance byteIndex for each field...
-			of.Schema, err = decodeSchemaInternal(buf)
+			// decodeSchemaInternal recursive call will advance *byteIndex for each field...
+			of.Schema, err = decodeSchemaInternal(buf, byteIndex)
 			if err != nil {
 				return nil, err
 			}
@@ -674,13 +620,13 @@ func decodeSchemaInternal(buf []byte) (Schema, error) {
 	}
 
 	// decode fixed len string
-	if buf[byteIndex]&0b00111111 == 0b00100001 {
+	if buf[*byteIndex]&0b00111111 == 0b00100001 {
 		var fixedLenStringSchema *FixedStringSchema = &(FixedStringSchema{})
 
-		fixedLenStringSchema.SchemaOptions.Nullable = (buf[byteIndex]&128 == 128)
-		byteIndex++
+		fixedLenStringSchema.SchemaOptions.Nullable = (buf[*byteIndex]&128 == 128)
+		*byteIndex++
 
-		r := bytes.NewReader(buf[byteIndex:])
+		r := bytes.NewReader(buf[*byteIndex:])
 		origBufferSize := r.Len()
 		tmp, err := binary.ReadVarint(r)
 		fixedLenStringSchema.Length = int(tmp)
@@ -690,34 +636,34 @@ func decodeSchemaInternal(buf []byte) (Schema, error) {
 		}
 
 		// advance ahead into the buffer as many bytes as ReadVarint consumed...
-		byteIndex = byteIndex + (origBufferSize - r.Len())
+		*byteIndex = *byteIndex + (origBufferSize - r.Len())
 
 		return fixedLenStringSchema, nil
 	}
 
 	// decode floating point schema
-	if buf[byteIndex]&0b00111110 == 0b00010100 {
+	if buf[*byteIndex]&0b00111110 == 0b00010100 {
 		var floatSchema *FloatSchema = &(FloatSchema{})
 
-		if buf[byteIndex]&1 == 1 {
+		if buf[*byteIndex]&1 == 1 {
 			floatSchema.Bits = 64
 		} else {
 			floatSchema.Bits = 32
 		}
-		floatSchema.SchemaOptions.Nullable = (buf[byteIndex]&128 == 128)
-		byteIndex++
+		floatSchema.SchemaOptions.Nullable = (buf[*byteIndex]&128 == 128)
+		*byteIndex++
 
 		return floatSchema, nil
 	}
 
 	// decode var array schema
-	if buf[byteIndex]&0b00111110 == 0b00100100 {
+	if buf[*byteIndex]&0b00111110 == 0b00100100 {
 		var varArraySchema *VarArraySchema = &(VarArraySchema{})
 
-		varArraySchema.SchemaOptions.Nullable = (buf[byteIndex]&128 == 128)
-		byteIndex++
+		varArraySchema.SchemaOptions.Nullable = (buf[*byteIndex]&128 == 128)
+		*byteIndex++
 
-		varArraySchema.Element, err = decodeSchemaInternal(buf)
+		varArraySchema.Element, err = decodeSchemaInternal(buf, byteIndex)
 		if err != nil {
 			return nil, err
 		}
@@ -726,18 +672,18 @@ func decodeSchemaInternal(buf []byte) (Schema, error) {
 	}
 
 	// decode var object schema
-	if buf[byteIndex]&0b00111110 == 0b00101000 {
+	if buf[*byteIndex]&0b00111110 == 0b00101000 {
 		var varObjectSchema *VarObjectSchema = &(VarObjectSchema{})
 
-		varObjectSchema.SchemaOptions.Nullable = (buf[byteIndex]&128 == 128)
-		byteIndex++
+		varObjectSchema.SchemaOptions.Nullable = (buf[*byteIndex]&128 == 128)
+		*byteIndex++
 
-		varObjectSchema.Key, err = decodeSchemaInternal(buf)
+		varObjectSchema.Key, err = decodeSchemaInternal(buf, byteIndex)
 		if err != nil {
 			return nil, err
 		}
 
-		varObjectSchema.Value, err = decodeSchemaInternal(buf)
+		varObjectSchema.Value, err = decodeSchemaInternal(buf, byteIndex)
 		if err != nil {
 			return nil, err
 		}
@@ -746,11 +692,11 @@ func decodeSchemaInternal(buf []byte) (Schema, error) {
 	}
 
 	// decode var len string
-	if buf[byteIndex]&0b00111110 == 0b00100000 {
+	if buf[*byteIndex]&0b00111110 == 0b00100000 {
 		var varLenStringSchema *VarLenStringSchema = &(VarLenStringSchema{})
 
-		varLenStringSchema.SchemaOptions.Nullable = (buf[byteIndex]&128 == 128)
-		byteIndex++
+		varLenStringSchema.SchemaOptions.Nullable = (buf[*byteIndex]&128 == 128)
+		*byteIndex++
 
 		return varLenStringSchema, nil
 	}

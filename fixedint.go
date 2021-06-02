@@ -13,7 +13,8 @@ const uintSize = 32 << (^uint(0) >> 32 & 1) // 32 or 64
 
 const maxFloatInt = int64(1)<<53 - 1
 const minFloatInt = -maxFloatInt
-const maxIntUint = uint64(1)<<63 - 1
+
+//const maxIntUint = uint64(1)<<63 - 1
 
 type FixedIntSchema struct {
 	SchemaOptions
@@ -22,12 +23,48 @@ type FixedIntSchema struct {
 	Bits   int
 }
 
+func (s *FixedIntSchema) DefaultGOType() reflect.Type {
+	if s.Signed {
+		switch s.Bits {
+		case 8:
+			var t int8
+			return reflect.TypeOf(t)
+		case 16:
+			var t int16
+			return reflect.TypeOf(t)
+		case 32:
+			var t int32
+			return reflect.TypeOf(t)
+		case 64:
+			var t int
+			return reflect.TypeOf(t)
+		}
+	} else {
+		switch s.Bits {
+		case 8:
+			var t uint8
+			return reflect.TypeOf(t)
+		case 16:
+			var t uint16
+			return reflect.TypeOf(t)
+		case 32:
+			var t uint32
+			return reflect.TypeOf(t)
+		case 64:
+			var t uint
+			return reflect.TypeOf(t)
+		}
+	}
+
+	return nil
+}
+
 func (s *FixedIntSchema) Valid() bool {
 	return s.Bits == 8 || s.Bits == 16 || s.Bits == 32 || s.Bits == 64
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *FixedIntSchema) Bytes() []byte {
+func (s *FixedIntSchema) MarshalSchemer() []byte {
 
 	// fixed length schemas are 1 byte long total
 	var schema []byte = []byte{0b00000000}
@@ -337,6 +374,14 @@ func (s *FixedIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	t := v.Type()
 	k := t.Kind()
+
+	if k == reflect.Interface {
+		v.Set(reflect.New(s.DefaultGOType()))
+
+		v = v.Elem().Elem()
+		t = v.Type()
+		k = t.Kind()
+	}
 
 	// Decode value
 	if s.Signed {

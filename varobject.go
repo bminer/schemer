@@ -11,9 +11,18 @@ import (
 
 type VarObjectSchema struct {
 	SchemaOptions
-
 	Key   Schema
 	Value Schema
+}
+
+func (s *VarObjectSchema) DefaultGOType() reflect.Type {
+
+	if s.Key == nil || s.Value == nil {
+		return nil
+	}
+
+	var t = reflect.MapOf(s.Key.DefaultGOType(), s.Value.DefaultGOType())
+	return t
 }
 
 func (s *VarObjectSchema) MarshalJSON() ([]byte, error) {
@@ -56,7 +65,7 @@ func (s *VarObjectSchema) MarshalJSON() ([]byte, error) {
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *VarObjectSchema) Bytes() []byte {
+func (s *VarObjectSchema) MarshalSchemer() []byte {
 
 	// string schemas are 1 byte long
 	var schema []byte = []byte{0b00101000}
@@ -68,8 +77,8 @@ func (s *VarObjectSchema) Bytes() []byte {
 
 	// bit 3 is clear from above, indicating this is a var length string
 
-	schema = append(schema, s.Key.Bytes()...)
-	schema = append(schema, s.Value.Bytes()...)
+	schema = append(schema, s.Key.MarshalSchemer()...)
+	schema = append(schema, s.Value.MarshalSchemer()...)
 
 	return schema
 }
@@ -129,6 +138,16 @@ func (s *VarObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	t := v.Type()
 	k := t.Kind()
 
+	if k == reflect.Interface {
+		var mapType = s.DefaultGOType()
+		v.Set(reflect.MakeMap(mapType))
+
+		v = v.Elem()
+
+		t = v.Type()
+		k = t.Kind()
+	}
+
 	if k != reflect.Map {
 		return fmt.Errorf("VarObjectSchema can only decode to maps")
 	}
@@ -146,11 +165,10 @@ func (s *VarObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		}
 		var mapType = reflect.MapOf(t.Key(), t.Elem())
 		v.Set(reflect.MakeMap(mapType))
-	} else {
-		// we have an existing map
-		// right now by default, we will just keep their entries
-		// but we have to decide if this behavior is OK
 	}
+	// else: we have an existing map
+	// right now by default, we will just keep their entries
+	// but we have to decide if this behavior is OK
 
 	for i := 0; i < int(expectedNumEntries); i++ {
 

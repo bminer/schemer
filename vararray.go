@@ -15,8 +15,12 @@ type VarArraySchema struct {
 	Element Schema
 }
 
+func (s *VarArraySchema) DefaultGOType() reflect.Type {
+	return reflect.SliceOf(s.Element.DefaultGOType())
+}
+
 // Bytes encodes the schema in a portable binary format
-func (s *VarArraySchema) Bytes() []byte {
+func (s *VarArraySchema) MarshalSchemer() []byte {
 
 	// fixed length schemas are 1 byte long total
 	var schema []byte = []byte{0b00100100}
@@ -26,7 +30,7 @@ func (s *VarArraySchema) Bytes() []byte {
 		schema[0] |= 128
 	}
 
-	schema = append(schema, s.Element.Bytes()...)
+	schema = append(schema, s.Element.MarshalSchemer()...)
 
 	return schema
 
@@ -104,6 +108,14 @@ func (s *VarArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	t := v.Type()
 	k := t.Kind()
 
+	if k == reflect.Interface {
+		v.Set(reflect.New(s.DefaultGOType()))
+
+		v = v.Elem().Elem()
+		t = v.Type()
+		k = t.Kind()
+	}
+
 	if k != reflect.Slice {
 		return fmt.Errorf("VarArraySchema can only decode to slices")
 	}
@@ -118,17 +130,11 @@ func (s *VarArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 			return errors.New("v not settable")
 		}
 		v.Set(reflect.MakeSlice(t, int(expectedLen), int(expectedLen)))
-	} else {
-		// we have an existing slice
-		// right now by default, we will just keep their entries
-		// but we have to decide if this behavior is OK??
 	}
 
-	/*
-		if int(expectedLen) != v.Len() {
-			return fmt.Errorf("encoded length does not match destination slice size")
-		}
-	*/
+	// else we have an existing slice
+	// right now by default, we will just keep their entries
+	// but we have to decide if this behavior is OK??
 
 	for i := 0; i < v.Len(); i++ {
 		err := s.Element.DecodeValue(r, v.Index(i))

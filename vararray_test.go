@@ -15,7 +15,7 @@ func TestDecodeVarLenArray1(t *testing.T) {
 	// setup an example schema
 	varArraySchema := SchemaOf(slice)
 	// encode i
-	b := varArraySchema.Bytes()
+	b := varArraySchema.MarshalSchemer()
 
 	// make sure we can successfully decode it
 	tmp, err := DecodeSchema(b)

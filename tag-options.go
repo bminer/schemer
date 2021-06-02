@@ -5,23 +5,28 @@ import (
 	"strings"
 )
 
-// SchemerTagOptions represents information that can be read from struct field tags
-type SchemerTagOptions struct {
-	FieldAliases []string
+// TagOptions represents information that can be read from struct field tags
+type TagOptions struct {
+	FieldAliases    []string
+	FieldAliasesSet bool
 
-	Nullable     bool
-	WeakDecoding bool
-
-	ShouldSkip bool
+	Nullable        bool
+	NullableSet     bool
+	WeakDecoding    bool
+	WeakDecodingSet bool
 }
 
-// ParseStructTag tags a tagname as a string, parses it, and populates SchemerTagOptions
+// TODO: New signature
+// func ParseStructTag(tagStr string) (TagOptions, error) {
+// }
+
+// ParseStructTag tags a tagname as a string, parses it, and populates TagOptions
 // the format of the tag must be:
 // tag := (alias)?("," option)*
 // alias := identifier
 //			"["identifier(","identifier)*"]"
 //	option := "weak", "null", "not null"
-func (s *SchemerTagOptions) ParseStructTag(tagStr string) error {
+func (s *TagOptions) ParseStructTag(tagStr string) error {
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -36,7 +41,7 @@ func (s *SchemerTagOptions) ParseStructTag(tagStr string) error {
 
 	// special case meaning to skip this field
 	if tagStr == "-" {
-		s.ShouldSkip = true
+		s.FieldAliasesSet = true
 		return nil
 	}
 

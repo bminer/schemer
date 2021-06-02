@@ -14,6 +14,11 @@ type VarLenStringSchema struct {
 	SchemaOptions
 }
 
+func (s *VarLenStringSchema) DefaultGOType() reflect.Type {
+	var t string
+	return reflect.TypeOf(t)
+}
+
 func (s *VarLenStringSchema) MarshalJSON() ([]byte, error) {
 	tmpMap := make(map[string]interface{}, 2)
 	tmpMap["type"] = "string"
@@ -23,7 +28,7 @@ func (s *VarLenStringSchema) MarshalJSON() ([]byte, error) {
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *VarLenStringSchema) Bytes() []byte {
+func (s *VarLenStringSchema) MarshalSchemer() []byte {
 
 	// string schemas are 1 byte long
 	var schema []byte = []byte{0b00100000}
@@ -51,6 +56,14 @@ func (s *VarLenStringSchema) Encode(w io.Writer, i interface{}) error {
 
 	t := v.Type()
 	k := t.Kind()
+
+	if k == reflect.Interface {
+		v.Set(reflect.New(s.DefaultGOType()))
+
+		v = v.Elem().Elem()
+		t = v.Type()
+		k = t.Kind()
+	}
 
 	if k != reflect.String {
 		return fmt.Errorf("StringSchema only supports encoding string values")
@@ -85,6 +98,14 @@ func (s *VarLenStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	t := v.Type()
 	k := t.Kind()
+
+	if k == reflect.Interface {
+		v.Set(reflect.New(s.DefaultGOType()))
+
+		v = v.Elem().Elem()
+		t = v.Type()
+		k = t.Kind()
+	}
 
 	expectedLen, err := readVarUint(r)
 	if err != nil {

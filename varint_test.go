@@ -732,8 +732,8 @@ func TestVarIntSchema4(t *testing.T) {
 
 	var intToDecodeTo int
 	var intPtr1 *int = &intToDecodeTo
-
 	err = varIntSchema.Decode(r, &intPtr1)
+
 	if err != nil {
 		t.Error(err)
 	}
@@ -751,7 +751,7 @@ func TestVarIntSchema5(t *testing.T) {
 	varIntSchema := VarIntSchema{Signed: true, SchemaOptions: SchemaOptions{Nullable: true}}
 
 	// encode it
-	b := varIntSchema.Bytes()
+	b := varIntSchema.MarshalSchemer()
 
 	// make sure we can successfully decode it
 	tmp, err := DecodeSchema(b)

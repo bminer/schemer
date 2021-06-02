@@ -172,7 +172,7 @@ func TestDecodeBool6(t *testing.T) {
 	schema := BoolSchema{SchemaOptions{Nullable: false}}
 
 	// encode it
-	b := schema.Bytes()
+	b := schema.MarshalSchemer()
 
 	// make sure we can successfully decode it
 	tmp, err := DecodeSchema(b)

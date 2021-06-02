@@ -16,12 +16,16 @@ type FixedArraySchema struct {
 	Element Schema
 }
 
+func (s *FixedArraySchema) DefaultGOType() reflect.Type {
+	return reflect.ArrayOf(s.Length, s.Element.DefaultGOType())
+}
+
 func (s *FixedArraySchema) Valid() bool {
 	return s.Length >= 0
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *FixedArraySchema) Bytes() []byte {
+func (s *FixedArraySchema) MarshalSchemer() []byte {
 
 	// fixed length schemas are 1 byte long total
 	var schema []byte = []byte{0b00100101}
@@ -37,7 +41,7 @@ func (s *FixedArraySchema) Bytes() []byte {
 	schema = append(schema, buf[0:varIntByteLength]...)
 
 	// now encode the schema for the type of this array
-	schema = append(schema, s.Element.Bytes()...)
+	schema = append(schema, s.Element.MarshalSchemer()...)
 
 	return schema
 
@@ -124,6 +128,14 @@ func (s *FixedArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	t := v.Type()
 	k := t.Kind()
+
+	if k == reflect.Interface {
+		v.Set(reflect.New(s.DefaultGOType()))
+
+		v = v.Elem().Elem()
+		t = v.Type()
+		k = t.Kind()
+	}
 
 	if k != reflect.Array {
 		return fmt.Errorf("FixedArraySchema can only encode fixed length arrays")

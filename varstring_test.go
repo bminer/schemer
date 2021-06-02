@@ -16,7 +16,7 @@ func TestVarString1(t *testing.T) {
 	schema := VarLenStringSchema{SchemaOptions{Nullable: true}}
 
 	// encode it
-	b := schema.Bytes()
+	b := schema.MarshalSchemer()
 
 	// make sure we can successfully decode it
 	tmp, err := DecodeSchema(b)

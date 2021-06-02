@@ -15,6 +15,11 @@ type EnumSchema struct {
 	Values map[int]string
 }
 
+func (s *EnumSchema) DefaultGOType() reflect.Type {
+	var t int
+	return reflect.TypeOf(t)
+}
+
 func (s *EnumSchema) MarshalJSON() ([]byte, error) {
 
 	tmpMap := make(map[string]interface{}, 3)
@@ -29,7 +34,7 @@ func (s *EnumSchema) MarshalJSON() ([]byte, error) {
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s EnumSchema) Bytes() []byte {
+func (s EnumSchema) MarshalSchemer() []byte {
 
 	// fixed length schemas are 1 byte long total
 	var schema []byte = []byte{0b00011101}
@@ -126,6 +131,14 @@ func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 	t := v.Type()
 	k := t.Kind()
+
+	if k == reflect.Interface {
+		v.Set(reflect.New(s.DefaultGOType()))
+
+		v = v.Elem().Elem()
+		t = v.Type()
+		k = t.Kind()
+	}
 
 	// check to see if the decoded value is in our map of enumerated values
 	if s.Values != nil {

@@ -771,7 +771,7 @@ func TestFixedIntSchema6(t *testing.T) {
 	fixedIntSchema := FixedIntSchema{Bits: 8, Signed: true, SchemaOptions: SchemaOptions{Nullable: false}}
 
 	// encode it
-	b := fixedIntSchema.Bytes()
+	b := fixedIntSchema.MarshalSchemer()
 
 	var err error
 

@@ -13,6 +13,11 @@ type BoolSchema struct {
 	SchemaOptions
 }
 
+func (s *BoolSchema) DefaultGOType() reflect.Type {
+	var b bool
+	return reflect.TypeOf(b)
+}
+
 func (s *BoolSchema) MarshalJSON() ([]byte, error) {
 
 	tmpMap := make(map[string]interface{}, 2)
@@ -23,7 +28,7 @@ func (s *BoolSchema) MarshalJSON() ([]byte, error) {
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *BoolSchema) Bytes() []byte {
+func (s *BoolSchema) MarshalSchemer() []byte {
 
 	// bool schemas are 1 byte long
 	var schema []byte = []byte{0b00011100}
@@ -68,6 +73,10 @@ func PreEncode(s Schema, w io.Writer, v *reflect.Value) (bool, error) {
 }
 
 func PreDecode(s Schema, r io.Reader, v *reflect.Value) (bool, error) {
+	// if t is a ptr or interface type, remove exactly ONE level of indirection
+	if k := v.Kind(); !v.CanSet() && (k == reflect.Ptr || k == reflect.Interface) {
+		*v = v.Elem()
+	}
 
 	buf := make([]byte, 1)
 
@@ -83,16 +92,24 @@ func PreDecode(s Schema, r io.Reader, v *reflect.Value) (bool, error) {
 		valueIsNull := (buf[0] == 1)
 
 		if valueIsNull {
-			if v.Kind() == reflect.Ptr {
+			fmt.Println("nullable", "and null", v.Kind(), v.CanSet())
+			if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
 				if v.CanSet() {
+					// special way to set pointer to nil value
 					v.Set(reflect.Zero(v.Type()))
 					return false, nil
 				}
-				*v = v.Elem()
-				if v.CanSet() {
-					v.Set(reflect.Zero(v.Type()))
-					return false, nil
-				}
+				// TODO: Explain the following lines
+
+				/*
+					*v = v.Elem()
+					if v.CanSet() {
+						// special way to set pointer to nil value
+						v.Set(reflect.Zero(v.Type()))
+						return false, nil
+					}
+				*/
+
 				return false, fmt.Errorf("destination not settable")
 			} else {
 				return false, fmt.Errorf("cannot decode null value to non pointer to pointer type")
@@ -103,6 +120,9 @@ func PreDecode(s Schema, r io.Reader, v *reflect.Value) (bool, error) {
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
 		if v.IsNil() {
+			if k == reflect.Interface {
+				break
+			}
 			if !v.CanSet() {
 				return false, fmt.Errorf("decode destination is not settable")
 			}
@@ -186,6 +206,14 @@ func (s *BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	t := v.Type()
 	k := t.Kind()
+
+	if k == reflect.Interface {
+		v.Set(reflect.New(s.DefaultGOType()))
+
+		v = v.Elem().Elem()
+		t = v.Type()
+		k = t.Kind()
+	}
 
 	buf := make([]byte, 1)
 

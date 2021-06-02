@@ -426,7 +426,7 @@ func TestFloatingPointSchema13(t *testing.T) {
 	floatingPointSchema := FloatSchema{Bits: 32, SchemaOptions: SchemaOptions{WeakDecoding: false, Nullable: false}}
 
 	// encode it
-	b := floatingPointSchema.Bytes()
+	b := floatingPointSchema.MarshalSchemer()
 
 	// make sure we can successfully decode it
 	tmp, err := DecodeSchema(b)

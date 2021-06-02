@@ -16,7 +16,7 @@ func TestDecodeFixedString1(t *testing.T) {
 	schema := FixedStringSchema{SchemaOptions: SchemaOptions{Nullable: true}, Length: 80}
 
 	// encode it
-	b := schema.Bytes()
+	b := schema.MarshalSchemer()
 
 	// make sure we can successfully decode it
 	tmp, err := DecodeSchema(b)
@@ -214,7 +214,7 @@ func TestFixedStrWriter(t *testing.T) {
 	strToEncode := ""
 	fixedLenStrSchema := FixedStringSchema{Length: 8, SchemaOptions: SchemaOptions{Nullable: false}}
 
-	binaryReaderSchema := fixedLenStrSchema.Bytes()
+	binaryReaderSchema := fixedLenStrSchema.MarshalSchemer()
 
 	var encodedData bytes.Buffer
 

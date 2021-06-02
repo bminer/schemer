@@ -468,7 +468,7 @@ func TestDecodeComplex11(t *testing.T) {
 	complexSchema := ComplexSchema{Bits: 128, SchemaOptions: SchemaOptions{WeakDecoding: true, Nullable: false}}
 
 	// encode it
-	b := complexSchema.Bytes()
+	b := complexSchema.MarshalSchemer()
 
 	tmp, err := DecodeSchema(b)
 	if err != nil {

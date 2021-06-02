@@ -15,6 +15,11 @@ type FixedStringSchema struct {
 	Length int
 }
 
+func (s *FixedStringSchema) DefaultGOType() reflect.Type {
+	var t string
+	return reflect.TypeOf(t)
+}
+
 func (s *FixedStringSchema) Valid() bool {
 	return (s.Length > 0)
 }
@@ -35,7 +40,7 @@ func (s *FixedStringSchema) MarshalJSON() ([]byte, error) {
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *FixedStringSchema) Bytes() []byte {
+func (s *FixedStringSchema) MarshalSchemer() []byte {
 
 	// string schemas are 1 byte long
 	var schema []byte = []byte{0b00100000}
@@ -126,6 +131,14 @@ func (s *FixedStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	t := v.Type()
 	k := t.Kind()
+
+	if k == reflect.Interface {
+		v.Set(reflect.New(s.DefaultGOType()))
+
+		v = v.Elem().Elem()
+		t = v.Type()
+		k = t.Kind()
+	}
 
 	var decodedString string
 

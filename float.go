@@ -15,6 +15,16 @@ type FloatSchema struct {
 	Bits int // must be 32 or 64
 }
 
+func (s *FloatSchema) DefaultGOType() reflect.Type {
+	if s.Bits == 32 {
+		var t float32
+		return reflect.TypeOf(t)
+	} else {
+		var t float64
+		return reflect.TypeOf(t)
+	}
+}
+
 func (s *FloatSchema) Valid() bool {
 	return s.Bits == 32 || s.Bits == 64
 }
@@ -33,7 +43,7 @@ func (s *FloatSchema) MarshalJSON() ([]byte, error) {
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *FloatSchema) Bytes() []byte {
+func (s *FloatSchema) MarshalSchemer() []byte {
 
 	// floating point schemas are 1 byte long
 	var schema []byte = []byte{0b00010100}
@@ -148,6 +158,14 @@ func (s *FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	t := v.Type()
 	k := t.Kind()
+
+	if k == reflect.Interface {
+		v.Set(reflect.New(s.DefaultGOType()))
+
+		v = v.Elem().Elem()
+		t = v.Type()
+		k = t.Kind()
+	}
 
 	var decodedFloat64 float64
 

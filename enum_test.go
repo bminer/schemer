@@ -26,7 +26,7 @@ func TestDecodeEnum1(t *testing.T) {
 	enumSchema := EnumSchema{SchemaOptions: SchemaOptions{Nullable: false}}
 
 	// encode it
-	b := enumSchema.Bytes()
+	b := enumSchema.MarshalSchemer()
 
 	// make sure we can successfully decode it
 
@@ -259,7 +259,7 @@ func TestEnumWriter(t *testing.T) {
 	enumSchema.Values[int(Saturday)] = "Saturday"
 
 	enumToDecode := Saturday
-	binaryReaderSchema := enumSchema.Bytes()
+	binaryReaderSchema := enumSchema.MarshalSchemer()
 
 	var encodedData bytes.Buffer
 

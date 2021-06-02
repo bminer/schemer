@@ -15,8 +15,19 @@ type VarIntSchema struct {
 	Signed bool
 }
 
+func (s *VarIntSchema) DefaultGOType() reflect.Type {
+	if s.Signed {
+		var t int
+		return reflect.TypeOf(t)
+	} else {
+		var t uint
+		return reflect.TypeOf(t)
+	}
+
+}
+
 // Bytes encodes the schema in a portable binary format
-func (s *VarIntSchema) Bytes() []byte {
+func (s *VarIntSchema) MarshalSchemer() []byte {
 
 	// fixed length schemas are 1 byte long total
 	var schema []byte = []byte{0b00010000}
@@ -139,9 +150,11 @@ func (s *VarIntSchema) Encode(w io.Writer, i interface{}) error {
 
 func (s *VarIntSchema) Decode(r io.Reader, i interface{}) error {
 
-	if i == nil {
-		return fmt.Errorf("cannot decode to nil destination")
-	}
+	/*
+		if i == nil {
+			return fmt.Errorf("cannot decode to nil destination")
+		}
+	*/
 
 	v := reflect.ValueOf(i)
 
@@ -161,6 +174,14 @@ func (s *VarIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	t := v.Type()
 	k := t.Kind()
+
+	if k == reflect.Interface {
+		v.Set(reflect.New(s.DefaultGOType()))
+
+		v = v.Elem().Elem()
+		t = v.Type()
+		k = t.Kind()
+	}
 
 	// Decode value
 	if s.Signed {
