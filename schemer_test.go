@@ -84,26 +84,21 @@ func FixedObjectWriter(t *testing.T, useJSON bool) {
 
 	structToEncode.IntField1 = 101
 	structToEncode.IntField2 = nil
-
 	intVal := 102
 	structToEncode.IntField3 = &intVal
 
 	structToEncode.Map1 = map[string]bool{"A": true, "B": false}
 	structToEncode.Map2 = nil
-
 	tmpMap := map[string]bool{"C": false, "D": true}
 	structToEncode.Map3 = tmpMap
 
 	structToEncode.Bool1 = false
-
 	structToEncode.Bool2 = nil
-
 	tmpBool := false
 	structToEncode.Bool3 = &tmpBool
 
 	structToEncode.Complex1 = 3 + 2i
 	structToEncode.Complex2 = nil
-
 	var tmpComplex1 complex64 = 4 + 5i
 	structToEncode.Complex3 = &tmpComplex1
 
@@ -113,9 +108,7 @@ func FixedObjectWriter(t *testing.T, useJSON bool) {
 	structToEncode.Complex6 = &tmpComplex2
 
 	structToEncode.Array1 = [5]string{"1", "2", "3", "4", "5"}
-
 	structToEncode.Array2 = nil
-
 	tmpArray := [5]string{"6", "7", "8", "9", "10"}
 	structToEncode.Array3 = &tmpArray
 
@@ -185,37 +178,40 @@ func FixedObjectReader(t *testing.T, useJSON bool) {
 	}
 
 	type DestinationStruct struct {
-		New_IntField1 int
-		New_IntField2 *int
 
-		New_Map1 map[string]bool
-		New_Map2 *map[string]bool
+		/*
+			New_IntField1 int
+			New_IntField2 *int
 
-		New_Bool1 bool
-		New_Bool2 *bool
+			New_Map1 map[string]bool
+			New_Map2 *map[string]bool
 
-		New_Complex1 complex64
-		New_Complex2 *complex64
+			New_Bool1 bool
+			New_Bool2 *bool
 
-		New_Array1 [5]string
-		New_Array2 *[5]string
+			New_Complex1 complex64
+			New_Complex2 *complex64
 
-		New_Object1 embeddedStruct
-		New_Object2 *embeddedStruct
+			New_Array1 [5]string
+			New_Array2 *[5]string
 
-		New_Float1 float64
-		New_Float2 *float64
+			New_Object1 embeddedStruct
+			New_Object2 *embeddedStruct
 
-		New_String1 string
-		New_String2 *string
+			New_Float1 float64
+			New_Float2 *float64
 
-		New_Slice1 []string
-		New_Slice2 *[]string
+			New_String1 string
+			New_String2 *string
+
+			New_Slice1 []string
+			New_Slice2 *[]string
+		*/
 
 		Complex1 complex64
 	}
 
-	var structToDecode interface{} //DestinationStruct{}
+	var structToDecode DestinationStruct
 	var schemaFileName string
 	var writerSchema Schema
 	var err error
@@ -248,11 +244,9 @@ func FixedObjectReader(t *testing.T, useJSON bool) {
 		t.Error(err)
 	}
 
-	/*
-		if structToDecode.Complex1 != 3+2i {
-			t.Error("unexpected complex decode")
-		}
-	*/
+	if structToDecode.Complex1 != 3+2i {
+		t.Error("unexpected complex decode")
+	}
 
 	fmt.Println(structToDecode)
 
