@@ -231,8 +231,8 @@ func SchemaOf(i interface{}) Schema
 // SchemaOfType generates a Schema from t.
 // SchemaOfType(nil) returns a Schema for an empty struct.
 func SchemaOfType(t reflect.Type) Schema
-// NewSchema decodes a schema stored in buf and returns an error if the schema is invalid
-func NewSchema(buf []byte) (Schema, error)
+// DecodeSchema decodes a schema stored in buf and returns an error if the schema is invalid
+func DecodeSchema(buf []byte) (Schema, error)
 ```
 
 The Encoder and Decoder use buffers under the hood to avoid numerous I/O calls to the underlying streams.
