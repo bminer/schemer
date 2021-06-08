@@ -26,7 +26,11 @@ type TagOptions struct {
 // alias := identifier
 //			"["identifier(","identifier)*"]"
 //	option := "weak", "null", "not null"
-func (s *TagOptions) ParseStructTag(tagStr string) error {
+//func (s *TagOptions) ParseStructTag(tagStr string) error {
+
+func ParseStructTag(tagStr string) (TagOptions, error) {
+
+	to := TagOptions{}
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -36,13 +40,13 @@ func (s *TagOptions) ParseStructTag(tagStr string) error {
 
 	tagStr = strings.Trim(tagStr, " ")
 	if len([]rune(tagStr)) == 0 {
-		return nil
+		return to, nil
 	}
 
 	// special case meaning to skip this field
 	if tagStr == "-" {
-		s.FieldAliasesSet = true
-		return nil
+		to.FieldAliasesSet = true
+		return to, nil
 	}
 
 	// if first part has a "]", then extract everything up to there
@@ -64,7 +68,7 @@ func (s *TagOptions) ParseStructTag(tagStr string) error {
 		if len([]rune(tagStr)) > 0 {
 
 			if !strings.Contains(tagStr, ",") {
-				return fmt.Errorf("missing comma after field alias")
+				return to, fmt.Errorf("missing comma after field alias")
 			} else {
 				// our options are just whatever is left after the comma
 				optionStr = tagStr[strings.Index(tagStr, ",")+1:]
@@ -102,17 +106,17 @@ func (s *TagOptions) ParseStructTag(tagStr string) error {
 	// parse aliasStr, and put each field into .FieldAliases
 	x := strings.Replace(aliasStr, "[", "", -1)
 	y := strings.Replace(x, "]", "", -1)
-	s.FieldAliases = strings.Split(y, ",")
-	for i, f := range s.FieldAliases {
-		s.FieldAliases[i] = strings.Trim(f, " ")
+	to.FieldAliases = strings.Split(y, ",")
+	for i, f := range to.FieldAliases {
+		to.FieldAliases[i] = strings.Trim(f, " ")
 	}
 
 	// parse options, and string and put each option into correct field, such as .Nullable
-	s.Nullable = strings.Contains(strings.ToUpper(optionStr), "NUL") &&
+	to.Nullable = strings.Contains(strings.ToUpper(optionStr), "NUL") &&
 		!strings.Contains(strings.ToUpper(optionStr), "!NUL")
 
-	s.WeakDecoding = strings.Contains(strings.ToUpper(optionStr), "WEAK")
+	to.WeakDecoding = strings.Contains(strings.ToUpper(optionStr), "WEAK")
 
-	return nil
+	return to, nil
 
 }

@@ -142,8 +142,7 @@ func (s *FixedObjectSchema) findDestinationField(sourceFieldAlias string, v refl
 		}
 
 		// parse the tags on this field, to see if any aliases are present...
-		tagOpts := &TagOptions{}
-		tagOpts.ParseStructTag(v.
+		tagOpts, _ := ParseStructTag(v.
 			Type().Field(i).Tag.Get(SchemerTagName))
 
 		// if any of the aliases on this destination field match sourceFieldAlias, then we have a match!

@@ -99,8 +99,7 @@ func SchemaOfType(t reflect.Type) Schema {
 				Schema: SchemaOfType(f.Type),
 			}
 
-			tagOpts := &TagOptions{}
-			tagOpts.ParseStructTag(f.Tag.Get(SchemerTagName))
+			tagOpts, _ := ParseStructTag(f.Tag.Get(SchemerTagName))
 			// ignore result here... if an error parsing the tags occured, just don't worry about it
 			// (in case they are in the wrong format or something)
 
