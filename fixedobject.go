@@ -129,15 +129,26 @@ func (s *FixedObjectSchema) Encode(w io.Writer, i interface{}) error {
 	return nil
 }
 
+var CacheMap map[string]string
+
 // s is a source alias we are tryig to figure out where to put
 // v will be a struct...
 func (s *FixedObjectSchema) findDestinationField(sourceFieldAlias string, v reflect.Value) string {
+
+	if CacheMap == nil {
+		CacheMap = make(map[string]string)
+	}
+	r, ok := CacheMap[sourceFieldAlias]
+	if ok {
+		return r //CacheMap[sourceFieldAlias]
+	}
 
 	// see if there is a place in the destination struct that matches the alias passed in...
 	for i := 0; i < v.Type().NumField(); i++ {
 		fieldName := v.Type().Field(i).Name
 
 		if sourceFieldAlias == fieldName {
+			CacheMap[sourceFieldAlias] = sourceFieldAlias
 			return sourceFieldAlias
 		}
 
@@ -148,6 +159,7 @@ func (s *FixedObjectSchema) findDestinationField(sourceFieldAlias string, v refl
 		// if any of the aliases on this destination field match sourceFieldAlias, then we have a match!
 		for j := 0; j < len(tagOpts.FieldAliases); j++ {
 			if sourceFieldAlias == tagOpts.FieldAliases[j] {
+				CacheMap[sourceFieldAlias] = fieldName
 				return fieldName
 			}
 
@@ -191,6 +203,7 @@ func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	// loop through all the potential source fields
 	// and see if there is anywhere we can put them
 	for i := 0; i < len(s.Fields); i++ {
+
 		Foundmatch := false
 
 		for j := 0; j < len(s.Fields[i].Aliases); j++ {
@@ -200,7 +213,7 @@ func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 			if structFieldToPopulate != "" {
 				Foundmatch = true
-				fmt.Println("found match", structFieldToPopulate, v.FieldByName(structFieldToPopulate).Kind())
+				//fmt.Println("found match", structFieldToPopulate, v.FieldByName(structFieldToPopulate).Kind())
 				err := s.Fields[i].Schema.DecodeValue(r, v.FieldByName(structFieldToPopulate))
 
 				if err != nil {
@@ -219,9 +232,11 @@ func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 			//var ignoreMe   interface{}
 
 			var ignoreMe interface{}
-			if stringToMatch == "String1" {
-				fmt.Println("deed")
-			}
+			/*
+				if stringToMatch == "String1" {
+					fmt.Println("deed")
+				}
+			*/
 			err := s.Fields[i].Schema.Decode(r, &ignoreMe)
 			if err != nil {
 				return err

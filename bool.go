@@ -51,9 +51,6 @@ func PreEncode(s Schema, w io.Writer, v *reflect.Value) (bool, error) {
 	if s.Nullable() {
 		// did the caller pass in a nil value, or a null pointer?
 		if !v.IsValid() {
-
-			fmt.Println("value encoded as a null...")
-
 			// per the revised spec, 1 indicates null
 			w.Write([]byte{1})
 			return false, nil
@@ -92,7 +89,7 @@ func PreDecode(s Schema, r io.Reader, v reflect.Value) (reflect.Value, error) {
 		valueIsNull := (buf[0] == 1)
 
 		if valueIsNull {
-			fmt.Println("nullable", "and null", v.Kind(), v.CanSet())
+			//fmt.Println("nullable", "and null", v.Kind(), v.CanSet())
 			if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
 				if v.CanSet() {
 					// special way to set pointer to nil value
