@@ -1,8 +1,5 @@
 package schemer
 
-// schmer_test is the main testing package for this library that is designed to test the overall functionality of
-// schemer. The tests are designed to include encoding/decoding all of the types that we support in schemer
-
 import (
 	"bytes"
 	"fmt"
@@ -238,6 +235,10 @@ func FixedObjectReader(t *testing.T, useJSON bool) {
 
 	encodedData := readFromDisk("/tmp/test.data")
 	r := bytes.NewReader(encodedData)
+
+	/*
+		var myInterface interface{}
+	*/
 
 	err = writerSchema.Decode(r, &structToDecode)
 	if err != nil {

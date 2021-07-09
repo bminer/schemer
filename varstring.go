@@ -14,7 +14,7 @@ type VarLenStringSchema struct {
 	SchemaOptions
 }
 
-func (s *VarLenStringSchema) DefaultGOType() reflect.Type {
+func (s *VarLenStringSchema) GoType() reflect.Type {
 	var t string
 	return reflect.TypeOf(t)
 }
@@ -31,20 +31,26 @@ func (s *VarLenStringSchema) MarshalJSON() ([]byte, error) {
 func (s *VarLenStringSchema) MarshalSchemer() []byte {
 
 	// string schemas are 1 byte long
-	var schema []byte = []byte{0b00100000}
+	var schema []byte = []byte{VarStringSchemaBinaryFormat}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.SchemaOptions.Nullable {
-		schema[0] |= 128
+		schema[0] |= 0x80
 	}
 
 	return schema
 }
 
-// Encode uses the schema to write the encoded value of v to the output stream
+// Decode uses the schema to read the next encoded value from the input stream and store it in v
 func (s *VarLenStringSchema) Encode(w io.Writer, i interface{}) error {
 
 	v := reflect.ValueOf(i)
+
+	return s.EncodeValue(w, v)
+}
+
+// Encode uses the schema to write the encoded value of v to the output stream
+func (s *VarLenStringSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 
 	ok, err := PreEncode(s, w, &v)
 	if err != nil {
@@ -58,7 +64,7 @@ func (s *VarLenStringSchema) Encode(w io.Writer, i interface{}) error {
 	k := t.Kind()
 
 	if k == reflect.Interface {
-		v.Set(reflect.New(s.DefaultGOType()))
+		v.Set(reflect.New(s.GoType()))
 
 		v = v.Elem().Elem()
 		t = v.Type()
@@ -101,7 +107,7 @@ func (s *VarLenStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	k := t.Kind()
 
 	if k == reflect.Interface {
-		v.Set(reflect.New(s.DefaultGOType()))
+		v.Set(reflect.New(s.GoType()))
 
 		v = v.Elem().Elem()
 		t = v.Type()

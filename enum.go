@@ -15,7 +15,7 @@ type EnumSchema struct {
 	Values map[int]string
 }
 
-func (s *EnumSchema) DefaultGOType() reflect.Type {
+func (s *EnumSchema) GoType() reflect.Type {
 	var t int
 	return reflect.TypeOf(t)
 }
@@ -37,11 +37,11 @@ func (s *EnumSchema) MarshalJSON() ([]byte, error) {
 func (s EnumSchema) MarshalSchemer() []byte {
 
 	// fixed length schemas are 1 byte long total
-	var schema []byte = []byte{0b00011101}
+	var schema []byte = []byte{EnumSchemaBinaryFormat}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.SchemaOptions.Nullable {
-		schema[0] |= 128
+		schema[0] |= 0x80
 	}
 
 	// write all the enumerated values as part of the schema...
@@ -133,7 +133,7 @@ func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	k := t.Kind()
 
 	if k == reflect.Interface {
-		v.Set(reflect.New(s.DefaultGOType()))
+		v.Set(reflect.New(s.GoType()))
 
 		v = v.Elem().Elem()
 		t = v.Type()

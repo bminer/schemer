@@ -16,7 +16,7 @@ type ComplexSchema struct {
 	Bits int // must be 64 or 128
 }
 
-func (s *ComplexSchema) DefaultGOType() reflect.Type {
+func (s *ComplexSchema) GoType() reflect.Type {
 	var c1 complex64
 	var c2 complex128
 
@@ -48,11 +48,11 @@ func (s *ComplexSchema) MarshalJSON() ([]byte, error) {
 func (s *ComplexSchema) MarshalSchemer() []byte {
 
 	// floating point schemas are 1 byte long
-	var schema []byte = []byte{0b00011000}
+	var schema []byte = []byte{ComplexSchemaBinaryFormat}
 
 	// bit 8 indicates whether or not the type is nullable
 	if s.SchemaOptions.Nullable {
-		schema[0] |= 128
+		schema[0] |= 0x80
 	}
 
 	// bit 1 = complex number size in (64 << n) bits
@@ -181,7 +181,7 @@ func (s *ComplexSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	k := t.Kind()
 
 	if k == reflect.Interface {
-		v.Set(reflect.New(s.DefaultGOType()))
+		v.Set(reflect.New(s.GoType()))
 
 		v = v.Elem().Elem()
 		t = v.Type()

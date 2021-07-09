@@ -16,8 +16,8 @@ type FixedArraySchema struct {
 	Element Schema
 }
 
-func (s *FixedArraySchema) DefaultGOType() reflect.Type {
-	return reflect.ArrayOf(s.Length, s.Element.DefaultGOType())
+func (s *FixedArraySchema) GoType() reflect.Type {
+	return reflect.ArrayOf(s.Length, s.Element.GoType())
 }
 
 func (s *FixedArraySchema) Valid() bool {
@@ -28,11 +28,11 @@ func (s *FixedArraySchema) Valid() bool {
 func (s *FixedArraySchema) MarshalSchemer() []byte {
 
 	// fixed length schemas are 1 byte long total
-	var schema []byte = []byte{0b00100101}
+	var schema []byte = []byte{FixedArraySchemaBinaryFormat}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.SchemaOptions.Nullable {
-		schema[0] |= 128
+		schema[0] |= 0x80
 	}
 
 	// encode array fixed length as a varint
@@ -131,7 +131,7 @@ func (s *FixedArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	k := t.Kind()
 
 	if k == reflect.Interface {
-		v.Set(reflect.New(s.DefaultGOType()))
+		v.Set(reflect.New(s.GoType()))
 
 		v = v.Elem().Elem()
 		t = v.Type()

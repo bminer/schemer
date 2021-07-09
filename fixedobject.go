@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"strconv"
 )
 
 type ObjectField struct {
@@ -20,17 +19,14 @@ type FixedObjectSchema struct {
 	Fields []ObjectField
 }
 
-func (s *FixedObjectSchema) DefaultGOType() reflect.Type {
-	type tmpStruct struct {
-	}
-	var t tmpStruct
-	return reflect.TypeOf(t)
+func (s *FixedObjectSchema) GoType() reflect.Type {
+	return reflect.TypeOf(struct{}{})
 }
 
 func (s *FixedObjectSchema) MarshalJSON() ([]byte, error) {
-	tmpMap := make(map[string]interface{}, 3)
+	tmpMap := make(map[string]interface{}, 4)
 	tmpMap["type"] = "object"
-	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
+	tmpMap["nullable"] = s.SchemaOptions.Nullable
 
 	var fieldMap []map[string]interface{}
 
@@ -57,11 +53,11 @@ func (s *FixedObjectSchema) MarshalJSON() ([]byte, error) {
 func (s *FixedObjectSchema) MarshalSchemer() []byte {
 
 	// fixedObject schemas are 1 byte long
-	var schemaBytes []byte = []byte{0b00101001}
+	var schemaBytes []byte = []byte{FixedObjectSchemaBinaryFormat}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.SchemaOptions.Nullable {
-		schemaBytes[0] |= 128
+		schemaBytes[0] |= 0x80
 	}
 
 	// encode total number of fields as a varint
@@ -91,7 +87,6 @@ func (s *FixedObjectSchema) MarshalSchemer() []byte {
 
 		schemaBytes = append(schemaBytes, f.Schema.MarshalSchemer()...)
 	}
-
 	return schemaBytes
 }
 
@@ -123,22 +118,20 @@ func (s *FixedObjectSchema) Encode(w io.Writer, i interface{}) error {
 		if err != nil {
 			return err
 		}
-
 	}
-
 	return nil
 }
 
-var CacheMap map[string]string
+var cacheMap map[string]string
 
 // s is a source alias we are tryig to figure out where to put
 // v will be a struct...
 func (s *FixedObjectSchema) findDestinationField(sourceFieldAlias string, v reflect.Value) string {
 
-	if CacheMap == nil {
-		CacheMap = make(map[string]string)
+	if cacheMap == nil {
+		cacheMap = make(map[string]string)
 	}
-	r, ok := CacheMap[sourceFieldAlias]
+	r, ok := cacheMap[sourceFieldAlias]
 	if ok {
 		return r //CacheMap[sourceFieldAlias]
 	}
@@ -148,7 +141,7 @@ func (s *FixedObjectSchema) findDestinationField(sourceFieldAlias string, v refl
 		fieldName := v.Type().Field(i).Name
 
 		if sourceFieldAlias == fieldName {
-			CacheMap[sourceFieldAlias] = sourceFieldAlias
+			cacheMap[sourceFieldAlias] = sourceFieldAlias
 			return sourceFieldAlias
 		}
 
@@ -159,16 +152,14 @@ func (s *FixedObjectSchema) findDestinationField(sourceFieldAlias string, v refl
 		// if any of the aliases on this destination field match sourceFieldAlias, then we have a match!
 		for j := 0; j < len(tagOpts.FieldAliases); j++ {
 			if sourceFieldAlias == tagOpts.FieldAliases[j] {
-				CacheMap[sourceFieldAlias] = fieldName
+				cacheMap[sourceFieldAlias] = fieldName
 				return fieldName
 			}
 
 		}
 
 	}
-
 	return ""
-
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
@@ -187,7 +178,7 @@ func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	k := t.Kind()
 
 	if k == reflect.Interface {
-		v.Set(reflect.New(s.DefaultGOType()))
+		v.Set(reflect.New(s.GoType()))
 
 		v = v.Elem().Elem()
 		t = v.Type()
@@ -203,8 +194,7 @@ func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	// loop through all the potential source fields
 	// and see if there is anywhere we can put them
 	for i := 0; i < len(s.Fields); i++ {
-
-		Foundmatch := false
+		found := false
 
 		for j := 0; j < len(s.Fields[i].Aliases); j++ {
 
@@ -212,8 +202,7 @@ func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 			structFieldToPopulate := s.findDestinationField(stringToMatch, v)
 
 			if structFieldToPopulate != "" {
-				Foundmatch = true
-				//fmt.Println("found match", structFieldToPopulate, v.FieldByName(structFieldToPopulate).Kind())
+				found = true
 				err := s.Fields[i].Schema.DecodeValue(r, v.FieldByName(structFieldToPopulate))
 
 				if err != nil {
@@ -223,33 +212,23 @@ func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 		}
 
-		if !Foundmatch {
+		if !found {
 			// otherwise, there is just an extra field from the source struct that we cannot match
 			// in the destination struct
 			// since there is no where to put the field, we just need to skip it
 			// (but we still need to call DecodeValue here to process the bytes of the encoded data!)
-
-			//var ignoreMe   interface{}
-
 			var ignoreMe interface{}
-			/*
-				if stringToMatch == "String1" {
-					fmt.Println("deed")
-				}
-			*/
 			err := s.Fields[i].Schema.Decode(r, &ignoreMe)
 			if err != nil {
 				return err
 			}
 		}
-
 	}
 
 	return nil
 }
 
 func (s *FixedObjectSchema) Decode(r io.Reader, i interface{}) error {
-
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
 	}

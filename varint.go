@@ -15,7 +15,7 @@ type VarIntSchema struct {
 	Signed bool
 }
 
-func (s *VarIntSchema) DefaultGOType() reflect.Type {
+func (s *VarIntSchema) GoType() reflect.Type {
 	if s.Signed {
 		var t int
 		return reflect.TypeOf(t)
@@ -30,11 +30,11 @@ func (s *VarIntSchema) DefaultGOType() reflect.Type {
 func (s *VarIntSchema) MarshalSchemer() []byte {
 
 	// fixed length schemas are 1 byte long total
-	var schema []byte = []byte{0b00010000}
+	var schema []byte = []byte{varIntSchemaBinaryFormat}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.SchemaOptions.Nullable {
-		schema[0] |= 128
+		schema[0] |= 0x80
 	}
 
 	// next bit indicates if the the fixed length int is signed or not
@@ -177,7 +177,7 @@ func (s *VarIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	k := t.Kind()
 
 	if k == reflect.Interface {
-		v.Set(reflect.New(s.DefaultGOType()))
+		v.Set(reflect.New(s.GoType()))
 
 		v = v.Elem().Elem()
 		t = v.Type()

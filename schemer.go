@@ -11,6 +11,21 @@ import (
 	"strings"
 )
 
+const (
+	BoolSchemaBinaryFormat        = 0b00011100
+	ComplexSchemaBinaryFormat     = 0b00011000
+	EnumSchemaBinaryFormat        = 0b00011101
+	FixedArraySchemaBinaryFormat  = 0b00100101
+	FixedIntSchemaBinaryFormat    = 0b00000000
+	FixedObjectSchemaBinaryFormat = 0b00101001
+	FixedStringSchemaBinaryFormat = 0b00100001
+	FloatBinarySchemaFormat       = 0b00010100
+	VarArraySchemaBinaryFormat    = 0b00100100
+	varIntSchemaBinaryFormat      = 0b00010000
+	VarObjectSchemaBinaryFormat   = 0b00101000
+	VarStringSchemaBinaryFormat   = 0b00100000
+)
+
 // SchemerTagName represents the tag prefix that the schemer library uses on struct tags
 const SchemerTagName string = "schemer"
 
@@ -45,7 +60,7 @@ type Schema interface {
 	// MarshalSchemer encodes the schema in a portable binary format
 	MarshalSchemer() []byte
 
-	DefaultGOType() reflect.Type
+	GoType() reflect.Type
 }
 
 // SchemaOfType returns a schema for the specified interface
@@ -338,7 +353,7 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 		// if fields are present, then we are dealing with a fixed object
 		if ok {
 			s := &FixedObjectSchema{}
-			b, _ := strconv.ParseBool(fields["nullable"].(string))
+			b, _ := fields["nullable"].(bool)
 			s.SchemaOptions.Nullable = b
 
 			// loop through all fields in this object
@@ -460,7 +475,7 @@ func decodeSchemaInternal(buf []byte, byteIndex *int) (Schema, error) {
 	var err error
 
 	// decode enum
-	if buf[*byteIndex]&0b00011101 == 0b00011101 {
+	if buf[*byteIndex]&0b00111111 == 0b00011101 {
 		var enumSchema *EnumSchema = &(EnumSchema{})
 
 		enumSchema.SchemaOptions.Nullable = (buf[*byteIndex]&128 == 128)
@@ -483,7 +498,7 @@ func decodeSchemaInternal(buf []byte, byteIndex *int) (Schema, error) {
 	}
 
 	// decode boolean
-	if buf[*byteIndex]&0b00011100 == 0b00011100 {
+	if buf[*byteIndex]&0b00111100 == 0b00011100 {
 		var boolSchema *BoolSchema = &(BoolSchema{})
 
 		boolSchema.SchemaOptions.Nullable = (buf[*byteIndex]&128 == 128)
@@ -493,7 +508,7 @@ func decodeSchemaInternal(buf []byte, byteIndex *int) (Schema, error) {
 	}
 
 	// decode complex number
-	if buf[*byteIndex]&0b00011000 == 0b00011000 {
+	if buf[*byteIndex]&0b01111000 == 0b00011000 {
 		var complexSchema *ComplexSchema = &(ComplexSchema{})
 
 		if (buf[*byteIndex] & 1) == 1 {
@@ -508,7 +523,7 @@ func decodeSchemaInternal(buf []byte, byteIndex *int) (Schema, error) {
 	}
 
 	// decode fixed array schema
-	if buf[*byteIndex]&0b00100101 == 0b00100101 {
+	if buf[*byteIndex]&0b00111111 == 0b00100101 {
 		var FixedArraySchema *FixedArraySchema = &(FixedArraySchema{})
 
 		FixedArraySchema.SchemaOptions.Nullable = (buf[*byteIndex]&128 == 128)
@@ -536,7 +551,7 @@ func decodeSchemaInternal(buf []byte, byteIndex *int) (Schema, error) {
 	}
 
 	// decode fixed int schema
-	if buf[*byteIndex]&0b00110000 == 0 {
+	if buf[*byteIndex]&0b00110000 == 0b00000000 {
 		var fixedIntSchema *FixedIntSchema = &(FixedIntSchema{})
 
 		fixedIntSchema.SchemaOptions.Nullable = (buf[*byteIndex]&128 == 128)
@@ -561,7 +576,7 @@ func decodeSchemaInternal(buf []byte, byteIndex *int) (Schema, error) {
 	}
 
 	// fixed object schema
-	if buf[*byteIndex]&0b00111111 == 0b00101001 {
+	if buf[*byteIndex]&0b111111 == 0b00101001 {
 		var fixedObjectSchema *FixedObjectSchema = &(FixedObjectSchema{})
 
 		fixedObjectSchema.SchemaOptions.Nullable = (buf[*byteIndex]&128 == 128)
@@ -641,7 +656,7 @@ func decodeSchemaInternal(buf []byte, byteIndex *int) (Schema, error) {
 	}
 
 	// decode floating point schema
-	if buf[*byteIndex]&0b00111110 == 0b00010100 {
+	if buf[*byteIndex]&0b00111100 == 0b00010100 {
 		var floatSchema *FloatSchema = &(FloatSchema{})
 
 		if buf[*byteIndex]&1 == 1 {
@@ -671,7 +686,7 @@ func decodeSchemaInternal(buf []byte, byteIndex *int) (Schema, error) {
 	}
 
 	// decode var object schema
-	if buf[*byteIndex]&0b00111110 == 0b00101000 {
+	if buf[*byteIndex]&0b00111111 == 0b00101000 {
 		var varObjectSchema *VarObjectSchema = &(VarObjectSchema{})
 
 		varObjectSchema.SchemaOptions.Nullable = (buf[*byteIndex]&128 == 128)
@@ -691,7 +706,7 @@ func decodeSchemaInternal(buf []byte, byteIndex *int) (Schema, error) {
 	}
 
 	// decode var len string
-	if buf[*byteIndex]&0b00111110 == 0b00100000 {
+	if buf[*byteIndex]&0b00111111 == 0b00100000 {
 		var varLenStringSchema *VarLenStringSchema = &(VarLenStringSchema{})
 
 		varLenStringSchema.SchemaOptions.Nullable = (buf[*byteIndex]&128 == 128)
@@ -707,4 +722,94 @@ func decodeSchemaInternal(buf []byte, byteIndex *int) (Schema, error) {
 	//Custom Type
 
 	return nil, fmt.Errorf("invalid binary schema encountered")
+}
+
+// PreEncode() is called from each Encode() from all the schemas.
+// It handles dereferncing points and interacts, and for writing
+// a byte to indicate nullable if the schema indicates it is in fact
+// nullable.
+// If this routine returns false, no more processing is needed on the
+// encoder who called this routine.
+func PreEncode(s Schema, w io.Writer, v *reflect.Value) (bool, error) {
+
+	// Dereference pointer / interface types
+	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+		*v = v.Elem()
+	}
+
+	if s.Nullable() {
+		// did the caller pass in a nil value, or a null pointer?
+		if !v.IsValid() {
+			// per the revised spec, 1 indicates null
+			w.Write([]byte{1})
+			return false, nil
+		} else {
+			// 0 indicates not null
+			w.Write([]byte{0})
+		}
+	} else {
+		// if nullable is false
+		// but they are trying to encode a nil value.. then that is an error
+		if !v.IsValid() {
+			return false, fmt.Errorf("cannot enoded nil value when IsNullable is false")
+		}
+	}
+
+	return true, nil
+}
+
+// PreDecode() is called before each Decode() routine from all the schemas. This routine
+// handles checking on the nullable flag if the schema indicates the schema
+// is nullable.
+// This routine also handles derefering pointers and interfaces, and returns
+// the new value of v after it is set.
+func PreDecode(s Schema, r io.Reader, v reflect.Value) (reflect.Value, error) {
+	// if t is a ptr or interface type, remove exactly ONE level of indirection
+	if k := v.Kind(); !v.CanSet() && (k == reflect.Ptr || k == reflect.Interface) {
+		v = v.Elem()
+	}
+
+	buf := make([]byte, 1)
+
+	// if the data indicates this type is nullable, then the actual
+	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
+	if s.Nullable() {
+
+		// first byte indicates whether value is null or not...
+		_, err := io.ReadAtLeast(r, buf, 1)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+		valueIsNull := (buf[0] == 1)
+
+		if valueIsNull {
+			//fmt.Println("nullable", "and null", v.Kind(), v.CanSet())
+			if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
+				if v.CanSet() {
+					// special way to set pointer to nil value
+					v.Set(reflect.Zero(v.Type()))
+					return reflect.Value{}, nil
+				}
+				return reflect.Value{}, fmt.Errorf("destination not settable")
+			} else {
+				return reflect.Value{}, fmt.Errorf("cannot decode null value to non pointer to pointer type")
+			}
+		}
+	}
+
+	// Dereference pointer / interface types
+	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
+		if v.IsNil() {
+			if k == reflect.Interface {
+				break
+			}
+			if !v.CanSet() {
+				return reflect.Value{}, fmt.Errorf("decode destination is not settable")
+			}
+			v.Set(reflect.New(v.Type().Elem()))
+		}
+		v = v.Elem()
+	}
+
+	return v, nil
 }

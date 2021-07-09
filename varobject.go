@@ -15,13 +15,13 @@ type VarObjectSchema struct {
 	Value Schema
 }
 
-func (s *VarObjectSchema) DefaultGOType() reflect.Type {
+func (s *VarObjectSchema) GoType() reflect.Type {
 
 	if s.Key == nil || s.Value == nil {
 		return nil
 	}
 
-	var t = reflect.MapOf(s.Key.DefaultGOType(), s.Value.DefaultGOType())
+	var t = reflect.MapOf(s.Key.GoType(), s.Value.GoType())
 	return t
 }
 
@@ -68,11 +68,11 @@ func (s *VarObjectSchema) MarshalJSON() ([]byte, error) {
 func (s *VarObjectSchema) MarshalSchemer() []byte {
 
 	// string schemas are 1 byte long
-	var schema []byte = []byte{0b00101000}
+	var schema []byte = []byte{VarObjectSchemaBinaryFormat}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.SchemaOptions.Nullable {
-		schema[0] |= 128
+		schema[0] |= 0x80
 	}
 
 	// bit 3 is clear from above, indicating this is a var length string
@@ -140,7 +140,7 @@ func (s *VarObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	k := t.Kind()
 
 	if k == reflect.Interface {
-		var mapType = s.DefaultGOType()
+		var mapType = s.GoType()
 		v.Set(reflect.MakeMap(mapType))
 
 		v = v.Elem()

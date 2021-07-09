@@ -13,7 +13,7 @@ type BoolSchema struct {
 	SchemaOptions
 }
 
-func (s *BoolSchema) DefaultGOType() reflect.Type {
+func (s *BoolSchema) GoType() reflect.Type {
 	var b bool
 	return reflect.TypeOf(b)
 }
@@ -31,93 +31,14 @@ func (s *BoolSchema) MarshalJSON() ([]byte, error) {
 func (s *BoolSchema) MarshalSchemer() []byte {
 
 	// bool schemas are 1 byte long
-	var schema []byte = []byte{0b00011100}
+	var schema []byte = []byte{BoolSchemaBinaryFormat}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.SchemaOptions.Nullable {
-		schema[0] |= 128
+		schema[0] |= 0x80
 	}
 
 	return schema
-}
-
-func PreEncode(s Schema, w io.Writer, v *reflect.Value) (bool, error) {
-
-	// Dereference pointer / interface types
-	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
-		*v = v.Elem()
-	}
-
-	if s.Nullable() {
-		// did the caller pass in a nil value, or a null pointer?
-		if !v.IsValid() {
-			// per the revised spec, 1 indicates null
-			w.Write([]byte{1})
-			return false, nil
-		} else {
-			// 0 indicates not null
-			w.Write([]byte{0})
-		}
-	} else {
-		// if nullable is false
-		// but they are trying to encode a nil value.. then that is an error
-		if !v.IsValid() {
-			return false, fmt.Errorf("cannot enoded nil value when IsNullable is false")
-		}
-	}
-
-	return true, nil
-}
-
-func PreDecode(s Schema, r io.Reader, v reflect.Value) (reflect.Value, error) {
-	// if t is a ptr or interface type, remove exactly ONE level of indirection
-	if k := v.Kind(); !v.CanSet() && (k == reflect.Ptr || k == reflect.Interface) {
-		v = v.Elem()
-	}
-
-	buf := make([]byte, 1)
-
-	// if the data indicates this type is nullable, then the actual
-	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
-	if s.Nullable() {
-
-		// first byte indicates whether value is null or not...
-		_, err := io.ReadAtLeast(r, buf, 1)
-		if err != nil {
-			return reflect.Value{}, err
-		}
-		valueIsNull := (buf[0] == 1)
-
-		if valueIsNull {
-			//fmt.Println("nullable", "and null", v.Kind(), v.CanSet())
-			if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
-				if v.CanSet() {
-					// special way to set pointer to nil value
-					v.Set(reflect.Zero(v.Type()))
-					return reflect.Value{}, nil
-				}
-				return reflect.Value{}, fmt.Errorf("destination not settable")
-			} else {
-				return reflect.Value{}, fmt.Errorf("cannot decode null value to non pointer to pointer type")
-			}
-		}
-	}
-
-	// Dereference pointer / interface types
-	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
-		if v.IsNil() {
-			if k == reflect.Interface {
-				break
-			}
-			if !v.CanSet() {
-				return reflect.Value{}, fmt.Errorf("decode destination is not settable")
-			}
-			v.Set(reflect.New(v.Type().Elem()))
-		}
-		v = v.Elem()
-	}
-
-	return v, nil
 }
 
 // Encode uses the schema to write the encoded value of v to the output stream
@@ -144,18 +65,12 @@ func (s *BoolSchema) Encode(w io.Writer, i interface{}) error {
 
 	if v.Bool() {
 		// we are trying to encode a true value
-		// (but we have to make sure that the most sig bit is not set, because
-		boolToEncode = 254
-	} else {
-		boolToEncode = 0
+		boolToEncode = 1
 	}
 
 	switch k {
 	case reflect.Bool:
-
-		n, err := w.Write([]byte{
-			boolToEncode,
-		})
+		n, err := w.Write([]byte{boolToEncode})
 		if err == nil && n != 1 {
 			return errors.New("unexpected number of bytes written")
 		}
@@ -195,7 +110,7 @@ func (s *BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	k := t.Kind()
 
 	if k == reflect.Interface {
-		v.Set(reflect.New(s.DefaultGOType()))
+		v.Set(reflect.New(s.GoType()))
 
 		v = v.Elem().Elem()
 		t = v.Type()

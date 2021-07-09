@@ -15,19 +15,19 @@ type VarArraySchema struct {
 	Element Schema
 }
 
-func (s *VarArraySchema) DefaultGOType() reflect.Type {
-	return reflect.SliceOf(s.Element.DefaultGOType())
+func (s *VarArraySchema) GoType() reflect.Type {
+	return reflect.SliceOf(s.Element.GoType())
 }
 
 // Bytes encodes the schema in a portable binary format
 func (s *VarArraySchema) MarshalSchemer() []byte {
 
 	// fixed length schemas are 1 byte long total
-	var schema []byte = []byte{0b00100100}
+	var schema []byte = []byte{VarArraySchemaBinaryFormat}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.SchemaOptions.Nullable {
-		schema[0] |= 128
+		schema[0] |= 0x80
 	}
 
 	schema = append(schema, s.Element.MarshalSchemer()...)
@@ -110,7 +110,7 @@ func (s *VarArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	k := t.Kind()
 
 	if k == reflect.Interface {
-		v.Set(reflect.New(s.DefaultGOType()))
+		v.Set(reflect.New(s.GoType()))
 
 		v = v.Elem().Elem()
 		t = v.Type()

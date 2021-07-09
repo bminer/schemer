@@ -75,11 +75,10 @@ var schemerData bytes.Buffer
 var jsonData []byte
 var gobData bytes.Buffer
 var msgPackData []byte
-var xmlData *bytes.Buffer = &bytes.Buffer{}
 
-var schemerCounter int
-var gobCounter int
-var xmlCounter int
+var xmlData bytes.Buffer
+
+//var xmlData *bytes.Buffer = &bytes.Buffer{}
 
 var printedAlready bool
 
@@ -152,15 +151,9 @@ func PopulateStructToEncode() {
 
 }
 
-// SchemaSchema() is here so we can only create the schemer schema once
-// and then reuse it over and over
-func createSchemerSchema() {
-	writerSchema = SchemaOf(&structToEncode)
-}
+func schemerEncode() int {
 
-func schemerEncoder() int {
-
-	schemerCounter++
+	schemerData.Reset()
 
 	err := writerSchema.Encode(&schemerData, structToEncode)
 	if err != nil {
@@ -169,8 +162,7 @@ func schemerEncoder() int {
 	return len(schemerData.Bytes())
 }
 
-func schemerDecoder() {
-
+func schemerDecode() {
 	var structToDecode = sourceStruct{}
 
 	r := bytes.NewReader(schemerData.Bytes())
@@ -180,25 +172,21 @@ func schemerDecoder() {
 	if err != nil {
 		panic(err)
 	}
-
 }
 
-func JSONEncodeOnly() int {
-	//jsonData = jsonData[0:]
-	jsonData, _ = json.Marshal(structToEncode)
-	/*
-		if err != nil {
-			panic(err)
-		}
-	*/
-
+func JSONEncode() int {
+	var err error
+	jsonData, err = json.Marshal(structToEncode)
+	if err != nil {
+		panic(err)
+	}
 	return len(jsonData)
 }
 
-func JSONDecodeOnly() {
-
+func JSONDecode() {
+	var err error
 	var structToDecode = sourceStruct{}
-	err := json.Unmarshal(jsonData, &structToDecode)
+	err = json.Unmarshal(jsonData, &structToDecode)
 	if err != nil {
 		fmt.Printf("length is: %d", len(jsonData))
 		panic(err)
@@ -206,13 +194,11 @@ func JSONDecodeOnly() {
 
 }
 
-func GOBEncodeOnly() int {
-
-	gobCounter++
-
+func GOBEncode() int {
+	var err error
 	enc := gob.NewEncoder(&gobData)
 
-	err := enc.Encode(structToEncode)
+	err = enc.Encode(structToEncode)
 	if err != nil {
 		panic(err)
 	}
@@ -220,8 +206,7 @@ func GOBEncodeOnly() int {
 	return len(gobData.Bytes())
 }
 
-func GOBDecodeOnly() {
-
+func GOBDecode() {
 	var structToDecode = sourceStruct{}
 
 	decoder := gob.NewDecoder(&gobData)
@@ -231,24 +216,23 @@ func GOBDecodeOnly() {
 		panic(err)
 	}
 
+	gobData.Reset()
+
 }
 
-func MessagePackEncodeOnly() int {
+func MessagePackEncode() int {
+	var err error
 
-	//msgPackData = msgPackData[:0]
+	msgPackData, err = msgpack.Marshal(structToEncode)
 
-	msgPackData, _ = msgpack.Marshal(structToEncode)
-
-	/*
-		if err != nil {
-			panic(err)
-		}
-	*/
+	if err != nil {
+		panic(err)
+	}
 
 	return len(msgPackData)
 }
 
-func MessagePackDecodeOnly() {
+func MessagePackDecode() {
 
 	var structToDecode = sourceStruct{}
 
@@ -259,11 +243,9 @@ func MessagePackDecodeOnly() {
 
 }
 
-func XMLEncodeOnly() int {
+func XMLEncode() int {
 
-	xmlCounter++
-
-	encoder := xml.NewEncoder(xmlData)
+	encoder := xml.NewEncoder(&xmlData)
 	encoder.Indent("", "\t")
 	err := encoder.Encode(&structToEncode)
 	if err != nil {
@@ -273,118 +255,130 @@ func XMLEncodeOnly() int {
 	return len(xmlData.Bytes())
 }
 
-func XMLDecodeOnly() {
-
+func XMLDecode() {
 	var structToDecode = sourceStruct{}
 
-	decoder := xml.NewDecoder(xmlData)
-	err := decoder.Decode(&structToDecode)
-	if err != nil {
-		panic(err)
-	}
+	decoder := xml.NewDecoder(&xmlData)
+	_ = decoder.Decode(&structToDecode)
+
+	/*
+		if err != nil {
+			panic(err)
+		}
+	*/
 
 }
 
-func BenchmarkSchemerEncodeOnly(b *testing.B) {
-
-	createSchemerSchema()
+func BenchmarkSchemerEncode(b *testing.B) {
 	PopulateStructToEncode()
+	writerSchema = SchemaOf(&structToEncode)
+	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		schemerEncoder()
+		schemerEncode()
 	}
 
 }
 
-func BenchmarkSchemerDecodeOnly(b *testing.B) {
+func BenchmarkSchemerDecode(b *testing.B) {
 
 	for n := 0; n < b.N; n++ {
-		schemerDecoder()
+		schemerDecode()
 	}
 
 }
 
-func BenchmarkJSONEncodeOnly(b *testing.B) {
-
-	PopulateStructToEncode()
-	for n := 0; n < b.N; n++ {
-		JSONEncodeOnly()
-	}
-
-}
-
-func BenchmarkJSONDecodeOnly(b *testing.B) {
-
-	for n := 0; n < b.N; n++ {
-		JSONDecodeOnly()
-	}
-
-}
-
-func BenchmarkGOBEncodeOnly(b *testing.B) {
+func BenchmarkJSONEncode(b *testing.B) {
 
 	PopulateStructToEncode()
+	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		GOBEncodeOnly()
-	}
-}
-
-func BenchmarkGOBDecodeOnly(b *testing.B) {
-
-	for n := 0; n < b.N; n++ {
-		GOBDecodeOnly()
+		JSONEncode()
 	}
 
 }
 
-func BenchmarkMessagePackEncodeOnly(b *testing.B) {
+func BenchmarkJSONDecode(b *testing.B) {
+
+	for n := 0; n < b.N; n++ {
+		JSONDecode()
+	}
+
+}
+
+func BenchmarkGOBEncode(b *testing.B) {
 
 	PopulateStructToEncode()
+	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		MessagePackEncodeOnly()
+		GOBEncode()
+	}
+}
+
+func _BenchmarkGOBDecode(b *testing.B) {
+
+	for n := 0; n < b.N; n++ {
+		GOBDecode()
 	}
 
 }
 
-func BenchmarkMessagePackDecodeOnly(b *testing.B) {
-
-	for n := 0; n < b.N; n++ {
-		MessagePackDecodeOnly()
-	}
-
-}
-
-func BenchmarkXMLEncodeOnly(b *testing.B) {
+func BenchmarkMessagePackEncode(b *testing.B) {
 
 	PopulateStructToEncode()
+	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		XMLEncodeOnly()
+		MessagePackEncode()
 	}
 
 }
 
-func BenchmarkXMLDecodeOnly(b *testing.B) {
+func BenchmarkMessagePackDecode(b *testing.B) {
 
 	for n := 0; n < b.N; n++ {
-		XMLDecodeOnly()
+		MessagePackDecode()
+	}
+
+}
+
+func BenchmarkXMLEncodeb(b *testing.B) {
+
+	PopulateStructToEncode()
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		XMLEncode()
+		XMLDecode()
+	}
+
+	//XMLDecode()
+
+}
+
+func BenchmarkXMLDecode(b *testing.B) {
+
+	for n := 0; n < b.N; n++ {
+		XMLDecode()
 	}
 
 }
 
 func BenchmarkResults(b *testing.B) {
 
-	size1 := schemerEncoder()
-	size2 := JSONEncodeOnly()
-	size3 := GOBEncodeOnly()
-	size4 := MessagePackEncodeOnly()
-	size5 := XMLEncodeOnly()
+	writerSchema = SchemaOf(&structToEncode)
+	b.ResetTimer()
+
+	size1 := schemerEncode()
+	size2 := JSONEncode()
+	size3 := GOBEncode()
+	size4 := MessagePackEncode()
+	size5 := XMLEncode()
 
 	if !printedAlready {
 
-		fmt.Printf("Schemer data size......... %d\n", size1/schemerCounter)
+		fmt.Printf("Schemer data size......... %d\n", size1)
 		fmt.Printf("JSON data size............ %d\n", size2)
-		fmt.Printf("GOB data size............. %d\n", size3/gobCounter)
+		fmt.Printf("GOB data size............. %d\n", size3)
 		fmt.Printf("MessagePack data size..... %d\n", size4)
-		fmt.Printf("XML data size............. %d\n", size5/xmlCounter)
+		fmt.Printf("XML data size............. %d\n", size5)
 
 	}
 

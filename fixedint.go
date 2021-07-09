@@ -23,7 +23,7 @@ type FixedIntSchema struct {
 	Bits   int
 }
 
-func (s *FixedIntSchema) DefaultGOType() reflect.Type {
+func (s *FixedIntSchema) GoType() reflect.Type {
 	if s.Signed {
 		switch s.Bits {
 		case 8:
@@ -67,11 +67,11 @@ func (s *FixedIntSchema) Valid() bool {
 func (s *FixedIntSchema) MarshalSchemer() []byte {
 
 	// fixed length schemas are 1 byte long total
-	var schema []byte = []byte{0b00000000}
+	var schema []byte = []byte{FixedIntSchemaBinaryFormat}
 
 	// bit8 indicates whether or not the type is nullable
 	if s.SchemaOptions.Nullable {
-		schema[0] |= 128
+		schema[0] |= 0x80
 	}
 
 	// bit1 indicates if the the fixed length int is signed or not
@@ -377,7 +377,7 @@ func (s *FixedIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	k := t.Kind()
 
 	if k == reflect.Interface {
-		v.Set(reflect.New(s.DefaultGOType()))
+		v.Set(reflect.New(s.GoType()))
 
 		v = v.Elem().Elem()
 		t = v.Type()
