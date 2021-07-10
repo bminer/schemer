@@ -66,15 +66,18 @@ func (s *ComplexSchema) MarshalSchemer() []byte {
 	return schema
 }
 
-// Encode uses the schema to write the encoded value of v to the output stream
+// Encode uses the schema to write the encoded value of i to the output stream
 func (s *ComplexSchema) Encode(w io.Writer, i interface{}) error {
+	return s.EncodeValue(w, reflect.ValueOf(i))
+}
+
+// EncodeValue uses the schema to write the encoded value of v to the output stream
+func (s *ComplexSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.Valid() {
 		return fmt.Errorf("cannot encode using invalid ComplexNumber schema")
 	}
-
-	v := reflect.ValueOf(i)
 
 	ok, err := PreEncode(s, w, &v)
 	if err != nil {
@@ -147,19 +150,15 @@ func (s *ComplexSchema) Encode(w io.Writer, i interface{}) error {
 	return nil
 }
 
-// Decode uses the schema to read the next encoded value from the input stream and store it in v
+// Decode uses the schema to read the next encoded value from the input stream and store it in i
 func (s *ComplexSchema) Decode(r io.Reader, i interface{}) error {
-
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
 	}
-
-	v := reflect.ValueOf(i)
-
-	return s.DecodeValue(r, v)
-
+	return s.DecodeValue(r, reflect.ValueOf(i))
 }
 
+// DecodeValue uses the schema to read the next encoded value from the input stream and store it in v
 func (s *ComplexSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using

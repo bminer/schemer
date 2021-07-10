@@ -59,30 +59,26 @@ func (s EnumSchema) MarshalSchemer() []byte {
 
 }
 
-// Encode uses the schema to write the encoded value of v to the output stream
-func (s *EnumSchema) Encode(w io.Writer, v interface{}) error {
-
-	varIntSchema := VarIntSchema{Signed: true, SchemaOptions: SchemaOptions{Nullable: s.SchemaOptions.Nullable}}
-
-	if v == nil {
-		return fmt.Errorf("cannot encode nil value. To encode a null, pass in a null pointer")
-	}
-
-	return varIntSchema.Encode(w, v)
-
+// Encode uses the schema to write the encoded value of i to the output stream
+func (s *EnumSchema) Encode(w io.Writer, i interface{}) error {
+	return s.EncodeValue(w, reflect.ValueOf(i))
 }
 
-// Decode uses the schema to read the next encoded value from the input stream and store it in v
+// EncodeValue uses the schema to write the encoded value of v to the output streamtream
+func (s *EnumSchema) EncodeValue(w io.Writer, v reflect.Value) error {
+	varIntSchema := VarIntSchema{Signed: true, SchemaOptions: SchemaOptions{Nullable: s.SchemaOptions.Nullable}}
+	return varIntSchema.Encode(w, v)
+}
+
+// Decode uses the schema to read the next encoded value from the input stream and store it in i
 func (s *EnumSchema) Decode(r io.Reader, i interface{}) error {
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
 	}
-
-	v := reflect.ValueOf(i)
-
-	return s.DecodeValue(r, v)
+	return s.DecodeValue(r, reflect.ValueOf(i))
 }
 
+// DecodeValue uses the schema to read the next encoded value from the input stream and store it in v
 func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// first we decode the actual encoded binary value

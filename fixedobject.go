@@ -90,10 +90,13 @@ func (s *FixedObjectSchema) MarshalSchemer() []byte {
 	return schemaBytes
 }
 
-// Encode uses the schema to write the encoded value of v to the output stream
+// Encode uses the schema to write the encoded value of i to the output stream
 func (s *FixedObjectSchema) Encode(w io.Writer, i interface{}) error {
+	return s.EncodeValue(w, reflect.ValueOf(i))
+}
 
-	v := reflect.ValueOf(i)
+// EncodeValue uses the schema to write the encoded value of v to the output stream
+func (s *FixedObjectSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 
 	ok, err := PreEncode(s, w, &v)
 	if err != nil {
@@ -122,26 +125,15 @@ func (s *FixedObjectSchema) Encode(w io.Writer, i interface{}) error {
 	return nil
 }
 
-var cacheMap map[string]string
-
-// s is a source alias we are tryig to figure out where to put
-// v will be a struct...
+// findDestinationField returns the name of the field in a destination struct (v) that should be populated
+// based on the name of the field from the source structure. 
 func (s *FixedObjectSchema) findDestinationField(sourceFieldAlias string, v reflect.Value) string {
-
-	if cacheMap == nil {
-		cacheMap = make(map[string]string)
-	}
-	r, ok := cacheMap[sourceFieldAlias]
-	if ok {
-		return r //CacheMap[sourceFieldAlias]
-	}
 
 	// see if there is a place in the destination struct that matches the alias passed in...
 	for i := 0; i < v.Type().NumField(); i++ {
 		fieldName := v.Type().Field(i).Name
 
 		if sourceFieldAlias == fieldName {
-			cacheMap[sourceFieldAlias] = sourceFieldAlias
 			return sourceFieldAlias
 		}
 
@@ -152,7 +144,6 @@ func (s *FixedObjectSchema) findDestinationField(sourceFieldAlias string, v refl
 		// if any of the aliases on this destination field match sourceFieldAlias, then we have a match!
 		for j := 0; j < len(tagOpts.FieldAliases); j++ {
 			if sourceFieldAlias == tagOpts.FieldAliases[j] {
-				cacheMap[sourceFieldAlias] = fieldName
 				return fieldName
 			}
 
@@ -163,6 +154,14 @@ func (s *FixedObjectSchema) findDestinationField(sourceFieldAlias string, v refl
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in v
+func (s *FixedObjectSchema) Decode(r io.Reader, i interface{}) error {
+	if i == nil {
+		return fmt.Errorf("cannot decode to nil destination")
+	}
+	return s.DecodeValue(r, reflect.ValueOf(i))
+}
+
+// DecodeValue uses the schema to read the next encoded value from the input stream and store it in v
 func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	v, err := PreDecode(s, r, v)
@@ -226,15 +225,6 @@ func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 
 	return nil
-}
-
-func (s *FixedObjectSchema) Decode(r io.Reader, i interface{}) error {
-	if i == nil {
-		return fmt.Errorf("cannot decode to nil destination")
-	}
-
-	return s.DecodeValue(r, reflect.ValueOf(i))
-
 }
 
 func (s *FixedObjectSchema) Nullable() bool {
