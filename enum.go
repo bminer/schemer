@@ -67,7 +67,7 @@ func (s *EnumSchema) Encode(w io.Writer, i interface{}) error {
 // EncodeValue uses the schema to write the encoded value of v to the output streamtream
 func (s *EnumSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 	varIntSchema := VarIntSchema{Signed: true, SchemaOptions: SchemaOptions{Nullable: s.SchemaOptions.Nullable}}
-	return varIntSchema.Encode(w, v)
+	return varIntSchema.EncodeValue(w, v)
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in i

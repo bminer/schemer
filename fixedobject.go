@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"reflect"
 )
 
@@ -20,7 +21,15 @@ type FixedObjectSchema struct {
 }
 
 func (s *FixedObjectSchema) GoType() reflect.Type {
-	return reflect.TypeOf(struct{}{})
+	var fields []reflect.StructField = make([]reflect.StructField, len(s.Fields))
+
+	for i := 0; i < len(s.Fields); i++ {
+		fields[i] = reflect.StructField{
+			Name: s.Fields[i].Aliases[0],
+			Type: s.Fields[i].Schema.GoType()}
+	}
+
+	return reflect.StructOf(fields)
 }
 
 func (s *FixedObjectSchema) MarshalJSON() ([]byte, error) {
@@ -126,7 +135,7 @@ func (s *FixedObjectSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 }
 
 // findDestinationField returns the name of the field in a destination struct (v) that should be populated
-// based on the name of the field from the source structure. 
+// based on the name of the field from the source structure.
 func (s *FixedObjectSchema) findDestinationField(sourceFieldAlias string, v reflect.Value) string {
 
 	// see if there is a place in the destination struct that matches the alias passed in...
@@ -223,6 +232,8 @@ func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 			}
 		}
 	}
+
+	log.Print(v)
 
 	return nil
 }

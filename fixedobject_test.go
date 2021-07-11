@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"reflect"
 	"testing"
 )
 
@@ -124,7 +125,7 @@ func TestDecodeFixedObject5(t *testing.T) {
 	decodeOK := true
 	decodeOK = (structToDecode.FirstName == structToEncode.FName)
 	decodeOK = decodeOK && (structToDecode.LastName == structToEncode.LName)
-	decodeOK = decodeOK && (structToDecode.Age == int(structToEncode.AgeInLife))
+	decodeOK = decodeOK && (structToDecode.Age == structToEncode.AgeInLife)
 
 	log.Print(structToDecode)
 
@@ -132,6 +133,46 @@ func TestDecodeFixedObject5(t *testing.T) {
 		t.Error("unexpected struct to struct decode")
 	}
 
-	log.Println()
+}
+
+// TestDecodeFixedObject6 tests our ability to decode to an emptry interface
+func TestDecodeFixedObject6(t *testing.T) {
+
+	type SourceStruct struct {
+		FName     string
+		LName     string
+		AgeInLife int
+	}
+
+	var structToEncode = SourceStruct{FName: "ben", LName: "pritchard", AgeInLife: 42}
+
+	writerSchema := SchemaOf(&structToEncode)
+
+	var encodedData bytes.Buffer
+
+	err := writerSchema.Encode(&encodedData, structToEncode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	var decodeDestination interface{}
+	r := bytes.NewReader(encodedData.Bytes())
+
+	err = writerSchema.Decode(r, &decodeDestination)
+	if err != nil {
+		t.Error(err)
+	}
+
+	v := reflect.ValueOf(decodeDestination).Elem()
+
+	// and now make sure that the structs match!
+	decodeOK := true
+	decodeOK = (v.Field(0).String() == structToEncode.FName)
+	decodeOK = decodeOK && (v.Field(1).String() == structToEncode.LName)
+	decodeOK = decodeOK && (v.Field(2).Int() == int64(structToEncode.AgeInLife))
+
+	if !decodeOK {
+		t.Error("unexpected struct to struct decode")
+	}
 
 }
