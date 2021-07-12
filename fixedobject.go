@@ -123,9 +123,7 @@ func (s *FixedObjectSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 	// loop through all the schemas in this object
 	// and encode each field
 	for i := 0; i < len(s.Fields); i++ {
-
-		f := v.Field(i)
-		err := s.Fields[i].Schema.Encode(w, f.Interface())
+		err := s.Fields[i].Schema.EncodeValue(w, v.Field(i))
 		if err != nil {
 			return err
 		}

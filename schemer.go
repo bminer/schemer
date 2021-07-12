@@ -39,8 +39,11 @@ type SchemaOptions struct {
 }
 
 type Schema interface {
-	// Encode uses the schema to write the encoded value of v to the output stream
+	// Encode uses the schema to write the encoded value of i to the output stream
 	Encode(w io.Writer, i interface{}) error
+
+	// EncodeValue uses the schema to write the encoded value of v to the output stream
+	EncodeValue(w io.Writer, v reflect.Value) error
 
 	// Decode uses the schema to read the next encoded value from the input stream and stores it in i
 	Decode(r io.Reader, i interface{}) error
