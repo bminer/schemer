@@ -769,11 +769,10 @@ func PreDecode(s Schema, r io.Reader, v reflect.Value) (reflect.Value, error) {
 		v = v.Elem()
 	}
 
-	buf := make([]byte, 1)
-
 	// if the data indicates this type is nullable, then the actual
 	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
 	if s.Nullable() {
+		buf := make([]byte, 1)
 
 		// first byte indicates whether value is null or not...
 		_, err := io.ReadAtLeast(r, buf, 1)
@@ -783,7 +782,6 @@ func PreDecode(s Schema, r io.Reader, v reflect.Value) (reflect.Value, error) {
 		valueIsNull := (buf[0] == 1)
 
 		if valueIsNull {
-			//fmt.Println("nullable", "and null", v.Kind(), v.CanSet())
 			if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
 				if v.CanSet() {
 					// special way to set pointer to nil value
@@ -792,7 +790,14 @@ func PreDecode(s Schema, r io.Reader, v reflect.Value) (reflect.Value, error) {
 				}
 				return reflect.Value{}, fmt.Errorf("destination not settable")
 			} else {
-				return reflect.Value{}, fmt.Errorf("cannot decode null value to non pointer to pointer type")
+				// If the value is not a pointer, then we can't set it to nil.
+				// However, we can set it to zero value (which is the default value of the type)
+				// This is not perfect, but there is nothing else we can do in this situation.
+				// Either:
+				// #1) Schemer created the value through reflection, or #2) the user passed in a non-pointer type
+				// I don't know if we can differentiate these two cases, and we definitely want #1 to work.
+				// (remember our schemes do not encode if types include pointers)... we just deference them away!
+				return reflect.Value{}, nil
 			}
 		}
 	}

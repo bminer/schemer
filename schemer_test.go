@@ -2,9 +2,9 @@ package schemer
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"log"
+	"reflect"
 	"testing"
 )
 
@@ -167,48 +167,9 @@ func FixedObjectWriter(t *testing.T, useJSON bool) {
 
 }
 
-func FixedObjectReader(t *testing.T, useJSON bool) {
+// decode to empty interface
+func FixedObjectReader1(t *testing.T, useJSON bool) {
 
-	type embeddedStruct struct {
-		Int1 int
-		Int2 *int
-	}
-
-	type DestinationStruct struct {
-
-		/*
-			New_IntField1 int
-			New_IntField2 *int
-
-			New_Map1 map[string]bool
-			New_Map2 *map[string]bool
-
-			New_Bool1 bool
-			New_Bool2 *bool
-
-			New_Complex1 complex64
-			New_Complex2 *complex64
-
-			New_Array1 [5]string
-			New_Array2 *[5]string
-
-			New_Object1 embeddedStruct
-			New_Object2 *embeddedStruct
-
-			New_Float1 float64
-			New_Float2 *float64
-
-			New_String1 string
-			New_String2 *string
-
-			New_Slice1 []string
-			New_Slice2 *[]string
-		*/
-
-		Complex1 complex64
-	}
-
-	var structToDecode DestinationStruct
 	var schemaFileName string
 	var writerSchema Schema
 	var err error
@@ -236,32 +197,86 @@ func FixedObjectReader(t *testing.T, useJSON bool) {
 	encodedData := readFromDisk("/tmp/test.data")
 	r := bytes.NewReader(encodedData)
 
-	/*
-		var myInterface interface{}
-	*/
+	var destInterface interface{}
+	var p *interface{} = &destInterface
 
-	err = writerSchema.Decode(r, &structToDecode)
+	err = writerSchema.Decode(r, p)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if structToDecode.Complex1 != 3+2i {
+	// when we decoded to an empty interface, null pointers we converted into zero values
+	if reflect.ValueOf(destInterface).Elem().FieldByName("IntField2").Int() != 0 {
+		t.Error("unexpected null int decode")
+	}
+
+	// when we decoded to an empty interface, null pointers we converted into zero values
+	if reflect.ValueOf(destInterface).Elem().FieldByName("Complex1").Complex() != 3+2i {
 		t.Error("unexpected complex decode")
 	}
 
-	fmt.Println(structToDecode)
+}
+
+func FixedObjectReader2(t *testing.T, useJSON bool) {
+
+	type destStruct struct {
+		IntField2 int
+	}
+
+	var schemaFileName string
+	var writerSchema Schema
+	var err error
+	var destStructToDecode destStruct
+
+	if useJSON {
+		schemaFileName = "/tmp/test.schema"
+	} else {
+		schemaFileName = "/tmp/test.schema.json"
+	}
+
+	binarywriterSchema := readFromDisk(schemaFileName)
+
+	if useJSON {
+		writerSchema, err = DecodeJSONSchema(binarywriterSchema)
+		if err != nil {
+			t.Error("cannot create writerSchema from raw JSON data")
+		}
+	} else {
+		writerSchema, err = DecodeSchema(binarywriterSchema)
+		if err != nil {
+			t.Error("cannot create writerSchema from raw binary data")
+		}
+	}
+
+	encodedData := readFromDisk("/tmp/test.data")
+	r := bytes.NewReader(encodedData)
+
+	err = writerSchema.Decode(r, &destStructToDecode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// when we decoded a nil value to a struct with out a pointer, we should have encoded
+	// the zero value
+	if destStructToDecode.IntField2 != 0 {
+		t.Error("unexpected null int decode")
+	}
 
 }
+
 func TestFixedObjectSerializeBinary(t *testing.T) {
 
 	FixedObjectWriter(t, false)
-	FixedObjectReader(t, false)
+
+	// test reading into different destinations
+	FixedObjectReader1(t, false)
+	FixedObjectReader2(t, false)
 
 }
 
 func TestFixedObjectSerializeJSON(t *testing.T) {
 
 	FixedObjectWriter(t, true)
-	FixedObjectReader(t, true)
+	FixedObjectReader1(t, true)
 
 }

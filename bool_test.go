@@ -3,11 +3,13 @@ package schemer
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 )
 
 // base case, just make sure we can encode a boolean value, and subsequently read it back out
+// from an empty interface
 func TestDecodeBool1(t *testing.T) {
 
 	bSchema := BoolSchema{SchemaOptions{Nullable: false}}
@@ -26,13 +28,13 @@ func TestDecodeBool1(t *testing.T) {
 
 	r := bytes.NewReader(buf.Bytes())
 
-	var decodedValue1 bool
+	var decodedValue1 interface{}
 	err = bSchema.Decode(r, &decodedValue1)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if valueToEncode != decodedValue1 {
+	if valueToEncode != reflect.ValueOf(decodedValue1).Elem().Bool() {
 		t.Errorf("Expected value")
 	}
 

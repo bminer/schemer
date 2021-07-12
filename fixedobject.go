@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"reflect"
 )
 
@@ -211,13 +210,12 @@ func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 			if structFieldToPopulate != "" {
 				found = true
-				err := s.Fields[i].Schema.DecodeValue(r, v.FieldByName(structFieldToPopulate))
 
+				err := s.Fields[i].Schema.DecodeValue(r, v.FieldByName(structFieldToPopulate))
 				if err != nil {
 					return err
 				}
 			}
-
 		}
 
 		if !found {
@@ -232,9 +230,6 @@ func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 			}
 		}
 	}
-
-	log.Print(v)
-
 	return nil
 }
 
