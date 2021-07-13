@@ -11,47 +11,27 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-type embeddedStruct struct {
+type benchmarkEmbeddedStruct struct {
 	Int1 int64
 	Int2 *int64
 	Int3 *int64
 }
 
-// sourceStruct is what the routines in this test package
-type sourceStruct struct {
+// benchmarkStruct is what the routines in this test package test
+// note that it only contains the types that are common to all encoding
+// libraries
+type benchmarkStruct struct {
 	IntField1 int
 	IntField2 *int
 	IntField3 *int
-
-	/*
-		Map1 map[string]bool
-		Map2 *map[string]bool
-
-		Map3 map[string]bool
-	*/
 
 	Bool1 bool
 	Bool2 bool
 	Bool3 *bool
 
-	/*
-		Complex2 *complex64
-		Complex3 *complex64
-
-		Complex4 complex128
-		Complex5 *complex128
-		Complex6 *complex128
-	*/
-
-	/*
-		Array1 [5]string
-		Array2 *[5]string
-		Array3 *[5]string
-	*/
-
-	Object1 embeddedStruct
-	Object2 *embeddedStruct
-	Object3 *embeddedStruct
+	Object1 benchmarkEmbeddedStruct
+	Object2 *benchmarkEmbeddedStruct
+	Object3 *benchmarkEmbeddedStruct
 
 	Float1 float64
 	Float2 *float64
@@ -64,12 +44,10 @@ type sourceStruct struct {
 	Slice1 []string
 	Slice2 *[]string
 	Slice3 *[]string
-
-	//Complex1 complex64
 }
 
 var writerSchema Schema
-var structToEncode sourceStruct
+var benchmark benchmarkStruct
 
 var schemerData bytes.Buffer
 var jsonData []byte
@@ -87,67 +65,37 @@ var printedAlready bool
 
 func PopulateStructToEncode() {
 
-	structToEncode.IntField1 = 101
-	structToEncode.IntField2 = nil
+	benchmark.IntField1 = 101
+	benchmark.IntField2 = nil
 	intVal := 102
-	structToEncode.IntField3 = &intVal
+	benchmark.IntField3 = &intVal
 
-	/*
-
-		structToEncode.Map1 = map[string]bool{"A": true, "B": false}
-		structToEncode.Map2 = nil
-		tmpMap := map[string]bool{"C": false, "D": true}
-		structToEncode.Map3 = tmpMap
-
-	*/
-
-	structToEncode.Bool1 = false
-	structToEncode.Bool2 = false // nil
+	benchmark.Bool1 = false
+	benchmark.Bool2 = false // nil
 	tmpBool := false
-	structToEncode.Bool3 = &tmpBool
+	benchmark.Bool3 = &tmpBool
 
-	/*
-		structToEncode.Complex1 = 3 + 2i
-		structToEncode.Complex2 = nil
-		var tmpComplex1 complex64 = 4 + 5i
-		structToEncode.Complex3 = &tmpComplex1
-
-		structToEncode.Complex4 = 5 + 6i
-		structToEncode.Complex5 = nil
-		var tmpComplex2 complex128 = 7 + 8i
-		structToEncode.Complex6 = &tmpComplex2
-	*/
-
-	/*
-
-		structToEncode.Array1 = [5]string{"1", "2", "3", "4", "5"}
-		structToEncode.Array2 = nil
-		tmpArray := [5]string{"6", "7", "8", "9", "10"}
-		structToEncode.Array3 = &tmpArray
-
-	*/
-
-	structToEncode.Object1 = embeddedStruct{Int1: 3, Int2: nil}
-	structToEncode.Object2 = nil
-	tmpStruct := embeddedStruct{Int1: 4}
-	structToEncode.Object3 = &tmpStruct
+	benchmark.Object1 = benchmarkEmbeddedStruct{Int1: 3, Int2: nil}
+	benchmark.Object2 = nil
+	tmpStruct := benchmarkEmbeddedStruct{Int1: 4}
+	benchmark.Object3 = &tmpStruct
 	var tmpInt2 int64 = 5
-	structToEncode.Object3.Int3 = &tmpInt2
+	benchmark.Object3.Int3 = &tmpInt2
 
-	structToEncode.Float1 = 3.14
-	structToEncode.Float2 = nil
+	benchmark.Float1 = 3.14
+	benchmark.Float2 = nil
 	tmpFloat := 99.55
-	structToEncode.Float3 = &tmpFloat
+	benchmark.Float3 = &tmpFloat
 
-	structToEncode.String1 = "hello, world"
-	structToEncode.String2 = nil
+	benchmark.String1 = "hello, world"
+	benchmark.String2 = nil
 	tmpStr := "go reflection"
-	structToEncode.String3 = &tmpStr
+	benchmark.String3 = &tmpStr
 
-	structToEncode.Slice1 = []string{"a", "b", "c"}
-	structToEncode.Slice2 = nil
+	benchmark.Slice1 = []string{"a", "b", "c"}
+	benchmark.Slice2 = nil
 	tmpSlice := []string{"d", "e", "f"}
-	structToEncode.Slice3 = &tmpSlice
+	benchmark.Slice3 = &tmpSlice
 
 }
 
@@ -155,7 +103,7 @@ func schemerEncode() int {
 
 	schemerData.Reset()
 
-	err := writerSchema.Encode(&schemerData, structToEncode)
+	err := writerSchema.Encode(&schemerData, benchmark)
 	if err != nil {
 		panic(err)
 	}
@@ -163,7 +111,7 @@ func schemerEncode() int {
 }
 
 func schemerDecode() {
-	var structToDecode = sourceStruct{}
+	var structToDecode = benchmarkStruct{}
 
 	r := bytes.NewReader(schemerData.Bytes())
 
@@ -176,7 +124,7 @@ func schemerDecode() {
 
 func JSONEncode() int {
 	var err error
-	jsonData, err = json.Marshal(structToEncode)
+	jsonData, err = json.Marshal(benchmark)
 	if err != nil {
 		panic(err)
 	}
@@ -185,7 +133,7 @@ func JSONEncode() int {
 
 func JSONDecode() {
 	var err error
-	var structToDecode = sourceStruct{}
+	var structToDecode = benchmarkStruct{}
 	err = json.Unmarshal(jsonData, &structToDecode)
 	if err != nil {
 		fmt.Printf("length is: %d", len(jsonData))
@@ -198,7 +146,7 @@ func GOBEncode() int {
 	var err error
 	enc := gob.NewEncoder(&gobData)
 
-	err = enc.Encode(structToEncode)
+	err = enc.Encode(benchmark)
 	if err != nil {
 		panic(err)
 	}
@@ -207,7 +155,7 @@ func GOBEncode() int {
 }
 
 func GOBDecode() {
-	var structToDecode = sourceStruct{}
+	var structToDecode = benchmarkStruct{}
 
 	decoder := gob.NewDecoder(&gobData)
 
@@ -223,7 +171,7 @@ func GOBDecode() {
 func MessagePackEncode() int {
 	var err error
 
-	msgPackData, err = msgpack.Marshal(structToEncode)
+	msgPackData, err = msgpack.Marshal(benchmark)
 
 	if err != nil {
 		panic(err)
@@ -234,7 +182,7 @@ func MessagePackEncode() int {
 
 func MessagePackDecode() {
 
-	var structToDecode = sourceStruct{}
+	var structToDecode = benchmarkStruct{}
 
 	err := msgpack.Unmarshal(msgPackData, &structToDecode)
 	if err != nil {
@@ -247,7 +195,7 @@ func XMLEncode() int {
 
 	encoder := xml.NewEncoder(&xmlData)
 	encoder.Indent("", "\t")
-	err := encoder.Encode(&structToEncode)
+	err := encoder.Encode(&benchmark)
 	if err != nil {
 		panic(err)
 	}
@@ -256,7 +204,7 @@ func XMLEncode() int {
 }
 
 func XMLDecode() {
-	var structToDecode = sourceStruct{}
+	var structToDecode = benchmarkStruct{}
 
 	decoder := xml.NewDecoder(&xmlData)
 	_ = decoder.Decode(&structToDecode)
@@ -271,7 +219,7 @@ func XMLDecode() {
 
 func BenchmarkSchemerEncode(b *testing.B) {
 	PopulateStructToEncode()
-	writerSchema = SchemaOf(&structToEncode)
+	writerSchema = SchemaOf(&benchmark)
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		schemerEncode()
@@ -363,7 +311,7 @@ func BenchmarkXMLDecode(b *testing.B) {
 
 func BenchmarkResults(b *testing.B) {
 
-	writerSchema = SchemaOf(&structToEncode)
+	writerSchema = SchemaOf(&benchmark)
 	b.ResetTimer()
 
 	size1 := schemerEncode()
