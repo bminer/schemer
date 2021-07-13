@@ -20,7 +20,7 @@ func (s *ComplexSchema) GoType() reflect.Type {
 	var c1 complex64
 	var c2 complex128
 	var retval reflect.Type
-	
+
 	if s.Bits == 64 {
 		retval = reflect.TypeOf(c1)
 	} else {
@@ -30,7 +30,7 @@ func (s *ComplexSchema) GoType() reflect.Type {
 	if s.SchemaOptions.Nullable {
 		retval = reflect.PtrTo(retval)
 	}
-	
+
 	return retval
 }
 
@@ -43,10 +43,10 @@ func (s *ComplexSchema) MarshalJSON() ([]byte, error) {
 		return nil, fmt.Errorf("invalid floating point schema")
 	}
 
-	tmpMap := make(map[string]string, 3)
+	tmpMap := make(map[string]interface{}, 3)
 	tmpMap["type"] = "complex"
-	tmpMap["bits"] = strconv.Itoa(s.Bits)
-	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
+	tmpMap["bits"] = s.Bits
+	tmpMap["nullable"] = s.SchemaOptions.Nullable
 
 	return json.Marshal(tmpMap)
 }

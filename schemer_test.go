@@ -37,7 +37,9 @@ type sourceStruct struct {
 	Complex6 *complex128
 
 	Array1 [5]string
+
 	Array2 *[5]string
+
 	Array3 *[5]string
 
 	Object1 embeddedStruct
@@ -115,6 +117,8 @@ func populatestruct() {
 	structToEncode.Slice2 = nil
 	tmpSlice := []string{"d", "e", "f"}
 	structToEncode.Slice3 = &tmpSlice
+
+	structToEncode.Complex1 = 3 + 2i
 }
 
 func saveToDisk(fileName string, rawBytes []byte) {
@@ -183,12 +187,12 @@ func fixedObjectReader1(t *testing.T, useJSON bool) {
 	if useJSON {
 		writerSchema, err = DecodeJSONSchema(binarywriterSchema)
 		if err != nil {
-			t.Error("cannot create writerSchema from raw JSON data")
+			t.Error("cannot create writerSchema from raw JSON data", err)
 		}
 	} else {
 		writerSchema, err = DecodeSchema(binarywriterSchema)
 		if err != nil {
-			t.Error("cannot create writerSchema from raw binary data")
+			t.Error("cannot create writerSchema from raw binary data", err)
 		}
 	}
 

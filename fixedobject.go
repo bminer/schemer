@@ -60,7 +60,7 @@ func (s *FixedObjectSchema) MarshalJSON() ([]byte, error) {
 	}
 
 	tmpMap["fields"] = fieldMap
-	return json.MarshalIndent(tmpMap, "", "   ")
+	return json.Marshal(tmpMap)
 }
 
 // Bytes encodes the schema in a portable binary format

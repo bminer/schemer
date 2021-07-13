@@ -28,7 +28,7 @@ func (s *VarLenStringSchema) GoType() reflect.Type {
 func (s *VarLenStringSchema) MarshalJSON() ([]byte, error) {
 	tmpMap := make(map[string]interface{}, 2)
 	tmpMap["type"] = "string"
-	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
+	tmpMap["nullable"] = s.SchemaOptions.Nullable
 
 	return json.Marshal(tmpMap)
 }

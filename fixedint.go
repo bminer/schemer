@@ -109,9 +109,9 @@ func (s *FixedIntSchema) MarshalJSON() ([]byte, error) {
 
 	tmpMap := make(map[string]interface{}, 4)
 	tmpMap["type"] = "int"
-	tmpMap["signed"] = strconv.FormatBool(s.Signed)
-	tmpMap["bits"] = strconv.Itoa(s.Bits)
-	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
+	tmpMap["signed"] = s.Signed
+	tmpMap["bits"] = s.Bits
+	tmpMap["nullable"] = s.SchemaOptions.Nullable
 
 	return json.Marshal(tmpMap)
 }
@@ -276,6 +276,7 @@ func checkType(s *FixedIntSchema, k reflect.Kind) bool {
 func (s *FixedIntSchema) Encode(w io.Writer, i interface{}) error {
 	return s.EncodeValue(w, reflect.ValueOf(i))
 }
+
 // EncodeValue uses the schema to write the encoded value of v to the output stream
 func (s *FixedIntSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 

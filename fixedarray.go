@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"strconv"
 )
 
 type FixedArraySchema struct {
@@ -60,8 +59,8 @@ func (s *FixedArraySchema) MarshalJSON() ([]byte, error) {
 
 	tmpMap := make(map[string]interface{}, 3)
 	tmpMap["type"] = "array"
-	tmpMap["length"] = strconv.Itoa(s.Length)
-	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
+	tmpMap["length"] = s.Length
+	tmpMap["nullable"] = s.SchemaOptions.Nullable
 
 	// now encode the schema for the element
 	elementJSON, err := s.Element.MarshalJSON()

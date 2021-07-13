@@ -29,7 +29,7 @@ func (s *EnumSchema) MarshalJSON() ([]byte, error) {
 
 	tmpMap := make(map[string]interface{}, 3)
 	tmpMap["type"] = "enum"
-	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
+	tmpMap["nullable"] = s.SchemaOptions.Nullable
 
 	if len(s.Values) > 0 {
 		tmpMap["values"] = s.Values

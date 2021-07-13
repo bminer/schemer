@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"strconv"
 )
 
 type VarArraySchema struct {
@@ -17,7 +16,7 @@ type VarArraySchema struct {
 
 func (s *VarArraySchema) GoType() reflect.Type {
 	retval := reflect.SliceOf(s.Element.GoType())
-	
+
 	if s.SchemaOptions.Nullable {
 		retval = reflect.PtrTo(retval)
 	}
@@ -46,7 +45,7 @@ func (s *VarArraySchema) MarshalJSON() ([]byte, error) {
 
 	tmpMap := make(map[string]interface{}, 2)
 	tmpMap["type"] = "array"
-	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
+	tmpMap["nullable"] = s.SchemaOptions.Nullable
 
 	// now encode the schema for the element
 	elementJSON, err := s.Element.MarshalJSON()

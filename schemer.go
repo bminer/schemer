@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"strconv"
 	"strings"
 )
 
@@ -246,50 +245,42 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 
 	case "ENUM":
 		s := &EnumSchema{}
-		b, _ := strconv.ParseBool(fields["nullable"].(string))
+		b, _ := fields["nullable"].(bool)
 		s.SchemaOptions.Nullable = b
 		return s, nil
 
 	case "BOOL":
 		s := &BoolSchema{}
-		b, _ := strconv.ParseBool(fields["nullable"].(string))
+		b, _ := fields["nullable"].(bool)
 		s.SchemaOptions.Nullable = b
 		return s, nil
 
 	case "COMPLEX":
 		s := &ComplexSchema{}
 
-		if fields["bits"].(string) == "128" {
+		if fields["bits"].(float64) == 128 {
 			s.Bits = 128
-		} else if fields["bits"].(string) == "64" {
+		} else if fields["bits"].(float64) == 64 {
 			s.Bits = 64
 		} else {
 			return nil, fmt.Errorf("invalid JSON schema encountered")
 		}
-		b, _ := strconv.ParseBool(fields["nullable"].(string))
+		b, _ := fields["nullable"].(bool)
 		s.SchemaOptions.Nullable = b
 
 		return s, nil
 
 	case "ARRAY":
 
-		s, ok := fields["length"].(string)
-		var tmpLen int
-
-		if ok {
-			tmpLen, err = strconv.Atoi(s)
-			if err != nil {
-				ok = false
-			}
-		}
+		l, ok := fields["length"].(float64)
 
 		// if length is present, then we are dealing with a fixed length array...
 		if ok {
 			s := &FixedArraySchema{}
 
-			b, _ := strconv.ParseBool(fields["nullable"].(string))
+			b, _ := fields["nullable"].(bool)
 			s.SchemaOptions.Nullable = b
-			s.Length = tmpLen
+			s.Length = int(l)
 
 			// process the array element
 			tmp, err := json.Marshal(fields["element"])
@@ -307,7 +298,7 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 		} else {
 			s := &VarArraySchema{}
 
-			b, _ := strconv.ParseBool(fields["nullable"].(string))
+			b, _ := fields["nullable"].(bool)
 			s.SchemaOptions.Nullable = b
 
 			// process the array element
@@ -326,25 +317,25 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 
 	case "INT":
 
-		numBits, ok := fields["bits"].(int)
+		numBits, ok := fields["bits"].(float64)
 
 		// if bits are present, then we are dealing with a fixed int
 		if ok {
 			s := &FixedIntSchema{}
 
-			b, _ := strconv.ParseBool(fields["nullable"].(string))
+			b, _ := fields["nullable"].(bool)
 			s.SchemaOptions.Nullable = b
-			b, _ = strconv.ParseBool(fields["signed"].(string))
+			b, _ = fields["signed"].(bool)
 			s.Signed = b
-			s.Bits = numBits
+			s.Bits = int(numBits)
 
 			return s, nil
 		} else {
 			s := &VarIntSchema{}
 
-			b, _ := strconv.ParseBool(fields["nullable"].(string))
+			b, _ := fields["nullable"].(bool)
 			s.SchemaOptions.Nullable = b
-			b, _ = strconv.ParseBool(fields["signed"].(string))
+			b, _ = fields["signed"].(bool)
 			s.Signed = b
 
 			return s, nil
@@ -389,7 +380,7 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 		} else {
 			s := &VarObjectSchema{}
 
-			b, _ := strconv.ParseBool(fields["nullable"].(string))
+			b, _ := fields["nullable"].(bool)
 			s.SchemaOptions.Nullable = b
 
 			tmp, err := json.Marshal(fields["key"].(interface{}))
@@ -417,21 +408,21 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 		}
 
 	case "STRING":
-		tmpLen, ok := fields["length"].(int)
+		tmpLen, ok := fields["length"].(float64)
 
 		// if string length is present, then we are dealing with a fixed string
 		if ok {
 			s := &FixedStringSchema{}
 
-			b, _ := strconv.ParseBool(fields["nullable"].(string))
+			b, _ := fields["nullable"].(bool)
 			s.SchemaOptions.Nullable = b
-			s.Length = tmpLen
+			s.Length = int(tmpLen)
 
 			return s, nil
 		} else {
 			s := &VarLenStringSchema{}
 
-			b, _ := strconv.ParseBool(fields["nullable"].(string))
+			b, _ := fields["nullable"].(bool)
 			s.SchemaOptions.Nullable = b
 			return s, nil
 		}
@@ -439,15 +430,15 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 	case "FLOAT":
 		s := &FloatSchema{}
 
-		if fields["bits"].(string) == "64" {
+		if fields["bits"].(float64) == 64 {
 			s.Bits = 64
-		} else if fields["bits"].(string) == "32" {
+		} else if fields["bits"].(float64) == 32 {
 			s.Bits = 32
 		} else {
 			return nil, fmt.Errorf("invalid JSON schema encountered")
 		}
 
-		b, _ := strconv.ParseBool(fields["nullable"].(string))
+		b, _ := fields["nullable"].(bool)
 		s.SchemaOptions.Nullable = b
 
 		return s, nil

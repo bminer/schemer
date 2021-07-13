@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"strconv"
 )
 
 type VarObjectSchema struct {
@@ -34,7 +33,7 @@ func (s *VarObjectSchema) MarshalJSON() ([]byte, error) {
 
 	tmpMap := make(map[string]interface{}, 1)
 	tmpMap["type"] = "object"
-	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
+	tmpMap["nullable"] = s.SchemaOptions.Nullable
 
 	// now encode the schema for the key
 	keyJSON, err := s.Key.MarshalJSON()

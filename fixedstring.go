@@ -18,7 +18,7 @@ type FixedStringSchema struct {
 func (s *FixedStringSchema) GoType() reflect.Type {
 	var t string
 	retval := reflect.TypeOf(t)
-	
+
 	if s.SchemaOptions.Nullable {
 		retval = reflect.PtrTo(retval)
 	}
@@ -38,8 +38,8 @@ func (s *FixedStringSchema) MarshalJSON() ([]byte, error) {
 
 	tmpMap := make(map[string]interface{}, 3)
 	tmpMap["type"] = "string"
-	tmpMap["length"] = strconv.Itoa(s.Length)
-	tmpMap["nullable"] = strconv.FormatBool(s.SchemaOptions.Nullable)
+	tmpMap["length"] = s.Length
+	tmpMap["nullable"] = s.SchemaOptions.Nullable
 
 	return json.Marshal(tmpMap)
 
