@@ -16,13 +16,21 @@ type FloatSchema struct {
 }
 
 func (s *FloatSchema) GoType() reflect.Type {
+	var retval reflect.Type
+
 	if s.Bits == 32 {
 		var t float32
-		return reflect.TypeOf(t)
+		retval = reflect.TypeOf(t)
 	} else {
 		var t float64
-		return reflect.TypeOf(t)
+		retval = reflect.TypeOf(t)
 	}
+
+	if s.SchemaOptions.Nullable {
+		retval = reflect.PtrTo(retval)
+	}
+
+	return retval
 }
 
 func (s *FloatSchema) Valid() bool {

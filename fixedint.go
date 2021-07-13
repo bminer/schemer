@@ -24,39 +24,45 @@ type FixedIntSchema struct {
 }
 
 func (s *FixedIntSchema) GoType() reflect.Type {
+	var retval reflect.Type
+
 	if s.Signed {
 		switch s.Bits {
 		case 8:
 			var t int8
-			return reflect.TypeOf(t)
+			retval = reflect.TypeOf(t)
 		case 16:
 			var t int16
-			return reflect.TypeOf(t)
+			retval = reflect.TypeOf(t)
 		case 32:
 			var t int32
-			return reflect.TypeOf(t)
+			retval = reflect.TypeOf(t)
 		case 64:
 			var t int
-			return reflect.TypeOf(t)
+			retval = reflect.TypeOf(t)
 		}
 	} else {
 		switch s.Bits {
 		case 8:
 			var t uint8
-			return reflect.TypeOf(t)
+			retval = reflect.TypeOf(t)
 		case 16:
 			var t uint16
-			return reflect.TypeOf(t)
+			retval = reflect.TypeOf(t)
 		case 32:
 			var t uint32
-			return reflect.TypeOf(t)
+			retval = reflect.TypeOf(t)
 		case 64:
 			var t uint
-			return reflect.TypeOf(t)
+			retval = reflect.TypeOf(t)
 		}
 	}
 
-	return nil
+	if s.SchemaOptions.Nullable {
+		retval = reflect.PtrTo(retval)
+	}
+
+	return retval
 }
 
 func (s *FixedIntSchema) Valid() bool {

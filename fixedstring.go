@@ -17,7 +17,13 @@ type FixedStringSchema struct {
 
 func (s *FixedStringSchema) GoType() reflect.Type {
 	var t string
-	return reflect.TypeOf(t)
+	retval := reflect.TypeOf(t)
+	
+	if s.SchemaOptions.Nullable {
+		retval = reflect.PtrTo(retval)
+	}
+
+	return retval
 }
 
 func (s *FixedStringSchema) Valid() bool {

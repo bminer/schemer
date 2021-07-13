@@ -16,7 +16,13 @@ type VarArraySchema struct {
 }
 
 func (s *VarArraySchema) GoType() reflect.Type {
-	return reflect.SliceOf(s.Element.GoType())
+	retval := reflect.SliceOf(s.Element.GoType())
+	
+	if s.SchemaOptions.Nullable {
+		retval = reflect.PtrTo(retval)
+	}
+
+	return retval
 }
 
 // Bytes encodes the schema in a portable binary format

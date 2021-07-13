@@ -16,14 +16,21 @@ type VarIntSchema struct {
 }
 
 func (s *VarIntSchema) GoType() reflect.Type {
+	var retval reflect.Type
+
 	if s.Signed {
 		var t int
-		return reflect.TypeOf(t)
+		retval = reflect.TypeOf(t)
 	} else {
 		var t uint
-		return reflect.TypeOf(t)
+		retval = reflect.TypeOf(t)
 	}
 
+	if s.SchemaOptions.Nullable {
+		retval = reflect.PtrTo(retval)
+	}
+
+	return retval
 }
 
 // Bytes encodes the schema in a portable binary format

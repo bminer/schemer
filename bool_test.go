@@ -190,7 +190,7 @@ func TestDecodeBool6(t *testing.T) {
 
 func TestDecodeBool7(t *testing.T) {
 
-	floatingPointSchema := BoolSchema{SchemaOptions{Nullable: true}}
+	boolSchema := BoolSchema{SchemaOptions{Nullable: true}}
 
 	fmt.Println("decode nil bool")
 
@@ -199,7 +199,7 @@ func TestDecodeBool7(t *testing.T) {
 	var boolPtr *bool
 	buf.Reset()
 
-	err = floatingPointSchema.Encode(&buf, boolPtr) // pass in nil pointer
+	err = boolSchema.Encode(&buf, boolPtr) // pass in nil pointer
 	if err != nil {
 		t.Error(err)
 	}
@@ -211,12 +211,60 @@ func TestDecodeBool7(t *testing.T) {
 	var boolToDecode bool
 	var boolPtr2 *bool = &boolToDecode
 
-	err = floatingPointSchema.Decode(r, &boolPtr2)
+	err = boolSchema.Decode(r, &boolPtr2)
 	if err != nil {
 		t.Error(err)
 	}
 
 	if boolPtr2 != nil {
+		t.Error("unexpected value decoding null boolean")
+	}
+
+}
+
+// make sure we can decode a nil bool into an interface
+func TestDecodeBool7A(t *testing.T) {
+
+	boolSchema := BoolSchema{SchemaOptions{
+		Nullable:     true,
+		WeakDecoding: false,
+	}}
+
+	fmt.Println("decode nil bool")
+
+	var buf bytes.Buffer
+	var err error
+	var boolPtr *bool
+	buf.Reset()
+
+	err = boolSchema.Encode(&buf, boolPtr) // pass in nil pointer
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// encode it
+	b := boolSchema.MarshalSchemer()
+
+	//------------
+
+	// make sure we can successfully decode it
+	decodedSchema, err := DecodeSchema(b)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	r := bytes.NewReader(buf.Bytes())
+
+	var decodedValue interface{} = "A" // just some random value
+
+	err = decodedSchema.Decode(r, &decodedValue)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if decodedValue != nil {
 		t.Error("unexpected value decoding null boolean")
 	}
 

@@ -21,8 +21,13 @@ func (s *VarObjectSchema) GoType() reflect.Type {
 		return nil
 	}
 
-	var t = reflect.MapOf(s.Key.GoType(), s.Value.GoType())
-	return t
+	retval := reflect.MapOf(s.Key.GoType(), s.Value.GoType())
+
+	if s.SchemaOptions.Nullable {
+		retval = reflect.PtrTo(retval)
+	}
+
+	return retval
 }
 
 func (s *VarObjectSchema) MarshalJSON() ([]byte, error) {

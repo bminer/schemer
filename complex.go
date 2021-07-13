@@ -19,12 +19,19 @@ type ComplexSchema struct {
 func (s *ComplexSchema) GoType() reflect.Type {
 	var c1 complex64
 	var c2 complex128
-
+	var retval reflect.Type
+	
 	if s.Bits == 64 {
-		return reflect.TypeOf(c1)
+		retval = reflect.TypeOf(c1)
 	} else {
-		return reflect.TypeOf(c2)
+		retval = reflect.TypeOf(c2)
 	}
+
+	if s.SchemaOptions.Nullable {
+		retval = reflect.PtrTo(retval)
+	}
+	
+	return retval
 }
 
 func (s *ComplexSchema) Valid() bool {

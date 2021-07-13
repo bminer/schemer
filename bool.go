@@ -15,7 +15,12 @@ type BoolSchema struct {
 
 func (s *BoolSchema) GoType() reflect.Type {
 	var b bool
-	return reflect.TypeOf(b)
+	retval := reflect.TypeOf(b)
+
+	if s.SchemaOptions.Nullable {
+		retval = reflect.PtrTo(retval)
+	}
+	return retval
 }
 
 func (s *BoolSchema) MarshalJSON() ([]byte, error) {

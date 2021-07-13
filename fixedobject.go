@@ -28,7 +28,13 @@ func (s *FixedObjectSchema) GoType() reflect.Type {
 			Type: s.Fields[i].Schema.GoType()}
 	}
 
-	return reflect.StructOf(fields)
+	retval := reflect.StructOf(fields)
+
+	if s.SchemaOptions.Nullable {
+		retval = reflect.PtrTo(retval)
+	}
+
+	return retval
 }
 
 func (s *FixedObjectSchema) MarshalJSON() ([]byte, error) {
@@ -202,7 +208,6 @@ func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		found := false
 
 		for j := 0; j < len(s.Fields[i].Aliases); j++ {
-
 			stringToMatch = s.Fields[i].Aliases[j]
 			structFieldToPopulate := s.findDestinationField(stringToMatch, v)
 

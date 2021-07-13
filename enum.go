@@ -17,7 +17,12 @@ type EnumSchema struct {
 
 func (s *EnumSchema) GoType() reflect.Type {
 	var t int
-	return reflect.TypeOf(t)
+	retval := reflect.TypeOf(t)
+
+	if s.SchemaOptions.Nullable {
+		retval = reflect.PtrTo(retval)
+	}
+	return retval
 }
 
 func (s *EnumSchema) MarshalJSON() ([]byte, error) {

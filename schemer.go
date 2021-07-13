@@ -793,14 +793,7 @@ func PreDecode(s Schema, r io.Reader, v reflect.Value) (reflect.Value, error) {
 				}
 				return reflect.Value{}, fmt.Errorf("destination not settable")
 			} else {
-				// If the value is not a pointer, then we can't set it to nil.
-				// However, we can set it to zero value (which is the default value of the type)
-				// This is not perfect, but there is nothing else we can do in this situation.
-				// Either:
-				// #1) Schemer created the value through reflection, or #2) the user passed in a non-pointer type
-				// I don't know if we can differentiate these two cases, and we definitely want #1 to work.
-				// (remember our schemes do not encode if types include pointers)... we just deference them away!
-				return reflect.Value{}, nil
+				return reflect.Value{}, fmt.Errorf("cannot decode null value to non pointer to pointer type")
 			}
 		}
 	}

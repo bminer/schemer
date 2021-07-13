@@ -17,7 +17,13 @@ type FixedArraySchema struct {
 }
 
 func (s *FixedArraySchema) GoType() reflect.Type {
-	return reflect.ArrayOf(s.Length, s.Element.GoType())
+	retval := reflect.ArrayOf(s.Length, s.Element.GoType())
+
+	if s.SchemaOptions.Nullable {
+		return reflect.PtrTo(retval)
+	}
+
+	return retval
 }
 
 func (s *FixedArraySchema) Valid() bool {

@@ -8,76 +8,61 @@ import (
 	"testing"
 )
 
-func saveToDisk(fileName string, rawBytes []byte) {
-	err := ioutil.WriteFile(fileName, rawBytes, 0644)
-	if err != nil {
-		panic(err)
-	}
+type embeddedStruct struct {
+	Int1 int64
+	Int2 *int64
+	Int3 *int64
 }
 
-func readFromDisk(fileName string) []byte {
-	b, err := ioutil.ReadFile(fileName)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return b
+// sourceStruct is what the routines in this test package
+type sourceStruct struct {
+	IntField1 int
+	IntField2 *int
+	IntField3 *int
+
+	Map1 map[string]bool
+	Map2 *map[string]bool
+
+	Map3 map[string]bool
+
+	Bool1 bool
+	Bool2 *bool
+	Bool3 *bool
+
+	Complex2 *complex64
+	Complex3 *complex64
+
+	Complex4 complex128
+	Complex5 *complex128
+	Complex6 *complex128
+
+	Array1 [5]string
+	Array2 *[5]string
+	Array3 *[5]string
+
+	Object1 embeddedStruct
+	Object2 *embeddedStruct
+	Object3 *embeddedStruct
+
+	Float1 float64
+	Float2 *float64
+	Float3 *float64
+
+	String1 string
+	String2 *string
+	String3 *string
+
+	Slice1 []string
+	Slice2 *[]string
+	Slice3 *[]string
+
+	Complex1 complex64
 }
 
-func FixedObjectWriter(t *testing.T, useJSON bool) {
+// encode a nill value for field1
+var structToEncode sourceStruct
 
-	type embeddedStruct struct {
-		Int1 int64
-		Int2 *int64
-		Int3 *int64
-	}
-
-	// sourceStruct is what the routines in this test package
-	type sourceStruct struct {
-		IntField1 int
-		IntField2 *int
-		IntField3 *int
-
-		Map1 map[string]bool
-		Map2 *map[string]bool
-
-		Map3 map[string]bool
-
-		Bool1 bool
-		Bool2 *bool
-		Bool3 *bool
-
-		Complex2 *complex64
-		Complex3 *complex64
-
-		Complex4 complex128
-		Complex5 *complex128
-		Complex6 *complex128
-
-		Array1 [5]string
-		Array2 *[5]string
-		Array3 *[5]string
-
-		Object1 embeddedStruct
-		Object2 *embeddedStruct
-		Object3 *embeddedStruct
-
-		Float1 float64
-		Float2 *float64
-		Float3 *float64
-
-		String1 string
-		String2 *string
-		String3 *string
-
-		Slice1 []string
-		Slice2 *[]string
-		Slice3 *[]string
-
-		Complex1 complex64
-	}
-
-	// encode a nill value for field1
-	var structToEncode sourceStruct
+func populatestruct() {
 
 	structToEncode.IntField1 = 101
 	structToEncode.IntField2 = nil
@@ -130,6 +115,24 @@ func FixedObjectWriter(t *testing.T, useJSON bool) {
 	structToEncode.Slice2 = nil
 	tmpSlice := []string{"d", "e", "f"}
 	structToEncode.Slice3 = &tmpSlice
+}
+
+func saveToDisk(fileName string, rawBytes []byte) {
+	err := ioutil.WriteFile(fileName, rawBytes, 0644)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func readFromDisk(fileName string) []byte {
+	b, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return b
+}
+
+func fixedObjectWriter(t *testing.T, useJSON bool) {
 
 	writerSchema := SchemaOf(&structToEncode)
 
@@ -154,12 +157,9 @@ func FixedObjectWriter(t *testing.T, useJSON bool) {
 		t.Error(err)
 	}
 
-	var schemaFileName string
-
+	schemaFileName := "/tmp/test.schema"
 	if useJSON {
-		schemaFileName = "/tmp/test.schema"
-	} else {
-		schemaFileName = "/tmp/test.schema.json"
+		schemaFileName = schemaFileName + ".json"
 	}
 
 	saveToDisk(schemaFileName, binaryWriterSchema)
@@ -168,16 +168,14 @@ func FixedObjectWriter(t *testing.T, useJSON bool) {
 }
 
 // decode to empty interface
-func FixedObjectReader1(t *testing.T, useJSON bool) {
+func fixedObjectReader1(t *testing.T, useJSON bool) {
 
-	var schemaFileName string
 	var writerSchema Schema
 	var err error
 
+	schemaFileName := "/tmp/test.schema"
 	if useJSON {
-		schemaFileName = "/tmp/test.schema"
-	} else {
-		schemaFileName = "/tmp/test.schema.json"
+		schemaFileName = schemaFileName + ".json"
 	}
 
 	binarywriterSchema := readFromDisk(schemaFileName)
@@ -198,40 +196,52 @@ func FixedObjectReader1(t *testing.T, useJSON bool) {
 	r := bytes.NewReader(encodedData)
 
 	var destInterface interface{}
-	var p *interface{} = &destInterface
 
-	err = writerSchema.Decode(r, p)
+	err = writerSchema.Decode(r, &destInterface)
 	if err != nil {
 		t.Error(err)
 	}
 
-	// when we decoded to an empty interface, null pointers we converted into zero values
-	if reflect.ValueOf(destInterface).Elem().FieldByName("IntField2").Int() != 0 {
+	s := reflect.ValueOf(destInterface).Elem()
+
+	// now check on some fields manually to make sure they decoded
+
+	if s.FieldByName("IntField1").Int() != int64(structToEncode.IntField1) {
+		t.Error("unexpected IntField1 decode")
+	}
+
+	// when we decoded to an empty interface, the encoded null int pointer should be decoded correctly to nil
+	if !s.FieldByName("IntField2").IsNil() {
 		t.Error("unexpected null int decode")
 	}
 
-	// when we decoded to an empty interface, null pointers we converted into zero values
-	if reflect.ValueOf(destInterface).Elem().FieldByName("Complex1").Complex() != 3+2i {
+	if s.FieldByName("IntField3").Elem().Int() != int64(*structToEncode.IntField3) {
+		t.Error("unexpected null int decode")
+	}
+
+	// TODO check on other fields
+
+	if s.FieldByName("Complex1").Complex() != 3+2i {
 		t.Error("unexpected complex decode")
 	}
 
 }
 
-func FixedObjectReader2(t *testing.T, useJSON bool) {
+// try to decode IntField2 into a struct that is not of pointer type...
+// and then make sure Schemer throws the correct error
+func fixedObjectReader2(t *testing.T, useJSON bool) {
 
 	type destStruct struct {
 		IntField2 int
 	}
 
-	var schemaFileName string
 	var writerSchema Schema
 	var err error
 	var destStructToDecode destStruct
 
+	schemaFileName := "/tmp/test.schema"
 	if useJSON {
-		schemaFileName = "/tmp/test.schema"
-	} else {
-		schemaFileName = "/tmp/test.schema.json"
+		schemaFileName = schemaFileName + ".json"
 	}
 
 	binarywriterSchema := readFromDisk(schemaFileName)
@@ -251,32 +261,29 @@ func FixedObjectReader2(t *testing.T, useJSON bool) {
 	encodedData := readFromDisk("/tmp/test.data")
 	r := bytes.NewReader(encodedData)
 
+	log.Println("Checking (incorrect) decode of null pointer into non pointer type")
 	err = writerSchema.Decode(r, &destStructToDecode)
-	if err != nil {
-		t.Error(err)
+	if err == nil {
+		t.Error("unexpected successful decode")
 	}
-
-	// when we decoded a nil value to a struct with out a pointer, we should have encoded
-	// the zero value
-	if destStructToDecode.IntField2 != 0 {
-		t.Error("unexpected null int decode")
-	}
-
+	log.Println("Schemer correctly refused to decode: ", err)
 }
 
 func TestFixedObjectSerializeBinary(t *testing.T) {
 
-	FixedObjectWriter(t, false)
+	populatestruct()
+	fixedObjectWriter(t, false)
 
 	// test reading into different destinations
-	FixedObjectReader1(t, false)
-	FixedObjectReader2(t, false)
+	fixedObjectReader1(t, false)
+	fixedObjectReader2(t, false)
 
 }
 
 func TestFixedObjectSerializeJSON(t *testing.T) {
 
-	FixedObjectWriter(t, true)
-	FixedObjectReader1(t, true)
+	populatestruct()
+	fixedObjectWriter(t, true)
+	fixedObjectReader1(t, true)
 
 }
