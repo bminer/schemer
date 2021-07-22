@@ -8,6 +8,7 @@ import (
 	"reflect"
 )
 
+// TODO: Add documentation
 type BoolSchema struct {
 	SchemaOptions
 }
