@@ -28,7 +28,7 @@ func (s *VarArraySchema) GoType() reflect.Type {
 func (s *VarArraySchema) MarshalSchemer() []byte {
 
 	// fixed length schemas are 1 byte long total
-	var schema []byte = []byte{VarArraySchemaBinaryFormat}
+	var schema []byte = []byte{VarArraySchemaMask}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {

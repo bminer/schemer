@@ -40,22 +40,20 @@ func (s *ComplexSchema) Valid() bool {
 
 func (s *ComplexSchema) MarshalJSON() ([]byte, error) {
 	if !s.Valid() {
-		return nil, fmt.Errorf("invalid floating point schema")
+		return nil, fmt.Errorf("invalid ComplexSchema")
 	}
-
-	tmpMap := make(map[string]interface{}, 3)
-	tmpMap["type"] = "complex"
-	tmpMap["bits"] = s.Bits
-	tmpMap["nullable"] = s.Nullable()
-
-	return json.Marshal(tmpMap)
+	return json.Marshal(map[string]interface{}{
+		"type":     "complex",
+		"nullable": s.Nullable(),
+		"bits":     s.Bits,
+	})
 }
 
 // Bytes encodes the schema in a portable binary format
 func (s *ComplexSchema) MarshalSchemer() []byte {
 
 	// floating point schemas are 1 byte long
-	var schema []byte = []byte{ComplexSchemaBinaryFormat}
+	var schema []byte = []byte{ComplexSchemaMask}
 
 	// bit 8 indicates whether or not the type is nullable
 	if s.Nullable() {

@@ -41,13 +41,11 @@ func (s *FloatSchema) MarshalJSON() ([]byte, error) {
 	if !s.Valid() {
 		return nil, fmt.Errorf("invalid FloatSchema")
 	}
-
-	tmpMap := make(map[string]interface{}, 3)
-	tmpMap["type"] = "float"
-	tmpMap["bits"] = s.Bits
-	tmpMap["nullable"] = s.Nullable()
-
-	return json.Marshal(tmpMap)
+	return json.Marshal(map[string]interface{}{
+		"type":     "float",
+		"nullable": s.Nullable(),
+		"bits":     s.Bits,
+	})
 }
 
 // Bytes encodes the schema in a portable binary format

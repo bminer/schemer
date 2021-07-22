@@ -72,7 +72,7 @@ func (s *VarObjectSchema) MarshalJSON() ([]byte, error) {
 func (s *VarObjectSchema) MarshalSchemer() []byte {
 
 	// string schemas are 1 byte long
-	var schema []byte = []byte{VarObjectSchemaBinaryFormat}
+	var schema []byte = []byte{VarObjectSchemaMask}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {

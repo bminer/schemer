@@ -26,18 +26,17 @@ func (s *VarLenStringSchema) GoType() reflect.Type {
 }
 
 func (s *VarLenStringSchema) MarshalJSON() ([]byte, error) {
-	tmpMap := make(map[string]interface{}, 2)
-	tmpMap["type"] = "string"
-	tmpMap["nullable"] = s.Nullable()
-
-	return json.Marshal(tmpMap)
+	return json.Marshal(map[string]interface{}{
+		"type":     "string",
+		"nullable": s.Nullable(),
+	})
 }
 
 // Bytes encodes the schema in a portable binary format
 func (s *VarLenStringSchema) MarshalSchemer() []byte {
 
 	// string schemas are 1 byte long
-	var schema []byte = []byte{VarStringSchemaBinaryFormat}
+	var schema []byte = []byte{VarStringSchemaMask}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {

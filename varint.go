@@ -37,7 +37,7 @@ func (s *VarIntSchema) GoType() reflect.Type {
 func (s *VarIntSchema) MarshalSchemer() []byte {
 
 	// fixed length schemas are 1 byte long total
-	var schema []byte = []byte{varIntSchemaBinaryFormat}
+	var schema []byte = []byte{VarIntSchemaMask}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {
@@ -54,13 +54,11 @@ func (s *VarIntSchema) MarshalSchemer() []byte {
 }
 
 func (s *VarIntSchema) MarshalJSON() ([]byte, error) {
-
-	tmpMap := make(map[string]interface{}, 2)
-	tmpMap["type"] = "int"
-	tmpMap["signed"] = s.Signed
-	tmpMap["nullable"] = s.Nullable()
-
-	return json.Marshal(tmpMap)
+	return json.Marshal(map[string]interface{}{
+		"type":     "int",
+		"nullable": s.Nullable(),
+		"signed": s.Signed,
+	})
 }
 
 func writeVarUint(w io.Writer, v uint64) error {

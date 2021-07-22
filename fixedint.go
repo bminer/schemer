@@ -14,13 +14,11 @@ const uintSize = 32 << (^uint(0) >> 32 & 1) // 32 or 64
 const maxFloatInt = int64(1)<<53 - 1
 const minFloatInt = -maxFloatInt
 
-//const maxIntUint = uint64(1)<<63 - 1
-
 type FixedIntSchema struct {
 	SchemaOptions
 
 	Signed bool
-	Bits   int
+	Bits   int // must be 8, 16, 32, or 64
 }
 
 func (s *FixedIntSchema) GoType() reflect.Type {
@@ -73,7 +71,7 @@ func (s *FixedIntSchema) Valid() bool {
 func (s *FixedIntSchema) MarshalSchemer() []byte {
 
 	// fixed length schemas are 1 byte long total
-	var schema []byte = []byte{FixedIntSchemaBinaryFormat}
+	var schema []byte = []byte{FixedIntSchemaMask}
 
 	// bit8 indicates whether or not the type is nullable
 	if s.Nullable() {
@@ -104,16 +102,14 @@ func (s *FixedIntSchema) MarshalSchemer() []byte {
 
 func (s *FixedIntSchema) MarshalJSON() ([]byte, error) {
 	if !s.Valid() {
-		return nil, fmt.Errorf("invalid floating point schema")
+		return nil, fmt.Errorf("invalid FixedIntSchema schema")
 	}
-
-	tmpMap := make(map[string]interface{}, 4)
-	tmpMap["type"] = "int"
-	tmpMap["signed"] = s.Signed
-	tmpMap["bits"] = s.Bits
-	tmpMap["nullable"] = s.Nullable()
-
-	return json.Marshal(tmpMap)
+	return json.Marshal(map[string]interface{}{
+		"type":     "int",
+		"nullable": s.Nullable(),
+		"bits":     s.Bits,
+		"signed":   s.Signed,
+	})
 }
 
 func writeUint(w io.Writer, v uint64, s *FixedIntSchema) error {
@@ -159,22 +155,6 @@ func writeUint(w io.Writer, v uint64, s *FixedIntSchema) error {
 			err = errors.New("unexpected number of bytes written")
 		}
 		return err
-	case 128:
-		n, err := w.Write([]byte{
-			byte(v),
-			byte(v >> 8),
-			byte(v >> 16),
-			byte(v >> 24),
-			byte(v >> 32),
-			byte(v >> 40),
-			byte(v >> 48),
-			byte(v >> 56),
-			0, 0, 0, 0, 0, 0, 0, 0,
-		})
-		if err == nil && n != 16 {
-			err = errors.New("unexpected number of bytes written")
-		}
-		return err
 	default:
 		return fmt.Errorf("invalid fixed integer size: %d bits", s.Bits)
 	}
@@ -214,22 +194,12 @@ func readUint(r io.Reader, s *FixedIntSchema) (uint64, error) {
 			uint64(buf[5])<<40 |
 			uint64(buf[6])<<48 |
 			uint64(buf[7])<<56, nil
-	case 128:
-		return uint64(buf[0]) |
-			uint64(buf[1])<<8 |
-			uint64(buf[2])<<16 |
-			uint64(buf[3])<<24 |
-			uint64(buf[4])<<32 |
-			uint64(buf[5])<<40 |
-			uint64(buf[6])<<48 |
-			uint64(buf[7])<<56, nil
-		// TODO: Check that remaining buf is all zeroes
 	default:
 		return errVal, fmt.Errorf("invalid fixed integer size: %d bits", s.Bits)
 	}
 }
 
-// CheckType returns true if the integer type passed for i
+// checkType() returns true if reflect.Kind matches the passed in schema
 // matched the schema
 func checkType(s *FixedIntSchema, k reflect.Kind) bool {
 

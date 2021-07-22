@@ -36,12 +36,11 @@ func (s *FixedStringSchema) MarshalJSON() ([]byte, error) {
 		return nil, fmt.Errorf("invalid FixedStringSchema")
 	}
 
-	tmpMap := make(map[string]interface{}, 3)
-	tmpMap["type"] = "string"
-	tmpMap["length"] = s.Length
-	tmpMap["nullable"] = s.Nullable()
-
-	return json.Marshal(tmpMap)
+	return json.Marshal(map[string]interface{}{
+		"type":     "string",
+		"length":   s.Length,
+		"nullable": s.Nullable(),
+	})
 
 }
 
@@ -49,7 +48,7 @@ func (s *FixedStringSchema) MarshalJSON() ([]byte, error) {
 func (s *FixedStringSchema) MarshalSchemer() []byte {
 
 	// string schemas are 1 byte long
-	var schema []byte = []byte{FixedStringSchemaBinaryFormat}
+	var schema []byte = []byte{FixedStringSchemaMask}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {
@@ -78,7 +77,7 @@ func (s *FixedStringSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.Valid() {
-		return fmt.Errorf("cannot encode using invalid StringSchema schema")
+		return fmt.Errorf("cannot encode using invalid FixedStringSchema")
 	}
 
 	ok, err := PreEncode(s, w, &v)
@@ -93,7 +92,7 @@ func (s *FixedStringSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 	k := t.Kind()
 
 	if k != reflect.String {
-		return fmt.Errorf("StringSchema only supports encoding string values")
+		return fmt.Errorf("FixedStringSchema only supports encoding string values")
 	}
 
 	var stringToEncode string = v.String()
@@ -124,7 +123,7 @@ func (s *FixedStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// just double check the schema they are using
 	if !s.Valid() {
-		return fmt.Errorf("cannot decode using invalid StringSchema schema")
+		return fmt.Errorf("cannot decode using invalid FixedStringSchema")
 	}
 
 	v, err := PreDecode(s, r, v)

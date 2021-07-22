@@ -67,7 +67,7 @@ func (s *FixedObjectSchema) MarshalJSON() ([]byte, error) {
 func (s *FixedObjectSchema) MarshalSchemer() []byte {
 
 	// fixedObject schemas are 1 byte long
-	var schemaBytes []byte = []byte{FixedObjectSchemaBinaryFormat}
+	var schemaBytes []byte = []byte{FixedObjectSchemaMask}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {
@@ -150,8 +150,7 @@ func (s *FixedObjectSchema) findDestinationField(sourceFieldAlias string, v refl
 		}
 
 		// parse the tags on this field, to see if any aliases are present...
-		tagOpts, _ := ParseStructTag(v.
-			Type().Field(i).Tag.Get(SchemerTagName))
+		tagOpts := ParseStructTag(v.Type().Field(i).Tag.Get(StructTagName))
 
 		// if any of the aliases on this destination field match sourceFieldAlias, then we have a match!
 		for j := 0; j < len(tagOpts.FieldAliases); j++ {
