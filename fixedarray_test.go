@@ -26,7 +26,7 @@ func TestDecodeFixedLenArray1(t *testing.T) {
 
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
-	if decodedSchema.SchemaOptions.Nullable != fixedArraySchema.Nullable() {
+	if decodedSchema.Nullable() != fixedArraySchema.Nullable() {
 		t.Error("unexpected values when decoding binary fixedArraySchema")
 	}
 

@@ -26,7 +26,7 @@ func TestDecodeVarObject1(t *testing.T) {
 
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
-	if decodedIntSchema.SchemaOptions.Nullable != varObjectSchema.Nullable() {
+	if decodedIntSchema.Nullable() != varObjectSchema.Nullable() {
 		t.Error("unexpected values when decoding binary EnumSchema")
 	}
 

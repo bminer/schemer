@@ -58,7 +58,7 @@ func (s *FixedIntSchema) GoType() reflect.Type {
 		}
 	}
 
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		retval = reflect.PtrTo(retval)
 	}
 
@@ -76,7 +76,7 @@ func (s *FixedIntSchema) MarshalSchemer() []byte {
 	var schema []byte = []byte{FixedIntSchemaBinaryFormat}
 
 	// bit8 indicates whether or not the type is nullable
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		schema[0] |= 0x80
 	}
 
@@ -111,7 +111,7 @@ func (s *FixedIntSchema) MarshalJSON() ([]byte, error) {
 	tmpMap["type"] = "int"
 	tmpMap["signed"] = s.Signed
 	tmpMap["bits"] = s.Bits
-	tmpMap["nullable"] = s.SchemaOptions.Nullable
+	tmpMap["nullable"] = s.Nullable()
 
 	return json.Marshal(tmpMap)
 }
@@ -462,12 +462,12 @@ func (s *FixedIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 			}
 			v.SetComplex(vComplex)
 		case reflect.Bool:
-			if !s.WeakDecoding {
+			if !s.WeakDecoding() {
 				return fmt.Errorf("decoded value %d incompatible with %v", intVal, k)
 			}
 			v.SetBool(intVal != 0)
 		case reflect.String:
-			if !s.WeakDecoding {
+			if !s.WeakDecoding() {
 				return fmt.Errorf("decoded value %d incompatible with %v", intVal, k)
 			}
 			v.SetString(strconv.FormatInt(intVal, 10))
@@ -533,12 +533,12 @@ func (s *FixedIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 			}
 			v.SetComplex(vComplex)
 		case reflect.Bool:
-			if !s.WeakDecoding {
+			if !s.WeakDecoding() {
 				return fmt.Errorf("decoded value %d incompatible with %v", uintVal, k)
 			}
 			v.SetBool(uintVal != 0)
 		case reflect.String:
-			if !s.WeakDecoding {
+			if !s.WeakDecoding() {
 				return fmt.Errorf("decoded value %d incompatible with %v", uintVal, k)
 			}
 			v.SetString(strconv.FormatUint(uintVal, 10))
@@ -547,12 +547,4 @@ func (s *FixedIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		}
 	}
 	return nil
-}
-
-func (s *FixedIntSchema) Nullable() bool {
-	return s.SchemaOptions.Nullable
-}
-
-func (s *FixedIntSchema) SetNullable(n bool) {
-	s.SchemaOptions.Nullable = n
 }

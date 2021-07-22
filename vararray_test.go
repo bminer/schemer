@@ -27,7 +27,7 @@ func TestDecodeVarLenArray1(t *testing.T) {
 
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
-	if decodedSchema.SchemaOptions.Nullable != varArraySchema.Nullable() {
+	if decodedSchema.Nullable() != varArraySchema.Nullable() {
 		t.Error("unexpected values when decoding binary EnumSchema")
 	}
 
@@ -36,7 +36,7 @@ func TestDecodeVarLenArray1(t *testing.T) {
 func TestDecodeVarLenArray2(t *testing.T) {
 
 	// build up the schema programatically
-	varArraySchema := VarArraySchema{SchemaOptions: SchemaOptions{Nullable: false}}
+	varArraySchema := VarArraySchema{SchemaOptions: SchemaOptions{nullable: false}}
 	varArraySchema.Element = &(FloatSchema{Bits: 32})
 
 	var buf bytes.Buffer

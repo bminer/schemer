@@ -22,7 +22,7 @@ func (s *VarObjectSchema) GoType() reflect.Type {
 
 	retval := reflect.MapOf(s.Key.GoType(), s.Value.GoType())
 
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		retval = reflect.PtrTo(retval)
 	}
 
@@ -33,7 +33,7 @@ func (s *VarObjectSchema) MarshalJSON() ([]byte, error) {
 
 	tmpMap := make(map[string]interface{}, 1)
 	tmpMap["type"] = "object"
-	tmpMap["nullable"] = s.SchemaOptions.Nullable
+	tmpMap["nullable"] = s.Nullable()
 
 	// now encode the schema for the key
 	keyJSON, err := s.Key.MarshalJSON()
@@ -75,7 +75,7 @@ func (s *VarObjectSchema) MarshalSchemer() []byte {
 	var schema []byte = []byte{VarObjectSchemaBinaryFormat}
 
 	// The most signifiant bit indicates whether or not the type is nullable
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		schema[0] |= 0x80
 	}
 
@@ -204,12 +204,4 @@ func (s *VarObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 
 	return nil
-}
-
-func (s *VarObjectSchema) Nullable() bool {
-	return s.SchemaOptions.Nullable
-}
-
-func (s *VarObjectSchema) SetNullable(n bool) {
-	s.SchemaOptions.Nullable = n
 }

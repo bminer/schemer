@@ -31,7 +31,7 @@ func TestDecodeFixedObject1(t *testing.T) {
 
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
-	if decodedSchema.SchemaOptions.Nullable != fixedObjectSchema.Nullable() {
+	if decodedSchema.Nullable() != fixedObjectSchema.Nullable() {
 		t.Error("unexpected values when decoding binary FixedObjectSchema")
 	}
 

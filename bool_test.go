@@ -12,7 +12,7 @@ import (
 // from an empty interface
 func TestDecodeBool1(t *testing.T) {
 
-	bSchema := BoolSchema{SchemaOptions{Nullable: false}}
+	bSchema := BoolSchema{SchemaOptions{nullable: false}}
 
 	var buf bytes.Buffer
 	var err error
@@ -43,7 +43,7 @@ func TestDecodeBool1(t *testing.T) {
 // make sure we can decode a boolean to the integer types
 func TestDecodeBool2(t *testing.T) {
 
-	bSchema := BoolSchema{SchemaOptions{WeakDecoding: true}}
+	bSchema := BoolSchema{SchemaOptions{weakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -86,7 +86,7 @@ func TestDecodeBool2(t *testing.T) {
 // make sure we can decode a boolean value to a string, as long as weak decoding is on
 func TestDecodeBool3(t *testing.T) {
 
-	bSchema := BoolSchema{SchemaOptions{WeakDecoding: true}}
+	bSchema := BoolSchema{SchemaOptions{weakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -117,7 +117,7 @@ func TestDecodeBool3(t *testing.T) {
 // make sure library refuses to decode to an int when weak decoding is not enabled
 func TestDecodeBool4(t *testing.T) {
 
-	bSchema := BoolSchema{SchemaOptions{WeakDecoding: false}}
+	bSchema := BoolSchema{SchemaOptions{weakDecoding: false}}
 
 	var buf bytes.Buffer
 	var err error
@@ -144,7 +144,7 @@ func TestDecodeBool4(t *testing.T) {
 // make sure library refuses to decode to string when weak decoding is not enabled
 func TestDecodeBool5(t *testing.T) {
 
-	bSchema := BoolSchema{SchemaOptions{WeakDecoding: false}}
+	bSchema := BoolSchema{SchemaOptions{weakDecoding: false}}
 
 	var buf bytes.Buffer
 	var err error
@@ -171,7 +171,7 @@ func TestDecodeBool5(t *testing.T) {
 func TestDecodeBool6(t *testing.T) {
 
 	// setup an example schema
-	schema := BoolSchema{SchemaOptions{Nullable: false}}
+	schema := BoolSchema{SchemaOptions{nullable: false}}
 
 	// encode it
 	b := schema.MarshalSchemer()
@@ -182,7 +182,7 @@ func TestDecodeBool6(t *testing.T) {
 	if err != nil {
 		t.Error("cannot decode binary encoded bool")
 	}
-	if decodedBoolSchema.SchemaOptions.Nullable != schema.SchemaOptions.Nullable {
+	if decodedBoolSchema.Nullable() != schema.Nullable() {
 		t.Error("unexpected value for BoolSchema")
 	}
 
@@ -190,7 +190,7 @@ func TestDecodeBool6(t *testing.T) {
 
 func TestDecodeBool7(t *testing.T) {
 
-	boolSchema := BoolSchema{SchemaOptions{Nullable: true}}
+	boolSchema := BoolSchema{SchemaOptions{nullable: true}}
 
 	fmt.Println("decode nil bool")
 
@@ -226,8 +226,8 @@ func TestDecodeBool7(t *testing.T) {
 func TestDecodeBool7A(t *testing.T) {
 
 	boolSchema := BoolSchema{SchemaOptions{
-		Nullable:     true,
-		WeakDecoding: false,
+		nullable:     true,
+		weakDecoding: false,
 	}}
 
 	fmt.Println("decode nil bool")
@@ -272,7 +272,7 @@ func TestDecodeBool7A(t *testing.T) {
 
 func TestDecodeBool8(t *testing.T) {
 
-	boolSchema := BoolSchema{SchemaOptions{Nullable: true}}
+	boolSchema := BoolSchema{SchemaOptions{nullable: true}}
 
 	b, _ := boolSchema.MarshalJSON()
 

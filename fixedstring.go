@@ -19,7 +19,7 @@ func (s *FixedStringSchema) GoType() reflect.Type {
 	var t string
 	retval := reflect.TypeOf(t)
 
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		retval = reflect.PtrTo(retval)
 	}
 
@@ -39,7 +39,7 @@ func (s *FixedStringSchema) MarshalJSON() ([]byte, error) {
 	tmpMap := make(map[string]interface{}, 3)
 	tmpMap["type"] = "string"
 	tmpMap["length"] = s.Length
-	tmpMap["nullable"] = s.SchemaOptions.Nullable
+	tmpMap["nullable"] = s.Nullable()
 
 	return json.Marshal(tmpMap)
 
@@ -52,7 +52,7 @@ func (s *FixedStringSchema) MarshalSchemer() []byte {
 	var schema []byte = []byte{FixedStringSchemaBinaryFormat}
 
 	// The most signifiant bit indicates whether or not the type is nullable
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		schema[0] |= 0x80
 	}
 
@@ -227,7 +227,7 @@ func (s *FixedStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		// see if we can put it into the destination??
 		return fmt.Errorf("not implemented")
 	case reflect.Bool:
-		if !s.WeakDecoding {
+		if !s.WeakDecoding() {
 			return fmt.Errorf("cannot decode int to bool without weak decoding")
 		}
 		if trimString == "1" || trimString == "t" || trimString == "T" || trimString == "TRUE" || trimString == "true" || trimString == "True" {
@@ -247,12 +247,4 @@ func (s *FixedStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 
 	return nil
-}
-
-func (s *FixedStringSchema) Nullable() bool {
-	return s.SchemaOptions.Nullable
-}
-
-func (s *FixedStringSchema) SetNullable(n bool) {
-	s.SchemaOptions.Nullable = n
 }

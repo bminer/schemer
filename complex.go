@@ -27,7 +27,7 @@ func (s *ComplexSchema) GoType() reflect.Type {
 		retval = reflect.TypeOf(c2)
 	}
 
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		retval = reflect.PtrTo(retval)
 	}
 
@@ -46,7 +46,7 @@ func (s *ComplexSchema) MarshalJSON() ([]byte, error) {
 	tmpMap := make(map[string]interface{}, 3)
 	tmpMap["type"] = "complex"
 	tmpMap["bits"] = s.Bits
-	tmpMap["nullable"] = s.SchemaOptions.Nullable
+	tmpMap["nullable"] = s.Nullable()
 
 	return json.Marshal(tmpMap)
 }
@@ -58,7 +58,7 @@ func (s *ComplexSchema) MarshalSchemer() []byte {
 	var schema []byte = []byte{ComplexSchemaBinaryFormat}
 
 	// bit 8 indicates whether or not the type is nullable
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		schema[0] |= 0x80
 	}
 
@@ -321,7 +321,7 @@ func (s *ComplexSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		}
 
 	case reflect.String:
-		if !s.WeakDecoding {
+		if !s.WeakDecoding() {
 			return fmt.Errorf("weak decoding not enabled; cannot decode to string")
 		}
 		tmp := complex128(complex(realPart, imagPart))
@@ -330,7 +330,7 @@ func (s *ComplexSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	case reflect.Slice:
 		fallthrough
 	case reflect.Array:
-		if !s.WeakDecoding {
+		if !s.WeakDecoding() {
 			return fmt.Errorf("weak decoding not enabled; cannot decode complex to array/slice")
 		}
 
@@ -353,12 +353,4 @@ func (s *ComplexSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 
 	return nil
-}
-
-func (s *ComplexSchema) Nullable() bool {
-	return s.SchemaOptions.Nullable
-}
-
-func (s *ComplexSchema) SetNullable(n bool) {
-	s.SchemaOptions.Nullable = n
 }

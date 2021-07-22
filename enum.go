@@ -19,7 +19,7 @@ func (s *EnumSchema) GoType() reflect.Type {
 	var t int
 	retval := reflect.TypeOf(t)
 
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		retval = reflect.PtrTo(retval)
 	}
 	return retval
@@ -29,7 +29,7 @@ func (s *EnumSchema) MarshalJSON() ([]byte, error) {
 
 	tmpMap := make(map[string]interface{}, 3)
 	tmpMap["type"] = "enum"
-	tmpMap["nullable"] = s.SchemaOptions.Nullable
+	tmpMap["nullable"] = s.Nullable()
 
 	if len(s.Values) > 0 {
 		tmpMap["values"] = s.Values
@@ -45,7 +45,7 @@ func (s EnumSchema) MarshalSchemer() []byte {
 	var schema []byte = []byte{EnumSchemaBinaryFormat}
 
 	// The most signifiant bit indicates whether or not the type is nullable
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		schema[0] |= 0x80
 	}
 
@@ -71,7 +71,7 @@ func (s *EnumSchema) Encode(w io.Writer, i interface{}) error {
 
 // EncodeValue uses the schema to write the encoded value of v to the output streamtream
 func (s *EnumSchema) EncodeValue(w io.Writer, v reflect.Value) error {
-	varIntSchema := VarIntSchema{Signed: true, SchemaOptions: SchemaOptions{Nullable: s.SchemaOptions.Nullable}}
+	varIntSchema := VarIntSchema{Signed: true, SchemaOptions: SchemaOptions{nullable: s.Nullable()}}
 	return varIntSchema.EncodeValue(w, v)
 }
 
@@ -88,7 +88,7 @@ func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// first we decode the actual encoded binary value
 
-	varIntSchema := VarIntSchema{Signed: true, SchemaOptions: SchemaOptions{Nullable: s.SchemaOptions.Nullable}}
+	varIntSchema := VarIntSchema{Signed: true, SchemaOptions: SchemaOptions{nullable: s.Nullable()}}
 
 	var decodedVarInt int64
 	var intPtr *int64 = &decodedVarInt // we pass in a pointer to varIntSchema.Decode so we can potentially
@@ -146,7 +146,7 @@ func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		if _, ok := s.Values[int(decodedVarInt)]; !ok {
 			// however, maybe it makes sense to allow this scenario
 			// when weak decoding is specified??
-			if !s.WeakDecoding {
+			if !s.WeakDecoding() {
 				return fmt.Errorf("decoded enumerated value not in map")
 			}
 		}
@@ -191,7 +191,7 @@ func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		}
 		v.SetUint(uintVal)
 	case reflect.String:
-		if !s.WeakDecoding {
+		if !s.WeakDecoding() {
 			return fmt.Errorf("cannot decode enum to string without weak decoding enabled")
 		}
 
@@ -210,12 +210,4 @@ func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 
 	return nil
-}
-
-func (s *EnumSchema) Nullable() bool {
-	return s.SchemaOptions.Nullable
-}
-
-func (s *EnumSchema) SetNullable(n bool) {
-	s.SchemaOptions.Nullable = n
 }

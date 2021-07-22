@@ -17,7 +17,7 @@ type VarArraySchema struct {
 func (s *VarArraySchema) GoType() reflect.Type {
 	retval := reflect.SliceOf(s.Element.GoType())
 
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		retval = reflect.PtrTo(retval)
 	}
 
@@ -31,7 +31,7 @@ func (s *VarArraySchema) MarshalSchemer() []byte {
 	var schema []byte = []byte{VarArraySchemaBinaryFormat}
 
 	// The most signifiant bit indicates whether or not the type is nullable
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		schema[0] |= 0x80
 	}
 
@@ -45,7 +45,7 @@ func (s *VarArraySchema) MarshalJSON() ([]byte, error) {
 
 	tmpMap := make(map[string]interface{}, 2)
 	tmpMap["type"] = "array"
-	tmpMap["nullable"] = s.SchemaOptions.Nullable
+	tmpMap["nullable"] = s.Nullable()
 
 	// now encode the schema for the element
 	elementJSON, err := s.Element.MarshalJSON()
@@ -162,12 +162,4 @@ func (s *VarArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 
 	return nil
-}
-
-func (s *VarArraySchema) Nullable() bool {
-	return s.SchemaOptions.Nullable
-}
-
-func (s *VarArraySchema) SetNullable(n bool) {
-	s.SchemaOptions.Nullable = n
 }

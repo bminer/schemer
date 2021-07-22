@@ -18,7 +18,7 @@ type FixedArraySchema struct {
 func (s *FixedArraySchema) GoType() reflect.Type {
 	retval := reflect.ArrayOf(s.Length, s.Element.GoType())
 
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		return reflect.PtrTo(retval)
 	}
 
@@ -36,7 +36,7 @@ func (s *FixedArraySchema) MarshalSchemer() []byte {
 	var schema []byte = []byte{FixedArraySchemaBinaryFormat}
 
 	// The most signifiant bit indicates whether or not the type is nullable
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		schema[0] |= 0x80
 	}
 
@@ -60,7 +60,7 @@ func (s *FixedArraySchema) MarshalJSON() ([]byte, error) {
 	tmpMap := make(map[string]interface{}, 3)
 	tmpMap["type"] = "array"
 	tmpMap["length"] = s.Length
-	tmpMap["nullable"] = s.SchemaOptions.Nullable
+	tmpMap["nullable"] = s.Nullable()
 
 	// now encode the schema for the element
 	elementJSON, err := s.Element.MarshalJSON()
@@ -171,12 +171,4 @@ func (s *FixedArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 
 	return nil
-}
-
-func (s *FixedArraySchema) Nullable() bool {
-	return s.SchemaOptions.Nullable
-}
-
-func (s *FixedArraySchema) SetNullable(n bool) {
-	s.SchemaOptions.Nullable = n
 }

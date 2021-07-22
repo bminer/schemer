@@ -26,7 +26,7 @@ func (s *VarIntSchema) GoType() reflect.Type {
 		retval = reflect.TypeOf(t)
 	}
 
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		retval = reflect.PtrTo(retval)
 	}
 
@@ -40,7 +40,7 @@ func (s *VarIntSchema) MarshalSchemer() []byte {
 	var schema []byte = []byte{varIntSchemaBinaryFormat}
 
 	// The most signifiant bit indicates whether or not the type is nullable
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		schema[0] |= 0x80
 	}
 
@@ -58,7 +58,7 @@ func (s *VarIntSchema) MarshalJSON() ([]byte, error) {
 	tmpMap := make(map[string]interface{}, 2)
 	tmpMap["type"] = "int"
 	tmpMap["signed"] = s.Signed
-	tmpMap["nullable"] = s.SchemaOptions.Nullable
+	tmpMap["nullable"] = s.Nullable()
 
 	return json.Marshal(tmpMap)
 }
@@ -260,12 +260,12 @@ func (s *VarIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 			}
 			v.SetComplex(vComplex)
 		case reflect.Bool:
-			if !s.WeakDecoding {
+			if !s.WeakDecoding() {
 				return fmt.Errorf("decoded value %d incompatible with %v", intVal, k)
 			}
 			v.SetBool(intVal != 0)
 		case reflect.String:
-			if !s.WeakDecoding {
+			if !s.WeakDecoding() {
 				return fmt.Errorf("decoded value %d incompatible with %v", intVal, k)
 			}
 			v.SetString(strconv.FormatInt(intVal, 10))
@@ -334,12 +334,12 @@ func (s *VarIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 			}
 			v.SetComplex(vComplex)
 		case reflect.Bool:
-			if !s.WeakDecoding {
+			if !s.WeakDecoding() {
 				return fmt.Errorf("decoded value %d incompatible with %v", uintVal, k)
 			}
 			v.SetBool(uintVal != 0)
 		case reflect.String:
-			if !s.WeakDecoding {
+			if !s.WeakDecoding() {
 				return fmt.Errorf("decoded value %d incompatible with %v", uintVal, k)
 			}
 			v.SetString(strconv.FormatUint(uintVal, 10))
@@ -349,12 +349,4 @@ func (s *VarIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 
 	return nil
-}
-
-func (s *VarIntSchema) Nullable() bool {
-	return s.SchemaOptions.Nullable
-}
-
-func (s *VarIntSchema) SetNullable(n bool) {
-	s.SchemaOptions.Nullable = n
 }

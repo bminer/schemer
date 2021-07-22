@@ -30,7 +30,7 @@ func (s *FixedObjectSchema) GoType() reflect.Type {
 
 	retval := reflect.StructOf(fields)
 
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		retval = reflect.PtrTo(retval)
 	}
 
@@ -40,7 +40,7 @@ func (s *FixedObjectSchema) GoType() reflect.Type {
 func (s *FixedObjectSchema) MarshalJSON() ([]byte, error) {
 	tmpMap := make(map[string]interface{}, 4)
 	tmpMap["type"] = "object"
-	tmpMap["nullable"] = s.SchemaOptions.Nullable
+	tmpMap["nullable"] = s.Nullable()
 
 	var fieldMap []map[string]interface{}
 
@@ -70,7 +70,7 @@ func (s *FixedObjectSchema) MarshalSchemer() []byte {
 	var schemaBytes []byte = []byte{FixedObjectSchemaBinaryFormat}
 
 	// The most signifiant bit indicates whether or not the type is nullable
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		schemaBytes[0] |= 0x80
 	}
 
@@ -234,12 +234,4 @@ func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		}
 	}
 	return nil
-}
-
-func (s *FixedObjectSchema) Nullable() bool {
-	return s.SchemaOptions.Nullable
-}
-
-func (s *FixedObjectSchema) SetNullable(n bool) {
-	s.SchemaOptions.Nullable = n
 }

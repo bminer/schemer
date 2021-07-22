@@ -11,7 +11,7 @@ import (
 // when weakdecoding is enabled
 func TestFloatingPointSchema1(t *testing.T) {
 
-	floatingPointSchema := FloatSchema{Bits: 32, SchemaOptions: SchemaOptions{WeakDecoding: true}}
+	floatingPointSchema := FloatSchema{Bits: 32, SchemaOptions: SchemaOptions{weakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -97,7 +97,7 @@ func TestFloatingPointSchema1(t *testing.T) {
 // when weakdecoding is disabled
 func TestFloatingPointSchema2(t *testing.T) {
 
-	floatingPointSchema := FloatSchema{Bits: 32, SchemaOptions: SchemaOptions{WeakDecoding: false}}
+	floatingPointSchema := FloatSchema{Bits: 32, SchemaOptions: SchemaOptions{weakDecoding: false}}
 
 	var buf bytes.Buffer
 	var err error
@@ -128,7 +128,7 @@ func TestFloatingPointSchema2(t *testing.T) {
 // even if weakdecoding is false
 func TestFloatingPointSchema3(t *testing.T) {
 
-	floatingPointSchema := FloatSchema{Bits: 32, SchemaOptions: SchemaOptions{WeakDecoding: false}}
+	floatingPointSchema := FloatSchema{Bits: 32, SchemaOptions: SchemaOptions{weakDecoding: false}}
 
 	var buf bytes.Buffer
 	var err error
@@ -164,7 +164,7 @@ func TestFloatingPointSchema3(t *testing.T) {
 func TestFloatingPointSchema4(t *testing.T) {
 
 	// setup an invalid schema
-	floatingPointSchema := FloatSchema{Bits: 8, SchemaOptions: SchemaOptions{WeakDecoding: false}}
+	floatingPointSchema := FloatSchema{Bits: 8, SchemaOptions: SchemaOptions{weakDecoding: false}}
 
 	var buf bytes.Buffer
 	var err error
@@ -183,7 +183,7 @@ func TestFloatingPointSchema4(t *testing.T) {
 // overflow
 func TestFloatingPointSchema5(t *testing.T) {
 
-	floatingPointSchema := FloatSchema{Bits: 32, SchemaOptions: SchemaOptions{WeakDecoding: false}}
+	floatingPointSchema := FloatSchema{Bits: 32, SchemaOptions: SchemaOptions{weakDecoding: false}}
 
 	var buf bytes.Buffer
 	var err error
@@ -218,7 +218,7 @@ func TestFloatingPointSchema5(t *testing.T) {
 // when weakdecoding is enabled.
 func TestFloatingPointSchema6(t *testing.T) {
 
-	floatingPointSchema := FloatSchema{Bits: 64, SchemaOptions: SchemaOptions{WeakDecoding: true}}
+	floatingPointSchema := FloatSchema{Bits: 64, SchemaOptions: SchemaOptions{weakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -304,7 +304,7 @@ func TestFloatingPointSchema6(t *testing.T) {
 // when weakdecoding is disabled
 func TestFloatingPointSchema7(t *testing.T) {
 
-	floatingPointSchema := FloatSchema{Bits: 64, SchemaOptions: SchemaOptions{WeakDecoding: false}}
+	floatingPointSchema := FloatSchema{Bits: 64, SchemaOptions: SchemaOptions{weakDecoding: false}}
 
 	var buf bytes.Buffer
 	var err error
@@ -335,7 +335,7 @@ func TestFloatingPointSchema7(t *testing.T) {
 // even if weakdecoding is false
 func TestFloatingPointSchema8(t *testing.T) {
 
-	floatingPointSchema := FloatSchema{Bits: 64, SchemaOptions: SchemaOptions{WeakDecoding: false}}
+	floatingPointSchema := FloatSchema{Bits: 64, SchemaOptions: SchemaOptions{weakDecoding: false}}
 
 	var buf bytes.Buffer
 	var err error
@@ -371,7 +371,7 @@ func TestFloatingPointSchema8(t *testing.T) {
 func TestFloatingPointScheme9(t *testing.T) {
 
 	// setup an invalid schema
-	floatingPointSchema := FloatSchema{Bits: 8, SchemaOptions: SchemaOptions{WeakDecoding: false}}
+	floatingPointSchema := FloatSchema{Bits: 8, SchemaOptions: SchemaOptions{weakDecoding: false}}
 
 	var buf bytes.Buffer
 	var err error
@@ -392,7 +392,7 @@ func TestFloatingPointSchema10(t *testing.T) {
 
 	/*
 
-		floatingPointSchema := FloatSchema{Bits: 64, WeakDecoding: false}
+		floatingPointSchema := FloatSchema{Bits: 64, weakDecoding: false}
 
 		var buf bytes.Buffer
 		var err error
@@ -423,7 +423,7 @@ func TestFloatingPointSchema10(t *testing.T) {
 func TestFloatingPointSchema13(t *testing.T) {
 
 	// setup an example schema
-	floatingPointSchema := FloatSchema{Bits: 32, SchemaOptions: SchemaOptions{WeakDecoding: false, Nullable: false}}
+	floatingPointSchema := FloatSchema{Bits: 32, SchemaOptions: SchemaOptions{nullable: false, weakDecoding: false}}
 
 	// encode it
 	b := floatingPointSchema.MarshalSchemer()
@@ -439,7 +439,7 @@ func TestFloatingPointSchema13(t *testing.T) {
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
 	if DecodedFloatSchema.Bits != floatingPointSchema.Bits ||
-		DecodedFloatSchema.SchemaOptions.Nullable != floatingPointSchema.Nullable() {
+		DecodedFloatSchema.Nullable() != floatingPointSchema.Nullable() {
 
 		t.Error("unexpected values when decoding binary FloatSchema")
 	}
@@ -450,7 +450,7 @@ func TestFloatingPointSchema14(t *testing.T) {
 
 	fmt.Println("decode nil float")
 
-	floatingPointSchema := FloatSchema{Bits: 64, SchemaOptions: SchemaOptions{Nullable: true}}
+	floatingPointSchema := FloatSchema{Bits: 64, SchemaOptions: SchemaOptions{nullable: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -488,7 +488,7 @@ func TestFloatingPointSchema14(t *testing.T) {
 func TestFloatingPointSchema15(t *testing.T) {
 
 	// setup an example schema
-	floatingPointSchema := FloatSchema{Bits: 32, SchemaOptions: SchemaOptions{WeakDecoding: true, Nullable: true}}
+	floatingPointSchema := FloatSchema{Bits: 32, SchemaOptions: SchemaOptions{nullable: true, weakDecoding: true}}
 
 	// make sure we can successfully decode it
 	//var DecodedFloatSchema FloatSchema

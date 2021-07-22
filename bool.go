@@ -16,29 +16,27 @@ func (s *BoolSchema) GoType() reflect.Type {
 	var b bool
 	retval := reflect.TypeOf(b)
 
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		retval = reflect.PtrTo(retval)
 	}
 	return retval
 }
 
 func (s *BoolSchema) MarshalJSON() ([]byte, error) {
-
-	tmpMap := make(map[string]interface{}, 2)
-	tmpMap["type"] = "bool"
-	tmpMap["nullable"] = s.SchemaOptions.Nullable
-
-	return json.Marshal(tmpMap)
+	return json.Marshal(map[string]interface{}{
+		"type":     "bool",
+		"nullable": s.Nullable(),
+	})
 }
 
 // Bytes encodes the schema in a portable binary format
 func (s *BoolSchema) MarshalSchemer() []byte {
-
 	// bool schemas are 1 byte long
 	var schema []byte = []byte{BoolSchemaBinaryFormat}
 
 	// The most signifiant bit indicates whether or not the type is nullable
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
+		// TODO: 0x80 should be a named bitmask constant
 		schema[0] |= 0x80
 	}
 
@@ -147,7 +145,7 @@ func (s *BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	case reflect.Int32:
 		fallthrough
 	case reflect.Int64:
-		if !s.WeakDecoding {
+		if !s.WeakDecoding() {
 			return fmt.Errorf("weak decoding not enabled; cannot decode to int type")
 		}
 		if decodedBool {
@@ -165,7 +163,7 @@ func (s *BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	case reflect.Uint32:
 		fallthrough
 	case reflect.Uint64:
-		if !s.WeakDecoding {
+		if !s.WeakDecoding() {
 			return fmt.Errorf("weak decoding not enabled; cannot decode to uint type")
 		}
 		if decodedBool {
@@ -178,7 +176,7 @@ func (s *BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		v.SetBool(decodedBool)
 
 	case reflect.String:
-		if !s.WeakDecoding {
+		if !s.WeakDecoding() {
 			return fmt.Errorf("weak decoding not enabled; cannot decode to string")
 		}
 		if decodedBool {
@@ -192,12 +190,4 @@ func (s *BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 
 	return nil
-}
-
-func (s *BoolSchema) Nullable() bool {
-	return s.SchemaOptions.Nullable
-}
-
-func (s *BoolSchema) SetNullable(n bool) {
-	s.SchemaOptions.Nullable = n
 }

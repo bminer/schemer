@@ -23,7 +23,7 @@ const (
 func TestDecodeEnum1(t *testing.T) {
 
 	// setup an example schema
-	enumSchema := EnumSchema{SchemaOptions: SchemaOptions{Nullable: false}}
+	enumSchema := EnumSchema{SchemaOptions: SchemaOptions{nullable: false}}
 
 	// encode it
 	b := enumSchema.MarshalSchemer()
@@ -39,7 +39,7 @@ func TestDecodeEnum1(t *testing.T) {
 
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
-	if decodedEnumSchema.SchemaOptions.Nullable != enumSchema.SchemaOptions.Nullable {
+	if decodedEnumSchema.Nullable() != enumSchema.Nullable() {
 		t.Error("unexpected values when decoding binary EnumSchema")
 	}
 
@@ -48,7 +48,7 @@ func TestDecodeEnum1(t *testing.T) {
 // TestDecodeEnum2 just tests the base case of decoding an enum to another enum
 func TestDecodeEnum2(t *testing.T) {
 
-	enumSchema := EnumSchema{SchemaOptions: SchemaOptions{Nullable: false, WeakDecoding: false}}
+	enumSchema := EnumSchema{SchemaOptions: SchemaOptions{nullable: false, weakDecoding: false}}
 
 	// we have to manually fill in the writer's schema
 	enumSchema.Values = make(map[int]string)
@@ -91,7 +91,7 @@ func TestDecodeEnum3(t *testing.T) {
 
 	fmt.Println("decode nil enum")
 
-	enumSchema := EnumSchema{SchemaOptions: SchemaOptions{Nullable: true, WeakDecoding: false}}
+	enumSchema := EnumSchema{SchemaOptions: SchemaOptions{nullable: true, weakDecoding: false}}
 
 	var buf bytes.Buffer
 	var err error
@@ -129,7 +129,7 @@ func TestDecodeEnum4(t *testing.T) {
 
 	fmt.Println("decode enum to string")
 
-	enumSchema := EnumSchema{SchemaOptions: SchemaOptions{Nullable: true, WeakDecoding: true}}
+	enumSchema := EnumSchema{SchemaOptions: SchemaOptions{nullable: true, weakDecoding: true}}
 
 	// we have to manually fill in the writer's schema
 
@@ -176,7 +176,7 @@ func TestDecodeEnum5(t *testing.T) {
 
 	fmt.Println("decode enum to string")
 
-	enumSchema := EnumSchema{SchemaOptions: SchemaOptions{Nullable: true, WeakDecoding: true}}
+	enumSchema := EnumSchema{SchemaOptions: SchemaOptions{nullable: true, weakDecoding: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -210,7 +210,7 @@ func TestDecodeEnum5(t *testing.T) {
 // schema will throw an errow
 func TestDecodeEnum6(t *testing.T) {
 
-	enumSchema := EnumSchema{SchemaOptions: SchemaOptions{Nullable: false, WeakDecoding: false}}
+	enumSchema := EnumSchema{SchemaOptions: SchemaOptions{nullable: false, weakDecoding: false}}
 
 	// we have to manually fill in the writer's schema
 	enumSchema.Values = make(map[int]string)
@@ -246,7 +246,7 @@ func TestDecodeEnum6(t *testing.T) {
 
 func TestEnumWriter(t *testing.T) {
 
-	enumSchema := EnumSchema{SchemaOptions: SchemaOptions{Nullable: false, WeakDecoding: false}}
+	enumSchema := EnumSchema{SchemaOptions: SchemaOptions{nullable: false, weakDecoding: false}}
 
 	// we have to manually fill in the writer's schema
 	enumSchema.Values = make(map[int]string)

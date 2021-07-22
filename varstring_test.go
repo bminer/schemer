@@ -13,7 +13,7 @@ func TestVarString1(t *testing.T) {
 	fmt.Println("Testing decoding var length string values")
 
 	// setup an example schema
-	schema := VarLenStringSchema{SchemaOptions{Nullable: true}}
+	schema := VarLenStringSchema{SchemaOptions{nullable: true}}
 
 	// encode it
 	b := schema.MarshalSchemer()
@@ -25,7 +25,7 @@ func TestVarString1(t *testing.T) {
 	}
 
 	decodedStringSchema := tmp.(*VarLenStringSchema)
-	if schema.SchemaOptions.Nullable != decodedStringSchema.Nullable() {
+	if schema.Nullable() != decodedStringSchema.Nullable() {
 
 		// nothing else to test here...
 
@@ -36,7 +36,7 @@ func TestVarString1(t *testing.T) {
 
 func TestVarString2(t *testing.T) {
 
-	varLenStringSchema := VarLenStringSchema{SchemaOptions: SchemaOptions{Nullable: false}}
+	varLenStringSchema := VarLenStringSchema{SchemaOptions: SchemaOptions{nullable: false}}
 
 	var buf bytes.Buffer
 	var err error
@@ -69,7 +69,7 @@ func TestVarString2(t *testing.T) {
 
 func TestVarFixedString3(t *testing.T) {
 
-	varLenStringSchema := VarLenStringSchema{SchemaOptions: SchemaOptions{Nullable: true}}
+	varLenStringSchema := VarLenStringSchema{SchemaOptions: SchemaOptions{nullable: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -105,7 +105,7 @@ func TestVarFixedString3(t *testing.T) {
 
 func TestVarFixedString4(t *testing.T) {
 
-	varLenStringSchema := VarLenStringSchema{SchemaOptions: SchemaOptions{Nullable: true}}
+	varLenStringSchema := VarLenStringSchema{SchemaOptions: SchemaOptions{nullable: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -141,7 +141,7 @@ func TestVarFixedString4(t *testing.T) {
 
 func TestVarFixedString5(t *testing.T) {
 
-	varLenStringSchema := VarLenStringSchema{SchemaOptions: SchemaOptions{Nullable: true}}
+	varLenStringSchema := VarLenStringSchema{SchemaOptions: SchemaOptions{nullable: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -177,7 +177,7 @@ func TestVarFixedString5(t *testing.T) {
 
 func TestVarFixedString6(t *testing.T) {
 
-	varLenStringSchema := VarLenStringSchema{SchemaOptions: SchemaOptions{Nullable: true}}
+	varLenStringSchema := VarLenStringSchema{SchemaOptions: SchemaOptions{nullable: true}}
 
 	var buf bytes.Buffer
 	var err error

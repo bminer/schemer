@@ -26,7 +26,7 @@ func (s *FloatSchema) GoType() reflect.Type {
 		retval = reflect.TypeOf(t)
 	}
 
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		retval = reflect.PtrTo(retval)
 	}
 
@@ -45,7 +45,7 @@ func (s *FloatSchema) MarshalJSON() ([]byte, error) {
 	tmpMap := make(map[string]interface{}, 3)
 	tmpMap["type"] = "float"
 	tmpMap["bits"] = s.Bits
-	tmpMap["nullable"] = s.SchemaOptions.Nullable
+	tmpMap["nullable"] = s.Nullable()
 
 	return json.Marshal(tmpMap)
 }
@@ -57,7 +57,7 @@ func (s *FloatSchema) MarshalSchemer() []byte {
 	var schema []byte = []byte{FloatBinarySchemaFormat}
 
 	// The most signifiant bit indicates whether or not the type is nullable
-	if s.SchemaOptions.Nullable {
+	if s.Nullable() {
 		schema[0] |= 0x80
 	}
 
@@ -274,19 +274,19 @@ func (s *FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		}
 
 	case reflect.Complex64:
-		if !s.WeakDecoding {
+		if !s.WeakDecoding() {
 			return fmt.Errorf("weak decoding not enabled; cannot decode float to Complex64")
 		}
 		v.SetComplex(complex(decodedFloat64, 0))
 
 	case reflect.Complex128:
-		if !s.WeakDecoding {
+		if !s.WeakDecoding() {
 			return fmt.Errorf("weak decoding not enabled; cannot decode float to Complex128")
 		}
 		v.SetComplex(complex(decodedFloat64, 0))
 
 	case reflect.String:
-		if !s.WeakDecoding {
+		if !s.WeakDecoding() {
 			return fmt.Errorf("weak decoding not enabled; cannot decode to string")
 		}
 		v.SetString(strconv.FormatFloat(decodedFloat64, 'f', -1, 64))
@@ -296,12 +296,4 @@ func (s *FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 
 	return nil
-}
-
-func (s *FloatSchema) Nullable() bool {
-	return s.SchemaOptions.Nullable
-}
-
-func (s *FloatSchema) SetNullable(n bool) {
-	s.SchemaOptions.Nullable = n
 }
