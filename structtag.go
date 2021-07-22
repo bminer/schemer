@@ -1,122 +1,90 @@
 package schemer
 
 import (
-	"fmt"
+	"regexp"
 	"strings"
 )
 
-// TagOptions represents information that can be read from struct field tags
-type TagOptions struct {
+// StructTagName is the Go struct tag name used by schemer
+const StructTagName string = "schemer"
+
+// StructTag represents information that can be parsed from a schemer struct tag
+// TODO: Add documentation for each below
+type StructTag struct {
 	FieldAliases    []string
 	FieldAliasesSet bool
-
 	Nullable        bool
 	NullableSet     bool
 	WeakDecoding    bool
 	WeakDecodingSet bool
 }
 
-// TODO: New signature
-// func ParseStructTag(tagStr string) (TagOptions, error) {
-// }
+const tagAlias = `[A-Za-z0-9_]+`
+const tagAliases = `\[(` + tagAlias + `(?:,` + tagAlias + `)*)\]`
+const tagOpt = `(?:weak|null)`
 
-// ParseStructTag tags a tagname as a string, parses it, and populates TagOptions
+// ^(\-|([A-Za-z0-9_]+)|\[([A-Za-z0-9_]+(?:,[A-Za-z0-9_]+)*)\])?(,\!?(?:weak|null))*$
+// Note: non-capturing groups use regex syntax (?:   ...   )
+// Group 1 = Alias / Aliases
+// Group 2 = Single alias
+// Group 3 = Multiple aliases (comma-delimited)
+// Group 4 = Options (comma-delimited; prefixed with a comma)
+var structTagRegex *regexp.Regexp = regexp.MustCompile(
+	`^(\-|(` + tagAlias + `)|` + tagAliases + `)?(,\!?` + tagOpt + `)*$`,
+)
+
+// ParseStructTag parses a struct tag string and returns a decoded StructTag
 // the format of the tag must be:
-// tag := (alias)?("," option)*
-// alias := identifier
-//			"["identifier(","identifier)*"]"
-//	option := "weak", "null", "not null"
-//func (s *TagOptions) ParseStructTag(tagStr string) error {
+// tag := alias? ("," option)*
+// alias := "-" |
+//          identifier |
+//          "[" identifier ("," identifier)* "]"
+// option := "!" ? ( "weak" | "null" )
+// If the
+func ParseStructTag(s string) (tag StructTag) {
+	// See `structTagRegex` documentation
+	match := structTagRegex.FindStringSubmatch(s)
+	if match == nil || len(match) != 5 {
+		return
+	}
+	singleAlias, aliasesStr, optsStr := match[2], match[3], match[4]
 
-func ParseStructTag(tagStr string) (TagOptions, error) {
-
-	to := TagOptions{}
-
-	defer func() {
-		if err := recover(); err != nil {
-			fmt.Println("Error parsing struct tag:", err)
-		}
-	}()
-
-	tagStr = strings.Trim(tagStr, " ")
-	if len([]rune(tagStr)) == 0 {
-		return to, nil
+	// Check to see if we are skipping this field
+	if match[1] == "-" {
+		tag.FieldAliasesSet = true
+		return
 	}
 
-	// special case meaning to skip this field
-	if tagStr == "-" {
-		to.FieldAliasesSet = true
-		return to, nil
+	// Update aliases
+	if singleAlias != "" {
+		tag.FieldAliases = []string{singleAlias}
+		tag.FieldAliasesSet = true
+	} else if aliasesStr != "" {
+		tag.FieldAliases = strings.Split(aliasesStr, ",")
+		tag.FieldAliasesSet = true
 	}
 
-	// if first part has a "]", then extract everything up to there
-	// otherwise, extract everything up to the first comma
+	if optsStr != "" {
+		// Parse `optsStr` by removing leading comma and splitting
+		opts := strings.Split(optsStr[1:], ",")
 
-	var i int
-	var aliasStr string
-	var optionStr string
-
-	// if the alias portion of the string contains [], then we want to grab everything up
-	// to the ] and call that our aliasStr
-	if strings.Contains(tagStr, "]") {
-
-		i = strings.Index(tagStr, "]")
-		aliasStr = tagStr[0 : i+1]
-		tagStr = tagStr[i+1:] // eat off what we just processed
-		tagStr = strings.Trim(tagStr, " ")
-
-		if len([]rune(tagStr)) > 0 {
-
-			if !strings.Contains(tagStr, ",") {
-				return to, fmt.Errorf("missing comma after field alias")
-			} else {
-				// our options are just whatever is left after the comma
-				optionStr = tagStr[strings.Index(tagStr, ",")+1:]
-				optionStr = strings.Trim(optionStr, " ")
+		// Update options
+		for _, opt := range opts {
+			switch opt {
+			case "null":
+				tag.Nullable = true
+				tag.NullableSet = true
+			case "!null":
+				tag.Nullable = false
+				tag.NullableSet = true
+			case "weak":
+				tag.WeakDecoding = true
+				tag.WeakDecodingSet = true
+			case "!weak":
+				tag.WeakDecoding = false
+				tag.WeakDecodingSet = true
 			}
-
-		} else {
-			optionStr = ""
 		}
-	} else {
-		i = strings.Index(tagStr, ",")
-
-		if i > 0 {
-
-			// alias string is everything up to the comma
-			aliasStr = tagStr[0:i]
-			aliasStr = strings.Trim(aliasStr, " ")
-			tagStr = tagStr[i+1:] // eat off what we just processed
-			tagStr = strings.Trim(tagStr, " ")
-
-			if len([]rune(tagStr)) > 0 {
-				// options are everything after the comma
-				optionStr = tagStr[strings.Index(tagStr, ",")+1:]
-				optionStr = strings.Trim(optionStr, " ")
-			} else {
-				optionStr = ""
-			}
-		} else {
-			aliasStr = strings.Trim(tagStr, " ")
-			optionStr = ""
-		}
-
 	}
-
-	// parse aliasStr, and put each field into .FieldAliases
-	x := strings.Replace(aliasStr, "[", "", -1)
-	y := strings.Replace(x, "]", "", -1)
-	to.FieldAliases = strings.Split(y, ",")
-	for i, f := range to.FieldAliases {
-		to.FieldAliases[i] = strings.Trim(f, " ")
-	}
-
-	// parse options, and string and put each option into correct field, such as .Nullable
-	to.Nullable = strings.Contains(strings.ToUpper(optionStr), "NUL") &&
-		!strings.Contains(strings.ToUpper(optionStr), "!NUL")
-
-	to.WeakDecoding = strings.Contains(strings.ToUpper(optionStr), "WEAK")
-
-	return to, nil
-
+	return
 }
