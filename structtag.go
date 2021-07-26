@@ -9,14 +9,13 @@ import (
 const StructTagName string = "schemer"
 
 // StructTag represents information that can be parsed from a schemer struct tag
-// TODO: Add documentation for each below
 type StructTag struct {
-	FieldAliases    []string
-	FieldAliasesSet bool
-	Nullable        bool
-	NullableSet     bool
-	WeakDecoding    bool
-	WeakDecodingSet bool
+	FieldAliases    []string // list of names of fields. This comes from the name of the field in the struct, and also struct tags
+	FieldAliasesSet bool     // if true, struct tags are present on this field
+	Nullable        bool     // is this field nullable?
+	NullableSet     bool     // if true, then the null struct tags is present on this field
+	WeakDecoding    bool     // does this field allow weak decoding?
+	WeakDecodingSet bool     // if true, weak decoding was present in the struct tag for this field
 }
 
 const tagAlias = `[A-Za-z0-9_]+`

@@ -8,7 +8,7 @@ import (
 	"reflect"
 )
 
-// TODO: Add documentation
+// SchemaOptions are preset in each schema, and specify if null the value is nullable and if the schema allows weakdecoding
 type BoolSchema struct {
 	SchemaOptions
 }

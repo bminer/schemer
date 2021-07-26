@@ -46,7 +46,7 @@ func (s *FixedObjectSchema) MarshalJSON() ([]byte, error) {
 
 	for i := range s.Fields {
 		fields := make(map[string]interface{})
-		fields["name"] = s.Fields[i].Aliases[0]
+		fields["name"] = s.Fields[i].Aliases 
 
 		b, err := s.Fields[i].Schema.MarshalJSON()
 		if err != nil {

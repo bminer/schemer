@@ -91,9 +91,9 @@ func TestDecodeFixedObject2(t *testing.T) {
 func TestDecodeFixedObject5(t *testing.T) {
 
 	type SourceStruct struct {
-		FName     string //`schemer:"FirstName"`
-		LName     string //`schemer:"LastName"`
-		AgeInLife int    //`schemer:"Age"`
+		FName     string `schemer:"[A,B,C,FirstName]"`
+		LName     string `schemer:"[D,E,F,LastName]"`
+		AgeInLife int    `schemer:"Age"`
 	}
 
 	var structToEncode = SourceStruct{FName: "ben", LName: "pritchard", AgeInLife: 42}
@@ -105,20 +105,35 @@ func TestDecodeFixedObject5(t *testing.T) {
 	err := writerSchema.Encode(&encodedData, structToEncode)
 	if err != nil {
 		t.Error(err)
+		return
+	}
+
+	// write out our schema as JSON
+	binarywriterSchema, err := writerSchema.MarshalJSON()
+	if err != nil {
+		t.Error("cannot create ", err)
+	}
+
+	// recreate the schmer from the JSON
+	readerSchema, err := DecodeJSONSchema(binarywriterSchema)
+	if err != nil {
+		t.Error("cannot create writerSchema from raw JSON data", err)
+		return
 	}
 
 	type DestinationStruct struct {
-		FirstName string `schemer:"FName"`
-		LastName  string `schemer:"LName"`
-		Age       int    `schemer:"AgeInLife"`
+		FirstName string //`schemer:"FName"`
+		LastName  string //`schemer:"LName"`
+		Age       int    //`schemer:"AgeInLife"`
 	}
 
 	var structToDecode = DestinationStruct{}
 	r := bytes.NewReader(encodedData.Bytes())
 
-	err = writerSchema.Decode(r, &structToDecode)
+	err = readerSchema.Decode(r, &structToDecode)
 	if err != nil {
 		t.Error(err)
+		return
 	}
 
 	// and now make sure that the structs match!

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -231,8 +232,11 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 		return nil, err
 	}
 
-	// TODO: Check for error during type assertion to avoid panic
-	schemaType := strings.ToLower(fields["type"].(string))
+	tmpStr, ok := fields["type"].(string)
+	if !ok {
+		return nil, fmt.Errorf("expected element 'type' not present in JSON data")
+	}
+	schemaType := strings.ToLower(tmpStr)
 
 	switch schemaType {
 
@@ -264,7 +268,7 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 			case 64:
 				s.Bits = int(numBits)
 			default:
-				return nil, fmt.Errorf("invalid int bits: %d", int(numBits))
+				return nil, fmt.Errorf("invalid int bit size encountered in JSON data: %d", int(numBits))
 			}
 
 			return s, nil
@@ -281,14 +285,18 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 
 	case "float":
 		s := &FloatSchema{}
+		numBits, ok := fields["bits"].(float64)
 
-		if fields["bits"].(float64) == 64 {
+		if !ok {
+			return nil, fmt.Errorf("bits not present for float type in JSON data")
+		}
+
+		if numBits == 64 {
 			s.Bits = 64
-		} else if fields["bits"].(float64) == 32 {
+		} else if numBits == 32 {
 			s.Bits = 32
 		} else {
-			// TODO: Improve error message
-			return nil, fmt.Errorf("invalid floating point bit size encountered in JSON data")
+			return nil, fmt.Errorf("invalid float bit size encountered in JSON data: %d", int(numBits))
 		}
 
 		b, _ := fields["nullable"].(bool)
@@ -298,14 +306,18 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 
 	case "complex":
 		s := &ComplexSchema{}
+		numBits, ok := fields["bits"].(float64)
 
-		if fields["bits"].(float64) == 128 {
+		if !ok {
+			return nil, fmt.Errorf("bits not present for complex type in JSON data")
+		}
+
+		if numBits == 128 {
 			s.Bits = 128
-		} else if fields["bits"].(float64) == 64 {
+		} else if numBits == 64 {
 			s.Bits = 64
 		} else {
-			// TODO: Improve error message
-			return nil, fmt.Errorf("invalid floating point bit size encountered in JSON data")
+			return nil, fmt.Errorf("invalid complex bit size encountered in JSON data: %d", int(numBits))
 		}
 		b, _ := fields["nullable"].(bool)
 		s.SchemaOptions.nullable = b
@@ -321,7 +333,12 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 
 			b, _ := fields["nullable"].(bool)
 			s.SchemaOptions.nullable = b
-			// TODO: Validate `tmpLen` (i.e. >= 0, no decimal part)
+
+			// validate that `tmpLen` is greater than 0 and is an integer
+			if (tmpLen < 0) || (tmpLen-float64(int(tmpLen)) != 0) {
+				return nil, fmt.Errorf("invalid string length encountered in JSON data: %d", int(tmpLen))
+			}
+
 			s.Length = int(tmpLen)
 
 			return s, nil
@@ -337,13 +354,23 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 		s := &EnumSchema{}
 		b, _ := fields["nullable"].(bool)
 		s.SchemaOptions.nullable = b
+		tmp, ok := fields["values"]
+		if ok {
 
-		// TODO: Parse enum values
+			s.Values = make(map[int]string)
+			for key, value := range tmp.(map[string]interface{}) {
+				x, err := strconv.Atoi(key)
+				if err == nil {
+					s.Values[x] = value.(string)
+				}
+			}
+
+		}
 
 		return s, nil
 
 	case "array":
-		l, ok := fields["length"].(float64)
+		tmpLen, ok := fields["length"].(float64)
 
 		// if length is present, then we are dealing with a fixed length array
 		if ok {
@@ -351,8 +378,13 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 
 			b, _ := fields["nullable"].(bool)
 			s.SchemaOptions.nullable = b
-			// TODO: Validate length
-			s.Length = int(l)
+
+			// validate that `tmpLen` is greater than 0 and is an integer
+			if (tmpLen < 0) || (tmpLen-float64(int(tmpLen)) != 0) {
+				return nil, fmt.Errorf("invalid string length encountered in JSON data: %d", int(tmpLen))
+			}
+
+			s.Length = int(tmpLen)
 
 			// process the array element
 			tmp, err := json.Marshal(fields["element"])
@@ -403,14 +435,20 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 
 				// fill in the name of this field...
 				// (the json encoded data only includes the name, not a list of aliases)
-				// TODO: Validate type assertion to avoid panic; throw error instead
-				tmpMap := objectFields[i].(map[string]interface{})
+				tmpMap, ok := objectFields[i].(map[string]interface{})
 
-				// TODO: name could either be `string` or `[]string`
-				// TODO: I'd recommend using a type switch here
-				name := tmpMap["name"].(string)
+				if !ok {
+					return nil, fmt.Errorf("invalid field definition encountered in JSON data")
+				}
 
-				of.Aliases = []string{name}
+				name, ok := tmpMap["name"]
+				if !ok {
+					return nil, fmt.Errorf("missing name field encountered in JSON data")
+				}
+
+				for j := 0; j < len(name.([]interface{})); j++ {
+					of.Aliases = append(of.Aliases, name.([]interface{})[j].(string))
+				}
 
 				tmp, err := json.Marshal(objectFields[i])
 				if err != nil {
