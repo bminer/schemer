@@ -79,19 +79,6 @@ func SchemaOf(i interface{}) Schema {
 	return SchemaOfType(t)
 }
 
-// loop through all registered GO types
-func checkForRegisteredType(t reflect.Type) Schema {
-
-	s := &dateSchema{}
-
-	if t.Name() == "Time" && t.PkgPath() == "time" {
-		return s
-	}
-
-	return nil
-
-}
-
 // SchemaOfType returns a Schema for the specified Go type
 func SchemaOfType(t reflect.Type) Schema {
 	nullable := false
@@ -104,9 +91,10 @@ func SchemaOfType(t reflect.Type) Schema {
 		nullable = true
 	}
 
-	customType := checkForRegisteredType(t)
-	if customType != nil {
-		return customType
+	for _, s := range RegisteredSchemas {
+		if s.IsRegisteredType(t) != nil {
+			return s.(Schema)
+		}
 	}
 
 	k := t.Kind()
@@ -910,5 +898,5 @@ func PreDecode(s Schema, r io.Reader, v reflect.Value) (reflect.Value, error) {
 // initialization function for the Schemer Library
 func init() {
 	RegisterCustomSchema(&dateSchema{})
-	//RegisterCustomSchema(&ipSchema{})
+	RegisterCustomSchema(&ipv4Schema{})
 }

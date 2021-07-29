@@ -1,8 +1,6 @@
 package schemer
 
-import (
-	"fmt"
-)
+import "reflect"
 
 type CustomSchema interface {
 
@@ -17,13 +15,13 @@ type CustomSchema interface {
 
 	// returns a schema unmarshalled from the passed in binary data
 	UnMarshalSchemer(buf []byte, byteIndex *int) (Schema, error)
+
+	IsRegisteredType(t reflect.Type) Schema
 }
 
 var RegisteredSchemas []CustomSchema
 
 // must have some sort of global
 func RegisterCustomSchema(s CustomSchema) {
-	fmt.Printf("%s schema registered!", s.Name())
 	RegisteredSchemas = append(RegisteredSchemas, s)
-
 }

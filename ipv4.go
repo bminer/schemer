@@ -4,27 +4,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"reflect"
-	"time"
 )
 
-const customDateUUID byte = 01 // each custom type has a unique id
+const ipV4UUID byte = 02 // each custom type has a unique id
 
-type dateSchema struct {
+type ipv4Schema struct {
 	SchemaOptions
 }
 
 //--------------------------------------
 
-func (s *dateSchema) Name() string {
-	return "date"
+func (s *ipv4Schema) Name() string {
+	return "ipv4"
 }
 
-func (s *dateSchema) UUID() byte {
-	return customDateUUID
+func (s *ipv4Schema) UUID() byte {
+	return ipV4UUID
 }
 
-func (s *dateSchema) UnMarshalJSON(buf []byte) (Schema, error) {
+func (s *ipv4Schema) UnMarshalJSON(buf []byte) (Schema, error) {
 	fields := make(map[string]interface{})
 
 	err := json.Unmarshal(buf, &fields)
@@ -34,21 +34,21 @@ func (s *dateSchema) UnMarshalJSON(buf []byte) (Schema, error) {
 
 	b, ok := fields["nullable"].(bool)
 	if !ok {
-		return nil, fmt.Errorf("missing nullable field in JSON data while decoding dateSchema")
+		return nil, fmt.Errorf("missing nullable field in JSON data while decoding ipv4Schema")
 	}
 
 	s.SchemaOptions.nullable = b
 	return s, nil
 }
 
-func (s *dateSchema) UnMarshalSchemer(buf []byte, byteIndex *int) (Schema, error) {
+func (s *ipv4Schema) UnMarshalSchemer(buf []byte, byteIndex *int) (Schema, error) {
 
 	s.SchemaOptions.nullable = (buf[*byteIndex]&SchemaNullBit == SchemaNullBit)
 
 	// advance to the UUID
 	*byteIndex++
 	if buf[*byteIndex] != s.UUID() {
-		return nil, fmt.Errorf("invalid call to dateSchema(), invalid UUID encountered in binary schema")
+		return nil, fmt.Errorf("invalid call to ipSchema(), invalid UUID encountered in binary schema")
 	}
 
 	// advance past the UUID
@@ -57,10 +57,9 @@ func (s *dateSchema) UnMarshalSchemer(buf []byte, byteIndex *int) (Schema, error
 	return s, nil
 }
 
-// loop through all registered GO types
-func (s *dateSchema) IsRegisteredType(t reflect.Type) Schema {
+func (s *ipv4Schema) IsRegisteredType(t reflect.Type) Schema {
 
-	if t.Name() == "Time" && t.PkgPath() == "time" {
+	if t.Name() == "IP" && t.PkgPath() == "net" {
 		return s
 	}
 
@@ -70,8 +69,8 @@ func (s *dateSchema) IsRegisteredType(t reflect.Type) Schema {
 
 //--------------------------------------
 
-func (s *dateSchema) GoType() reflect.Type {
-	var t time.Time
+func (s *ipv4Schema) GoType() reflect.Type {
+	var t net.IP
 	retval := reflect.TypeOf(t)
 
 	if s.Nullable() {
@@ -80,17 +79,17 @@ func (s *dateSchema) GoType() reflect.Type {
 	return retval
 }
 
-func (s *dateSchema) MarshalJSON() ([]byte, error) {
+func (s *ipv4Schema) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal(map[string]interface{}{
 		"type":       "custom",
-		"customtype": "date",
+		"customtype": "ipv4",
 		"nullable":   s.Nullable(),
 	})
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *dateSchema) MarshalSchemer() []byte {
+func (s *ipv4Schema) MarshalSchemer() []byte {
 
 	const schemerDateSize byte = 1 + 1 // 1 byte for the schema + 1 bytes for the UUID
 
@@ -104,18 +103,18 @@ func (s *dateSchema) MarshalSchemer() []byte {
 		schema[0] |= 0x80
 	}
 
-	schema[1] = customDateUUID
+	schema[1] = ipV4UUID
 
 	return schema
 }
 
 // Encode uses the schema to write the encoded value of i to the output stream
-func (s *dateSchema) Encode(w io.Writer, i interface{}) error {
+func (s *ipv4Schema) Encode(w io.Writer, i interface{}) error {
 	return s.EncodeValue(w, reflect.ValueOf(i))
 }
 
 // EncodeValue uses the schema to write the encoded value of he output stream
-func (s *dateSchema) EncodeValue(w io.Writer, v reflect.Value) error {
+func (s *ipv4Schema) EncodeValue(w io.Writer, v reflect.Value) error {
 
 	ok, err := PreEncode(s, w, &v)
 	if err != nil {
@@ -128,18 +127,19 @@ func (s *dateSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 	t := v.Type()
 	k := t.Kind()
 
-	if k != reflect.Struct || t.Name() != "Time" || t.PkgPath() != "time" {
-		return fmt.Errorf("dateSchema only supports encoding time.Time values")
+	if k != reflect.Slice || t.Name() != "IP" || t.PkgPath() != "net" {
+		return fmt.Errorf("ipSchema only supports encoding net.IP values")
 	}
 
-	// call method UnixNano() on v, which is guarenteed to be a time.Time() due to the above check.
-	// The method returns: "The number of nanoseconds elapsed since January 1, 1970 UTC"
-	// because w are calling the method using reflection, we get back a slice of reflect.Values
-	retValSlice := v.MethodByName("UnixNano").Call(nil)
-	milisecondsToEncode := retValSlice[0].Int() / 1000000
+	var bytesToEncode [4]byte
 
-	varIntSchema := SchemaOf(milisecondsToEncode)
-	err = varIntSchema.Encode(w, milisecondsToEncode)
+	bytesToEncode[0] = byte(v.Index(0).Uint())
+	bytesToEncode[1] = byte(v.Index(1).Uint())
+	bytesToEncode[2] = byte(v.Index(2).Uint())
+	bytesToEncode[3] = byte(v.Index(3).Uint())
+
+	fixedArraySchema := SchemaOf(bytesToEncode)
+	err = fixedArraySchema.Encode(w, bytesToEncode)
 
 	if err != nil {
 		return err
@@ -149,7 +149,7 @@ func (s *dateSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in i
-func (s *dateSchema) Decode(r io.Reader, i interface{}) error {
+func (s *ipv4Schema) Decode(r io.Reader, i interface{}) error {
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
 	}
@@ -157,7 +157,7 @@ func (s *dateSchema) Decode(r io.Reader, i interface{}) error {
 }
 
 // DecodeValue uses the schema to read the next encoded valuethe input stream and store it in v
-func (s *dateSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+func (s *ipv4Schema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	v, err := PreDecode(s, r, v)
 	if err != nil {
@@ -184,32 +184,23 @@ func (s *dateSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		return fmt.Errorf("decode destination is not settable")
 	}
 
-	var decodedMilliseconds int64
+	var decodedBytes [4]byte
 
-	varIntSchema := SchemaOf(decodedMilliseconds)
-	err = varIntSchema.Decode(r, &decodedMilliseconds)
+	fixedArraySchema := SchemaOf(decodedBytes)
+	err = fixedArraySchema.Decode(r, &decodedBytes)
 
 	if err != nil {
 		return err
 	}
 
-	nanoSeconds := decodedMilliseconds * 1000000
-
-	if k == reflect.Struct && t.Name() == "Time" || t.PkgPath() == "time" {
-		v.Set(reflect.ValueOf(time.Unix(0, nanoSeconds)))
-		return nil
-	}
-
-	// maybe it makes sense to just return the raw nanoseconds if they are trying
-	// to decode to an integer
-	if k == reflect.Int64 {
-		v.SetInt(nanoSeconds)
+	if k == reflect.Slice && t.Name() == "IP" || t.PkgPath() == "net" {
+		v.Set(reflect.ValueOf(net.IPv4(decodedBytes[0], decodedBytes[1], decodedBytes[2], decodedBytes[3])))
 		return nil
 	}
 
 	if s.weakDecoding {
 		if k == reflect.String {
-			v.SetString(time.Unix(0, nanoSeconds).String())
+			v.SetString(string(decodedBytes[0]) + "." + string(decodedBytes[1]) + "." + string(decodedBytes[2]) + "." + string(decodedBytes[3]))
 			return nil
 		}
 	}
