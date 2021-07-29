@@ -26,7 +26,7 @@ func (s *ipv4Schema) UUID() byte {
 	return ipV4SchemaUUID
 }
 
-func (s *ipv4Schema) UnMarshalJSON(buf []byte) (Schema, error) {
+func (s *ipv4Schema) Unmarshaljson(buf []byte) (Schema, error) {
 	fields := make(map[string]interface{})
 
 	err := json.Unmarshal(buf, &fields)
@@ -60,7 +60,7 @@ func (s *ipv4Schema) UnMarshalSchemer(buf []byte, byteIndex *int) (Schema, error
 }
 
 // returns an ipv4Schema if the passed in reflect.type is a net.IP
-func (s *ipv4Schema) RegisteredSchema(t reflect.Type) Schema {
+func (s *ipv4Schema) ForType(t reflect.Type) Schema {
 	if t.Name() == "IP" && t.PkgPath() == "net" {
 		return s
 	}

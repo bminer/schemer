@@ -11,13 +11,13 @@ type CustomSchema interface {
 	UUID() byte
 
 	// returns a schema unmarshalled from the passed in JSON data
-	UnMarshalJSON(buf []byte) (Schema, error)
+	Unmarshaljson(buf []byte) (Schema, error)
 
 	// returns a schema unmarshalled from the passed in binary data
 	UnMarshalSchemer(buf []byte, byteIndex *int) (Schema, error)
 
 	// returns a schema if the passed in reflect.type is handled by this custom schema
-	RegisteredSchema(t reflect.Type) Schema
+	ForType(t reflect.Type) Schema
 }
 
 // global variable representing all registered schemas

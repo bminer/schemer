@@ -92,7 +92,7 @@ func SchemaOfType(t reflect.Type) Schema {
 	}
 
 	for _, s := range RegisteredSchemas() {
-		if s.RegisteredSchema(t) != nil {
+		if s.ForType(t) != nil {
 			return s.(Schema)
 		}
 	}
@@ -258,7 +258,7 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 			}
 
 			if s.Name() == customtype {
-				s, err := s.UnMarshalJSON(buf)
+				s, err := s.Unmarshaljson(buf)
 				if err != nil {
 					return nil, err
 				}

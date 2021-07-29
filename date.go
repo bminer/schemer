@@ -26,7 +26,7 @@ func (s *dateSchema) UUID() byte {
 	return dateSchemaUUID
 }
 
-func (s *dateSchema) UnMarshalJSON(buf []byte) (Schema, error) {
+func (s *dateSchema) Unmarshaljson(buf []byte) (Schema, error) {
 	fields := make(map[string]interface{})
 
 	err := json.Unmarshal(buf, &fields)
@@ -60,7 +60,7 @@ func (s *dateSchema) UnMarshalSchemer(buf []byte, byteIndex *int) (Schema, error
 }
 
 // loop through all registered GO types
-func (s *dateSchema) RegisteredSchema(t reflect.Type) Schema {
+func (s *dateSchema) ForType(t reflect.Type) Schema {
 	if t.Name() == "Time" && t.PkgPath() == "time" {
 		return s
 	}
