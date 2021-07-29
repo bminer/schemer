@@ -26,6 +26,7 @@ const (
 	VarArraySchemaMask      = 0x24
 	FixedObjectSchemaMask   = 0x29 // 0b10 100f 	where f indicates that the object has fixed number of fields
 	VarObjectSchemaMask     = 0x28
+	CustomSchemaMask        = 0x3F // 0b11 1111
 	SchemaNullBit           = 0x80 // The most signifiant bit indicates whether or not the type is nullable
 )
 
@@ -78,6 +79,19 @@ func SchemaOf(i interface{}) Schema {
 	return SchemaOfType(t)
 }
 
+// loop through all registered GO types
+func checkForRegisteredType(t reflect.Type) Schema {
+
+	s := &dateSchema{}
+
+	if t.Name() == "Time" && t.PkgPath() == "time" {
+		return s
+	}
+
+	return nil
+
+}
+
 // SchemaOfType returns a Schema for the specified Go type
 func SchemaOfType(t reflect.Type) Schema {
 	nullable := false
@@ -88,6 +102,11 @@ func SchemaOfType(t reflect.Type) Schema {
 
 		// If we encounter any pointers, then we know this type is nullable
 		nullable = true
+	}
+
+	customType := checkForRegisteredType(t)
+	if customType != nil {
+		return customType
 	}
 
 	k := t.Kind()
@@ -239,6 +258,19 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 	schemaType := strings.ToLower(tmpStr)
 
 	switch schemaType {
+
+	// if we encounter a custom schema, loop through all registered custom schemas
+	// and see if any of them is a match
+	case "custom":
+		for _, s := range RegisteredSchemas {
+			if s.Name() == fields["customtype"].(string) {
+				s, err := s.UnMarshalJSON(buf)
+				if err != nil {
+					return nil, err
+				}
+				return s, nil
+			}
+		}
 
 	case "bool":
 		s := &BoolSchema{}
@@ -519,6 +551,24 @@ func decodeSchema(buf []byte, byteIndex *int) (Schema, error) {
 	)
 
 	var err error
+
+	// if we encounter a custom schema, loop through all registered custom schemas
+	// and see if any of them is a match
+
+	if buf[*byteIndex]&SixBitSchemaMask == CustomSchemaMask {
+		UUID := buf[*byteIndex+1]
+
+		for _, s := range RegisteredSchemas {
+			if s.UUID() == UUID {
+				s, err := s.UnMarshalSchemer(buf, byteIndex)
+				if err != nil {
+					return nil, err
+				}
+				return s, nil
+			}
+		}
+
+	}
 
 	// decode fixed int schema
 	if buf[*byteIndex]&TwoBitSchemaMask == FixedIntSchemaMask {
@@ -855,4 +905,10 @@ func PreDecode(s Schema, r io.Reader, v reflect.Value) (reflect.Value, error) {
 	}
 
 	return v, nil
+}
+
+// initialization function for the Schemer Library
+func init() {
+	RegisterCustomSchema(&dateSchema{})
+	//RegisterCustomSchema(&ipSchema{})
 }
