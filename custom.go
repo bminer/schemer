@@ -4,24 +4,30 @@ import "reflect"
 
 type CustomSchema interface {
 
-	// returns the name of the
+	// returns the name of the schema
 	Name() string
 
 	// returns the UUID of the custom schema
 	UUID() byte
 
-	// returns a schema unmarshalled from the passedin JSON data
+	// returns a schema unmarshalled from the passed in JSON data
 	UnMarshalJSON(buf []byte) (Schema, error)
 
 	// returns a schema unmarshalled from the passed in binary data
 	UnMarshalSchemer(buf []byte, byteIndex *int) (Schema, error)
 
-	IsRegisteredType(t reflect.Type) Schema
+	// returns a schema if the passed in reflect.type is handled by this custom schema
+	RegisteredSchema(t reflect.Type) Schema
 }
 
-var RegisteredSchemas []CustomSchema
+// global variable representing all registered schemas
+var registeredSchemas []CustomSchema
 
-// must have some sort of global
+func RegisteredSchemas() []CustomSchema {
+	return registeredSchemas
+}
+
+// registers a custom schema
 func RegisterCustomSchema(s CustomSchema) {
-	RegisteredSchemas = append(RegisteredSchemas, s)
+	registeredSchemas = append(registeredSchemas, s)
 }

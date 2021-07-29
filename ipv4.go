@@ -8,20 +8,22 @@ import (
 	"reflect"
 )
 
-const ipV4UUID byte = 02 // each custom type has a unique id
+// each custom type has a unique name an a unique UUID
+const ipV4SchemaName string = "ipv4"
+const ipV4SchemaUUID byte = 02
 
 type ipv4Schema struct {
 	SchemaOptions
 }
 
-//--------------------------------------
+// CustomSchema receivers --------------------------------------
 
 func (s *ipv4Schema) Name() string {
-	return "ipv4"
+	return ipV4SchemaName
 }
 
 func (s *ipv4Schema) UUID() byte {
-	return ipV4UUID
+	return ipV4SchemaUUID
 }
 
 func (s *ipv4Schema) UnMarshalJSON(buf []byte) (Schema, error) {
@@ -57,17 +59,16 @@ func (s *ipv4Schema) UnMarshalSchemer(buf []byte, byteIndex *int) (Schema, error
 	return s, nil
 }
 
-func (s *ipv4Schema) IsRegisteredType(t reflect.Type) Schema {
-
+// returns an ipv4Schema if the passed in reflect.type is a net.IP
+func (s *ipv4Schema) RegisteredSchema(t reflect.Type) Schema {
 	if t.Name() == "IP" && t.PkgPath() == "net" {
 		return s
 	}
 
 	return nil
-
 }
 
-//--------------------------------------
+// Schema receivers --------------------------------------
 
 func (s *ipv4Schema) GoType() reflect.Type {
 	var t net.IP
@@ -83,7 +84,7 @@ func (s *ipv4Schema) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal(map[string]interface{}{
 		"type":       "custom",
-		"customtype": "ipv4",
+		"customtype": ipV4SchemaName,
 		"nullable":   s.Nullable(),
 	})
 }
@@ -103,7 +104,7 @@ func (s *ipv4Schema) MarshalSchemer() []byte {
 		schema[0] |= 0x80
 	}
 
-	schema[1] = ipV4UUID
+	schema[1] = ipV4SchemaUUID
 
 	return schema
 }

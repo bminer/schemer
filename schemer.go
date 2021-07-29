@@ -91,8 +91,8 @@ func SchemaOfType(t reflect.Type) Schema {
 		nullable = true
 	}
 
-	for _, s := range RegisteredSchemas {
-		if s.IsRegisteredType(t) != nil {
+	for _, s := range RegisteredSchemas() {
+		if s.RegisteredSchema(t) != nil {
 			return s.(Schema)
 		}
 	}
@@ -250,8 +250,14 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 	// if we encounter a custom schema, loop through all registered custom schemas
 	// and see if any of them is a match
 	case "custom":
-		for _, s := range RegisteredSchemas {
-			if s.Name() == fields["customtype"].(string) {
+		for _, s := range RegisteredSchemas() {
+
+			customtype, ok := fields["customtype"].(string)
+			if !ok {
+				return nil, fmt.Errorf("invalid customtype")
+			}
+
+			if s.Name() == customtype {
 				s, err := s.UnMarshalJSON(buf)
 				if err != nil {
 					return nil, err
@@ -546,7 +552,7 @@ func decodeSchema(buf []byte, byteIndex *int) (Schema, error) {
 	if buf[*byteIndex]&SixBitSchemaMask == CustomSchemaMask {
 		UUID := buf[*byteIndex+1]
 
-		for _, s := range RegisteredSchemas {
+		for _, s := range RegisteredSchemas() {
 			if s.UUID() == UUID {
 				s, err := s.UnMarshalSchemer(buf, byteIndex)
 				if err != nil {

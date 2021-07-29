@@ -8,20 +8,22 @@ import (
 	"time"
 )
 
-const customDateUUID byte = 01 // each custom type has a unique id
+// each custom type has a unique name an a unique UUID
+const dateSchemaName string = "date"
+const dateSchemaUUID byte = 01 // each custom type has a unique id
 
 type dateSchema struct {
 	SchemaOptions
 }
 
-//--------------------------------------
+// CustomSchema receivers --------------------------------------
 
 func (s *dateSchema) Name() string {
-	return "date"
+	return dateSchemaName
 }
 
 func (s *dateSchema) UUID() byte {
-	return customDateUUID
+	return dateSchemaUUID
 }
 
 func (s *dateSchema) UnMarshalJSON(buf []byte) (Schema, error) {
@@ -58,17 +60,14 @@ func (s *dateSchema) UnMarshalSchemer(buf []byte, byteIndex *int) (Schema, error
 }
 
 // loop through all registered GO types
-func (s *dateSchema) IsRegisteredType(t reflect.Type) Schema {
-
+func (s *dateSchema) RegisteredSchema(t reflect.Type) Schema {
 	if t.Name() == "Time" && t.PkgPath() == "time" {
 		return s
 	}
-
 	return nil
-
 }
 
-//--------------------------------------
+// Schema receivers --------------------------------------
 
 func (s *dateSchema) GoType() reflect.Type {
 	var t time.Time
@@ -84,7 +83,7 @@ func (s *dateSchema) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal(map[string]interface{}{
 		"type":       "custom",
-		"customtype": "date",
+		"customtype": dateSchemaName,
 		"nullable":   s.Nullable(),
 	})
 }
@@ -104,7 +103,7 @@ func (s *dateSchema) MarshalSchemer() []byte {
 		schema[0] |= 0x80
 	}
 
-	schema[1] = customDateUUID
+	schema[1] = dateSchemaUUID
 
 	return schema
 }
@@ -215,5 +214,4 @@ func (s *dateSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 
 	return fmt.Errorf("invalid destination")
-
 }
