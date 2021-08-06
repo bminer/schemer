@@ -5,28 +5,57 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strings"
 	"time"
 )
 
 // each custom type has a unique name an a unique UUID
-const dateSchemaName string = "date"
-const dateSchemaUUID byte = 01 // each custom type has a unique id
+const dateSchemaUUID byte = 1 // each custom type has a unique id
 
-type dateSchema struct {
+type DateSchema struct {
 	SchemaOptions
 }
 
-// CustomSchema receivers --------------------------------------
+type dateSchemaGenerator struct{}
 
-func (s *dateSchema) Name() string {
-	return dateSchemaName
+func (sg dateSchemaGenerator) SchemaOfType(t reflect.Type) (Schema, error) {
+	nullable := false
+
+	// Dereference pointer / interface types
+	for k := t.Kind(); k == reflect.Ptr || k == reflect.Interface; k = t.Kind() {
+		t = t.Elem()
+
+		// If we encounter any pointers, then we know this type is nullable
+		nullable = true
+	}
+
+	if t.Name() == "Time" && t.PkgPath() == "time" {
+		s := DateSchema{}
+		s.SetNullable(nullable)
+		return s, nil
+	}
+
+	return nil, nil
 }
 
-func (s *dateSchema) UUID() byte {
-	return dateSchemaUUID
+func (sg dateSchemaGenerator) DecodeSchema(io.Reader) (Schema, error) {
 }
 
-func (s *dateSchema) Unmarshaljson(buf []byte) (Schema, error) {
+// 	s.SchemaOptions.nullable = (buf[*byteIndex]&SchemaNullBit == SchemaNullBit)
+
+// 	// advance to the UUID
+// 	*byteIndex++
+// 	if buf[*byteIndex] != s.UUID() {
+// 		return nil, fmt.Errorf("invalid call to dateSchema(), invalid UUID encountered in binary schema")
+// 	}
+
+// 	// advance past the UUID
+// 	*byteIndex++
+
+// 	return s, nil
+// }
+
+func (sg dateSchemaGenerator) DecodeSchemaJSON(io.Reader) (Schema, error) {
 	fields := make(map[string]interface{})
 
 	err := json.Unmarshal(buf, &fields)
@@ -34,42 +63,35 @@ func (s *dateSchema) Unmarshaljson(buf []byte) (Schema, error) {
 		return nil, err
 	}
 
-	b, ok := fields["nullable"].(bool)
+	// Parse `type`
+	tmp, ok := fields["type"].(string)
 	if !ok {
-		return nil, fmt.Errorf("missing nullable field in JSON data while decoding dateSchema")
+		return nil, fmt.Errorf("missing or invalid schema type")
+	}
+	typeStr := strings.ToLower(tmp)
+
+	if typeStr != "date" {
+		return nil, nil
 	}
 
-	s.SchemaOptions.nullable = b
+	// Parse `nullable`
+	nullable := false
+	tmp, found := fields["nullable"]
+	if found {
+		if b, ok := tmp.(bool); ok {
+			nullable = b
+		}
+		return fmt.Errorf("nullable must be a boolean")
+	}
+
+	s := DateSchema{}
+	s.SetNullable(nullable)
 	return s, nil
-}
-
-func (s *dateSchema) UnMarshalSchemer(buf []byte, byteIndex *int) (Schema, error) {
-
-	s.SchemaOptions.nullable = (buf[*byteIndex]&SchemaNullBit == SchemaNullBit)
-
-	// advance to the UUID
-	*byteIndex++
-	if buf[*byteIndex] != s.UUID() {
-		return nil, fmt.Errorf("invalid call to dateSchema(), invalid UUID encountered in binary schema")
-	}
-
-	// advance past the UUID
-	*byteIndex++
-
-	return s, nil
-}
-
-// loop through all registered GO types
-func (s *dateSchema) ForType(t reflect.Type) Schema {
-	if t.Name() == "Time" && t.PkgPath() == "time" {
-		return s
-	}
-	return nil
 }
 
 // Schema receivers --------------------------------------
 
-func (s *dateSchema) GoType() reflect.Type {
+func (s *DateSchema) GoType() reflect.Type {
 	var t time.Time
 	retval := reflect.TypeOf(t)
 
@@ -79,44 +101,42 @@ func (s *dateSchema) GoType() reflect.Type {
 	return retval
 }
 
-func (s *dateSchema) MarshalJSON() ([]byte, error) {
-
+func (s *DateSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
-		"type":       "custom",
-		"customtype": dateSchemaName,
-		"nullable":   s.Nullable(),
+		"type":     "date",
+		"nullable": s.Nullable(),
 	})
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *dateSchema) MarshalSchemer() []byte {
+func (s *DateSchema) MarshalSchemer() ([]byte, error) {
 
-	const schemerDateSize byte = 1 + 1 // 1 byte for the schema + 1 bytes for the UUID
+	// const schemerDateSize byte = 1 + 1 // 1 byte for the schema + 1 bytes for the UUID
 
-	// string schemas are 1 byte long
-	var schema []byte = make([]byte, schemerDateSize)
+	// // string schemas are 1 byte long
+	// var schema []byte = make([]byte, schemerDateSize)
 
-	schema[0] = CustomSchemaMask
+	// schema[0] = CustomSchemaMask
 
-	// The most signifiant bit indicates whether or not the type is nullable
-	if s.Nullable() {
-		schema[0] |= 0x80
-	}
+	// // The most signifiant bit indicates whether or not the type is nullable
+	// if s.Nullable() {
+	// 	schema[0] |= 0x80
+	// }
 
-	schema[1] = dateSchemaUUID
+	// schema[1] = dateSchemaUUID
 
-	return schema
+	// return schema
 }
 
 // Encode uses the schema to write the encoded value of i to the output stream
-func (s *dateSchema) Encode(w io.Writer, i interface{}) error {
+func (s *DateSchema) Encode(w io.Writer, i interface{}) error {
 	return s.EncodeValue(w, reflect.ValueOf(i))
 }
 
 // EncodeValue uses the schema to write the encoded value of he output stream
-func (s *dateSchema) EncodeValue(w io.Writer, v reflect.Value) error {
+func (s *DateSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 
-	ok, err := PreEncode(s, w, &v)
+	ok, err := PreEncode(s.Nullable(), w, &v)
 	if err != nil {
 		return err
 	}
@@ -128,7 +148,7 @@ func (s *dateSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 	k := t.Kind()
 
 	if k != reflect.Struct || t.Name() != "Time" || t.PkgPath() != "time" {
-		return fmt.Errorf("dateSchema only supports encoding time.Time values")
+		return fmt.Errorf("DateSchema only supports encoding time.Time values")
 	}
 
 	// call method UnixNano() on v, which is guarenteed to be a time.Time() due to the above check.
@@ -148,7 +168,7 @@ func (s *dateSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in i
-func (s *dateSchema) Decode(r io.Reader, i interface{}) error {
+func (s *DateSchema) Decode(r io.Reader, i interface{}) error {
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
 	}
@@ -156,7 +176,7 @@ func (s *dateSchema) Decode(r io.Reader, i interface{}) error {
 }
 
 // DecodeValue uses the schema to read the next encoded valuethe input stream and store it in v
-func (s *dateSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+func (s *DateSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	v, err := PreDecode(s, r, v)
 	if err != nil {

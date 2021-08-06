@@ -1,2 +1,4 @@
-launch.json
-notes.md
+/launch.json
+/*.sublime-workspace
+
+/notes.md

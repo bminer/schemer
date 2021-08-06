@@ -8,7 +8,6 @@ import (
 	"reflect"
 )
 
-// SchemaOptions are preset in each schema, and specify if null the value is nullable and if the schema allows weakdecoding
 type BoolSchema struct {
 	SchemaOptions
 }
@@ -51,7 +50,7 @@ func (s *BoolSchema) Encode(w io.Writer, i interface{}) error {
 // EncodeValue uses the schema to write the encoded value of v to the output stream
 func (s *BoolSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 
-	ok, err := PreEncode(s, w, &v)
+	ok, err := PreEncode(s.Nullable(), w, &v)
 	if err != nil {
 		return err
 	}
@@ -98,7 +97,7 @@ func (s *BoolSchema) Decode(r io.Reader, i interface{}) error {
 // DecodeValue uses the schema to read the next encoded value from the input stream and store it in v
 func (s *BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
-	v, err := PreDecode(s, r, v)
+	v, err := PreDecode(s.Nullable(), r, v)
 	if err != nil {
 		return err
 	}

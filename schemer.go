@@ -30,6 +30,7 @@ const (
 	SchemaNullBit           = 0x80 // The most signifiant bit indicates whether or not the type is nullable
 )
 
+// Schema is an interface that encodes and decodes data of a specific type
 type Schema interface {
 	// Encode uses the schema to write the encoded value of i to the output
 	// stream
@@ -47,26 +48,73 @@ type Schema interface {
 	// stream and stores it in v
 	DecodeValue(r io.Reader, v reflect.Value) error
 
-	// Nullable returns true if and only if the type is nullable
-	Nullable() bool
-
-	// MarshalJSON returns the JSON encoding of the schema
-	MarshalJSON() ([]byte, error)
-
-	// MarshalSchemer encodes the schema in a portable binary format
-	MarshalSchemer() []byte
-
 	// GoType returns the default Go type that represents the schema
 	GoType() reflect.Type
 }
 
-// SchemaOf returns a Schema for the specified interface value
-// If i is a pointer or interface type, the pointer/interface value is used to
-// generate the Schema. If i is nil, an zero-field FixedObjectSchema is returned.
-func SchemaOf(i interface{}) Schema {
+// Marshaler is an interface implemented by a schema, allowing it to encode
+// itself into a portable binary format
+type Marshaler interface {
+	MarshalSchemer() ([]byte, error)
+}
+
+// SchemaGenerator is an interface implemented by custom schema generators.
+// When Register is called on a SchemaGenerator, the global SchemaOf,
+// DecodeSchema, and DecodeSchemaJSON functions will call the identically
+// named method on each schema generator to determine if a custom schema should
+// be returned.
+// If a SchemaGenerator cannot return a Schema for a specific type, it should
+// return nil, nil.
+// If all schema generators return a nil Schema or if Register is never called,
+// then the built-in logic for returning a Schema is used.
+type SchemaGenerator interface {
+	SchemaOfType(i interface{}) (Schema, error)
+	DecodeSchema(io.Reader) (Schema, error)
+	DecodeSchemaJSON(io.Reader) (Schema, error)
+}
+
+type hasSchemaOfType interface {
+	SchemaOfType(i interface{}) (Schema, error)
+}
+type hasDecodeSchema interface {
+	DecodeSchema(io.Reader) (Schema, error)
+}
+type hasDecodeSchemaJSON interface {
+	DecodeSchemaJSON(io.Reader) (Schema, error)
+}
+
+var (
+	regSchemaOfType     = []hasSchemaOfType{}
+	regDecodeSchema     = []hasDecodeSchema{}
+	regDecodeSchemaJSON = []hasDecodeSchemaJSON{}
+)
+
+// Register records custom schema generators that implement `SchemaOfType`,
+// `DecodeSchema`, and/or `DecodeSchemaJSON`. When `schemer.SchemaOfType` is
+// called, `SchemaOfType` is called on each registered schema generator to
+// determine if a custom Schema should be used for a given type.
+func Register(ifaces ...interface{}) error {
+	for _, iface := range ifaces {
+		if sg, ok := iface.(hasSchemaOfType); ok {
+			regSchemaOfType = append(regSchemaOfType, sg)
+		}
+		if sg, ok := iface.(hasDecodeSchema); ok {
+			regDecodeSchema = append(regDecodeSchema, sg)
+		}
+		if sg, ok := iface.(hasDecodeSchemaJSON); ok {
+			regDecodeSchemaJSON = append(regDecodeSchemaJSON, sg)
+		}
+	}
+}
+
+// SchemaOf returns a Schema for the specified interface value.
+// If i is a pointer or interface type, the value of the pointer/interface is
+// used to generate the Schema.
+// If i is nil, an zero-field FixedObjectSchema is returned.
+func SchemaOf(i interface{}) (Schema, error) {
 	if i == nil {
 		// Return a Schema for an empty struct
-		return &FixedObjectSchema{}
+		return &FixedObjectSchema{}, nil
 	}
 
 	t := reflect.TypeOf(i)
@@ -80,7 +128,14 @@ func SchemaOf(i interface{}) Schema {
 }
 
 // SchemaOfType returns a Schema for the specified Go type
-func SchemaOfType(t reflect.Type) Schema {
+func SchemaOfType(t reflect.Type) (Schema, error) {
+	// Call registered schema generators
+	for _, sg := range regSchemaOfType {
+		if s, err := sg.SchemaOfType(t); s != nil || err != nil {
+			return s, err
+		}
+	}
+
 	nullable := false
 
 	// Dereference pointer / interface types
@@ -91,19 +146,13 @@ func SchemaOfType(t reflect.Type) Schema {
 		nullable = true
 	}
 
-	for _, s := range RegisteredSchemas() {
-		if s.ForType(t) != nil {
-			return s.(Schema)
-		}
-	}
-
 	k := t.Kind()
 
 	switch k {
 	case reflect.Bool:
 		s := &BoolSchema{}
 		s.SetNullable(nullable)
-		return s
+		return s, nil
 
 	// all int types default to signed varint
 	case reflect.Int:
@@ -117,9 +166,9 @@ func SchemaOfType(t reflect.Type) Schema {
 	case reflect.Int64:
 		s := &VarIntSchema{Signed: true}
 		s.SetNullable(nullable)
-		return s
+		return s, nil
 
-	// all unint types default to unsigned varint
+	// all uint types default to unsigned varint
 	case reflect.Uint:
 		fallthrough
 	case reflect.Uint8:
@@ -131,54 +180,70 @@ func SchemaOfType(t reflect.Type) Schema {
 	case reflect.Uint64:
 		s := &VarIntSchema{Signed: false}
 		s.SetNullable(nullable)
-		return s
+		return s, nil
 
 	case reflect.Float32:
 		s := &FloatSchema{Bits: 32}
 		s.SetNullable(nullable)
-		return s
+		return s, nil
 	case reflect.Float64:
 		s := &FloatSchema{Bits: 64}
 		s.SetNullable(nullable)
-		return s
+		return s, nil
 
 	case reflect.Complex64:
 		s := &ComplexSchema{Bits: 64}
 		s.SetNullable(nullable)
-		return s
+		return s, nil
 
 	case reflect.Complex128:
 		s := &ComplexSchema{Bits: 128}
 		s.SetNullable(nullable)
-		return s
+		return s, nil
 
 	case reflect.String:
-		s := &VarLenStringSchema{}
+		s := &VarStringSchema{}
 		s.SetNullable(nullable)
-		return s
+		return s, nil
 
 	case reflect.Array:
+		el, err := SchemaOfType(t.Elem())
+		if err != nil {
+			return nil, fmt.Errorf("array type: %w", err)
+		}
 		s := &FixedArraySchema{
 			Length:  t.Len(),
-			Element: SchemaOfType(t.Elem()),
+			Element: el,
 		}
 		s.SetNullable(nullable)
-		return s
+		return s, nil
 
 	case reflect.Slice:
+		el, err := SchemaOfType(t.Elem())
+		if err != nil {
+			return nil, fmt.Errorf("slice type: %w", err)
+		}
 		s := &VarArraySchema{
-			Element: SchemaOfType(t.Elem()),
+			Element: el,
 		}
 		s.SetNullable(nullable)
-		return s
+		return s, nil
 
 	case reflect.Map:
+		key, err := SchemaOfType(t.Key())
+		if err != nil {
+			return nil, fmt.Errorf("map key type: %w", err)
+		}
+		val, err := SchemaOfType(t.Elem())
+		if err != nil {
+			return nil, fmt.Errorf("map value type: %w", err)
+		}
 		s := &VarObjectSchema{
-			Key:   SchemaOfType(t.Key()),
-			Value: SchemaOfType(t.Elem()),
+			Key:   key,
+			Value: val,
 		}
 		s.SetNullable(nullable)
-		return s
+		return s, nil
 
 	case reflect.Struct:
 		s := &FixedObjectSchema{
@@ -188,49 +253,66 @@ func SchemaOfType(t reflect.Type) Schema {
 
 		for i := 0; i < t.NumField(); i++ {
 			f := t.Field(i)
-			of := ObjectField{
-				Schema: SchemaOfType(f.Type),
+			ofs, err := SchemaOfType(f.Type)
+			if err != nil {
+				return nil, fmt.Errorf("struct field %v: %w", f.Name, err)
 			}
-			if of.Schema == nil {
+			of := ObjectField{
+				Schema: ofs,
+			}
+
+			exported := len(f.PkgPath) == 0
+			if of.Schema == nil || !exported {
 				continue // skip this field
 			}
-			ofSchemaOpts := of.Schema.(interface {
-				SetNullable(bool)
-				SetWeakDecoding(bool)
-			})
 
 			// Parse struct tag and set aliases and schema options
 			tagOpts := ParseStructTag(f.Tag.Get(StructTagName))
 
-			// Note: only override option if explicitly set in the tag
-			if tagOpts.NullableSet {
-				ofSchemaOpts.SetNullable(tagOpts.Nullable)
-			}
-			if tagOpts.WeakDecodingSet {
-				ofSchemaOpts.SetWeakDecoding(tagOpts.WeakDecoding)
-			}
-
 			if tagOpts.FieldAliasesSet {
 				of.Aliases = tagOpts.FieldAliases
 			} else {
-				// if no aliases set in the struct tag, use the struct field name
+				// if no aliases set in the tag, use the struct field name
 				of.Aliases = []string{f.Name}
 			}
 
-			// check if this field is not exported
-			exported := len(f.PkgPath) == 0
-			if exported && len(of.Aliases) > 0 {
-				s.Fields = append(s.Fields, of)
+			if len(of.Aliases) == 0 {
+				continue // skip this field
 			}
+
+			// Note: only override option if explicitly set in the tag
+			if tagOpts.NullableSet {
+				if opt, ok := of.Schema.(interface {
+					SetNullable(bool)
+				}); ok {
+					opt.SetNullable(tagOpts.Nullable)
+				}
+			}
+			if tagOpts.WeakDecodingSet {
+				if opt, ok := of.Schema.(interface {
+					SetWeakDecoding(bool)
+				}); ok {
+					opt.SetWeakDecoding(tagOpts.WeakDecoding)
+				}
+			}
+
+			// Add to FixedObjectSchema field list
+			s.Fields = append(s.Fields, of)
 		}
-		return s
+		return s, nil
 	}
 
-	return nil
+	return nil, fmt.Errorf("unsupported type %v", k)
 }
 
-// DecodeJSONSchema takes a buffer of JSON data and parses it to create a schema
-func DecodeJSONSchema(buf []byte) (Schema, error) {
+// DecodeSchemaJSON takes a buffer of JSON data and parses it to create a schema
+func DecodeSchemaJSON(buf []byte) (Schema, error) {
+	// Call registered schema generators
+	for _, sg := range regDecodeSchemaJSON {
+		if s, err := sg.DecodeSchemaJSON(buf); s != nil || err != nil {
+			return s, err
+		}
+	}
 
 	fields := make(map[string]interface{})
 
@@ -239,52 +321,48 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 		return nil, err
 	}
 
-	tmpStr, ok := fields["type"].(string)
+	// Parse `type`
+	tmp, ok := fields["type"].(string)
 	if !ok {
-		return nil, fmt.Errorf("expected element 'type' not present in JSON data")
+		return nil, fmt.Errorf("missing or invalid schema type")
 	}
-	schemaType := strings.ToLower(tmpStr)
+	typeStr := strings.ToLower(tmp)
 
-	switch schemaType {
-
-	// if we encounter a custom schema, loop through all registered custom schemas
-	// and see if any of them is a match
-	case "custom":
-		for _, s := range RegisteredSchemas() {
-
-			customtype, ok := fields["customtype"].(string)
-			if !ok {
-				return nil, fmt.Errorf("invalid customtype")
-			}
-
-			if s.Name() == customtype {
-				s, err := s.Unmarshaljson(buf)
-				if err != nil {
-					return nil, err
-				}
-				return s, nil
-			}
+	// Parse `nullable`
+	nullable := false
+	tmp, found := fields["nullable"]
+	if found {
+		if b, ok := tmp.(bool); ok {
+			nullable = b
 		}
+		return fmt.Errorf("nullable must be a boolean")
+	}
 
+	switch typeStr {
 	case "bool":
 		s := &BoolSchema{}
-		b, _ := fields["nullable"].(bool)
-		s.SchemaOptions.nullable = b
+		s.SetNullable(nullable)
 		return s, nil
 
 	case "int":
-		numBits, ok := fields["bits"].(float64)
-
-		// if bits are present, then we are dealing with a fixed int
+		bitsStr, ok := fields["bits"]
+		// if bits is present, then we are dealing with a fixed int
 		if ok {
+			bits, ok := bitsStr.(float64)
+			if !ok {
+				return nil, fmt.Errorf("bits must be a number")
+			}
 			s := &FixedIntSchema{}
+			s.SetNullable(nullable)
+			if str, ok := fields["signed"]; ok {
+				b, ok := str.(bool)
+				if !ok {
+					return nil, fmt.Errorf("signed must be a boolean")
+				}
+				s.Signed = b
+			}
 
-			b, _ := fields["nullable"].(bool)
-			s.SchemaOptions.nullable = b
-			b, _ = fields["signed"].(bool)
-			s.Signed = b
-
-			switch numBits {
+			switch bits {
 			case 8:
 				fallthrough
 			case 16:
@@ -292,37 +370,40 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 			case 32:
 				fallthrough
 			case 64:
-				s.Bits = int(numBits)
+				s.Bits = int(bits)
 			default:
-				return nil, fmt.Errorf("invalid int bit size encountered in JSON data: %d", int(numBits))
+				return nil, fmt.Errorf("invalid bit size: %d", int(bits))
 			}
 
 			return s, nil
 		} else {
 			s := &VarIntSchema{}
-
-			b, _ := fields["nullable"].(bool)
-			s.SchemaOptions.nullable = b
-			b, _ = fields["signed"].(bool)
-			s.Signed = b
+			s.SetNullable(nullable)
+			if str, ok := fields["signed"]; ok {
+				b, ok := str.(bool)
+				if !ok {
+					return nil, fmt.Errorf("signed must be a boolean")
+				}
+				s.Signed = b
+			}
 
 			return s, nil
 		}
 
 	case "float":
 		s := &FloatSchema{}
-		numBits, ok := fields["bits"].(float64)
+		bits, ok := fields["bits"].(float64)
 
 		if !ok {
 			return nil, fmt.Errorf("bits not present for float type in JSON data")
 		}
 
-		if numBits == 64 {
+		if bits == 64 {
 			s.Bits = 64
-		} else if numBits == 32 {
+		} else if bits == 32 {
 			s.Bits = 32
 		} else {
-			return nil, fmt.Errorf("invalid float bit size encountered in JSON data: %d", int(numBits))
+			return nil, fmt.Errorf("invalid float bit size encountered in JSON data: %d", int(bits))
 		}
 
 		b, _ := fields["nullable"].(bool)
@@ -332,18 +413,18 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 
 	case "complex":
 		s := &ComplexSchema{}
-		numBits, ok := fields["bits"].(float64)
+		bits, ok := fields["bits"].(float64)
 
 		if !ok {
 			return nil, fmt.Errorf("bits not present for complex type in JSON data")
 		}
 
-		if numBits == 128 {
+		if bits == 128 {
 			s.Bits = 128
-		} else if numBits == 64 {
+		} else if bits == 64 {
 			s.Bits = 64
 		} else {
-			return nil, fmt.Errorf("invalid complex bit size encountered in JSON data: %d", int(numBits))
+			return nil, fmt.Errorf("invalid complex bit size encountered in JSON data: %d", int(bits))
 		}
 		b, _ := fields["nullable"].(bool)
 		s.SchemaOptions.nullable = b
@@ -418,7 +499,7 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 				return nil, err
 			}
 
-			s.Element, err = DecodeJSONSchema(tmp)
+			s.Element, err = DecodeSchemaJSON(tmp)
 			if err != nil {
 				return nil, err
 			}
@@ -436,7 +517,7 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 				return nil, err
 			}
 
-			s.Element, err = DecodeJSONSchema(tmp)
+			s.Element, err = DecodeSchemaJSON(tmp)
 			if err != nil {
 				return nil, err
 			}
@@ -481,7 +562,7 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 					return nil, err
 				}
 				// recursive call to process this field of this object...
-				of.Schema, err = DecodeJSONSchema(tmp)
+				of.Schema, err = DecodeSchemaJSON(tmp)
 				if err != nil {
 					return nil, err
 				}
@@ -500,7 +581,7 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 			if err != nil {
 				return nil, err
 			}
-			s.Key, err = DecodeJSONSchema(tmp)
+			s.Key, err = DecodeSchemaJSON(tmp)
 			if err != nil {
 				return nil, err
 			}
@@ -509,7 +590,7 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 			if err != nil {
 				return nil, err
 			}
-			s.Value, err = DecodeJSONSchema(tmp)
+			s.Value, err = DecodeSchemaJSON(tmp)
 			if err != nil {
 				return nil, err
 			}
@@ -519,18 +600,13 @@ func DecodeJSONSchema(buf []byte) (Schema, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("invalid JSON schema type: %s", schemaType)
+	return nil, fmt.Errorf("invalid schema type: %s", typeStr)
 }
 
 // DecodeSchema decodes a Schema from its binary representation
-func DecodeSchema(buf []byte) (Schema, error) {
-
-	byteIndex := 0 // always start at the beginning of the buffer
-
-	// and then decodeSchema() will advance *byteIndex as it goes
-	tmp, err := decodeSchema(buf, &byteIndex)
-
-	return tmp, err
+func DecodeSchema(buf []byte) (Schema, int, error) {
+	byteIndex := 0
+	return decodeSchema(buf, &byteIndex)
 }
 
 // decodeSchema processes buf[] to actually decode the binary schema.
@@ -820,13 +896,13 @@ func decodeSchema(buf []byte, byteIndex *int) (Schema, error) {
 // nullable.
 // If this routine returns false, no more processing is needed on the
 // encoder who called this routine.
-func PreEncode(s Schema, w io.Writer, v *reflect.Value) (bool, error) {
+func PreEncode(nullable bool, w io.Writer, v *reflect.Value) (bool, error) {
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
 		*v = v.Elem()
 	}
 
-	if s.Nullable() {
+	if nullable {
 		// did the caller pass in a nil value, or a null pointer?
 		if !v.IsValid() {
 			// per the revised spec, 1 indicates null
@@ -852,7 +928,7 @@ func PreEncode(s Schema, w io.Writer, v *reflect.Value) (bool, error) {
 // is nullable.
 // This routine also handles derefering pointers and interfaces, and returns
 // the new value of v after it is set.
-func PreDecode(s Schema, r io.Reader, v reflect.Value) (reflect.Value, error) {
+func PreDecode(nullable bool, r io.Reader, v reflect.Value) (reflect.Value, error) {
 	// if t is a ptr or interface type, remove exactly ONE level of indirection
 	if k := v.Kind(); !v.CanSet() && (k == reflect.Ptr || k == reflect.Interface) {
 		v = v.Elem()
@@ -860,7 +936,7 @@ func PreDecode(s Schema, r io.Reader, v reflect.Value) (reflect.Value, error) {
 
 	// if the data indicates this type is nullable, then the actual
 	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
-	if s.Nullable() {
+	if nullable {
 		buf := make([]byte, 1)
 
 		// first byte indicates whether value is null or not...
@@ -903,6 +979,7 @@ func PreDecode(s Schema, r io.Reader, v reflect.Value) (reflect.Value, error) {
 
 // initialization function for the Schemer Library
 func init() {
-	RegisterCustomSchema(&dateSchema{})
-	RegisterCustomSchema(&ipv4Schema{})
+	Register(dateSchemaGenerator{})
+	// RegisterCustomSchema(&dateSchema{})
+	// RegisterCustomSchema(&ipv4Schema{})
 }
