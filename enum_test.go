@@ -33,7 +33,7 @@ func TestDecodeEnum1(t *testing.T) {
 
 	// make sure we can successfully decode it
 
-	tmp, err := DecodeSchema(b)
+	tmp, err := DecodeSchema(bytes.NewReader(b))
 	if err != nil {
 		t.Error("cannot encode binary encoded enumSchema")
 	}
@@ -300,7 +300,7 @@ func testEnumReader(useJSON bool) {
 	if useJSON {
 		writerSchema, _ = DecodeSchemaJSON(bytes.NewReader(binarywriterSchema))
 	} else {
-		writerSchema, _ = DecodeSchema(binarywriterSchema)
+		writerSchema, _ = DecodeSchema(bytes.NewReader(binarywriterSchema))
 	}
 
 	encodedData := readFromDisk("/tmp/Enum.data")

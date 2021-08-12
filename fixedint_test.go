@@ -780,7 +780,7 @@ func TestFixedIntSchema6(t *testing.T) {
 
 	var tmp Schema
 
-	tmp, err = DecodeSchema(b)
+	tmp, err = DecodeSchema(bytes.NewReader(b))
 	decodedIntSchema := tmp.(*FixedIntSchema)
 	if err != nil {
 		t.Error("cannot encode binary encoded FixedIntSchema")

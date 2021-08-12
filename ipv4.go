@@ -39,26 +39,31 @@ func (sg ipv4SchemaGenerator) SchemaOfType(t reflect.Type) (Schema, error) {
 	return nil, nil
 }
 
-func (sg ipv4SchemaGenerator) DecodeSchema(buf []byte, byteIndex *int) (Schema, error) {
+func (sg ipv4SchemaGenerator) DecodeSchema(r io.Reader) (Schema, error) {
 
-	if buf[*byteIndex] == CustomSchemaMask {
-		// don't advance byte index if we don't have an IPv4 schema
-		if buf[*byteIndex+1] != ipV4SchemaUUID {
+	return nil, nil
+
+	/*
+
+		if buf[*byteIndex] == CustomSchemaMask {
+			// don't advance byte index if we don't have an IPv4 schema
+			if buf[*byteIndex+1] != ipV4SchemaUUID {
+				return nil, nil
+			}
+		} else {
 			return nil, nil
 		}
-	} else {
-		return nil, nil
-	}
 
-	nullable := (buf[*byteIndex]&SchemaNullBit == SchemaNullBit)
+		nullable := (buf[*byteIndex]&SchemaNullBit == SchemaNullBit)
 
-	// advance past customSchemaMask and UUID
-	*byteIndex++
-	*byteIndex++
+		// advance past customSchemaMask and UUID
+		*byteIndex++
+		*byteIndex++
 
-	s := ipv4Schema{}
-	s.SetNullable(nullable)
-	return &s, nil
+		s := ipv4Schema{}
+		s.SetNullable(nullable)
+		return &s, nil
+	*/
 
 }
 

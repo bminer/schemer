@@ -473,7 +473,7 @@ func TestDecodeComplex11(t *testing.T) {
 		t.Error(err)
 	}
 
-	tmp, err := DecodeSchema(b)
+	tmp, err := DecodeSchema(bytes.NewReader(b))
 	if err != nil {
 		t.Error("cannot decode binary encoded float schema")
 	}

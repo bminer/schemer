@@ -1,6 +1,7 @@
 package schemer
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -38,27 +39,27 @@ func (sg dateSchemaGenerator) SchemaOfType(t reflect.Type) (Schema, error) {
 	return nil, nil
 }
 
-func (sg dateSchemaGenerator) DecodeSchema(buf []byte, byteIndex *int) (Schema, error) {
+func (sg dateSchemaGenerator) DecodeSchema(br *bufio.Reader) (Schema, error) {
 
-	if buf[*byteIndex] == CustomSchemaMask {
+	tmpBuf, err := br.Peek(2)
+	if err != nil {
+		return nil, err
+	}
+
+	if tmpBuf[0] == CustomSchemaMask {
 		// don't advance byte index if we don't have a date schema
-		if buf[*byteIndex+1] != dateSchemaUUID {
+		if tmpBuf[1] != dateSchemaUUID {
 			return nil, nil
 		}
 	} else {
 		return nil, nil
 	}
 
-	nullable := (buf[*byteIndex]&SchemaNullBit == SchemaNullBit)
-
-	// advance past customSchemaMask and UUID
-	*byteIndex++
-	*byteIndex++
+	nullable := (tmpBuf[0]&SchemaNullBit == SchemaNullBit)
 
 	s := DateSchema{}
 	s.SetNullable(nullable)
 	return &s, nil
-
 }
 
 func (sg dateSchemaGenerator) DecodeSchemaJSON(r io.Reader) (Schema, error) {

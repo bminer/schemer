@@ -35,7 +35,7 @@ func TestDecodeFixedObject1(t *testing.T) {
 		t.Error(err)
 	}
 
-	tmp, err := DecodeSchema(b)
+	tmp, err := DecodeSchema(bytes.NewReader(b))
 	if err != nil {
 		t.Error("cannot encode binary encoded FixedObjectSchema")
 	}

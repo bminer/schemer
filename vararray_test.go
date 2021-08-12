@@ -29,7 +29,7 @@ func TestDecodeVarLenArray1(t *testing.T) {
 	}
 
 	// make sure we can successfully decode it
-	tmp, err := DecodeSchema(b)
+	tmp, err := DecodeSchema(bytes.NewReader(b))
 	if err != nil {
 		t.Error("cannot encode binary encoded VarLenArraySchema")
 		return

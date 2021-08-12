@@ -180,7 +180,7 @@ func TestDecodeBool6(t *testing.T) {
 	}
 
 	// make sure we can successfully decode it
-	tmp, err := DecodeSchema(b)
+	tmp, err := DecodeSchema(bytes.NewReader(b))
 	decodedBoolSchema := tmp.(*BoolSchema)
 	if err != nil {
 		t.Error("cannot decode binary encoded bool")
@@ -256,7 +256,7 @@ func TestDecodeBool7A(t *testing.T) {
 	//------------
 
 	// make sure we can successfully decode it
-	decodedSchema, err := DecodeSchema(b)
+	decodedSchema, err := DecodeSchema(bytes.NewReader(b))
 	if err != nil {
 		t.Error(err)
 		return
