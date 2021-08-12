@@ -62,11 +62,16 @@ func (sg ipv4SchemaGenerator) DecodeSchema(buf []byte, byteIndex *int) (Schema, 
 
 }
 
-func (sg ipv4SchemaGenerator) DecodeSchemaJSON(buf []byte) (Schema, error) {
+func (sg ipv4SchemaGenerator) DecodeSchemaJSON(r io.Reader) (Schema, error) {
+
+	buf, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
 
 	fields := make(map[string]interface{})
 
-	err := json.Unmarshal(buf, &fields)
+	err = json.Unmarshal(buf, &fields)
 	if err != nil {
 		return nil, err
 	}

@@ -146,7 +146,7 @@ func TestDecodeFixedObject5(t *testing.T) {
 	}
 
 	// recreate the schmer from the JSON
-	readerSchema, err := DecodeSchemaJSON(binarywriterSchema)
+	readerSchema, err := DecodeSchemaJSON(bytes.NewReader(binarywriterSchema))
 	if err != nil {
 		t.Error("cannot create writerSchema from raw JSON data", err)
 		return

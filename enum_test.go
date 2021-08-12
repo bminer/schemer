@@ -298,7 +298,7 @@ func testEnumReader(useJSON bool) {
 	var err error
 
 	if useJSON {
-		writerSchema, _ = DecodeSchemaJSON(binarywriterSchema)
+		writerSchema, _ = DecodeSchemaJSON(bytes.NewReader(binarywriterSchema))
 	} else {
 		writerSchema, _ = DecodeSchema(binarywriterSchema)
 	}

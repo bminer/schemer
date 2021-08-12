@@ -70,7 +70,7 @@ type Marshaler interface {
 type SchemaGenerator interface {
 	SchemaOfType(t reflect.Type) (Schema, error)
 	DecodeSchema(buf []byte, byteIndex *int) (Schema, error)
-	DecodeSchemaJSON(buf []byte) (Schema, error)
+	DecodeSchemaJSON(r io.Reader) (Schema, error)
 }
 
 type hasSchemaOfType interface {
@@ -80,7 +80,7 @@ type hasDecodeSchema interface {
 	DecodeSchema(buf []byte, byteIndex *int) (Schema, error)
 }
 type hasDecodeSchemaJSON interface {
-	DecodeSchemaJSON(buf []byte) (Schema, error)
+	DecodeSchemaJSON(r io.Reader) (Schema, error)
 }
 
 /*
@@ -329,18 +329,24 @@ func SchemaOfType(t reflect.Type) (Schema, error) {
 }
 
 // DecodeSchemaJSON takes a buffer of JSON data and parses it to create a schema
-func DecodeSchemaJSON(buf []byte) (Schema, error) {
+func DecodeSchemaJSON(r io.Reader) (Schema, error) {
+
+	buf, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
 
 	// Call registered schema generators
+	tmpBuf := bytes.NewBuffer(buf)
 	for _, sg := range regDecodeSchemaJSON {
-		if s, err := sg.DecodeSchemaJSON(buf); s != nil || err != nil {
+		if s, err := sg.DecodeSchemaJSON(bytes.NewReader(tmpBuf.Bytes())); s != nil || err != nil {
 			return s, err
 		}
 	}
 
 	fields := make(map[string]interface{})
 
-	err := json.Unmarshal(buf, &fields)
+	err = json.Unmarshal(buf, &fields)
 	if err != nil {
 		return nil, err
 	}
@@ -524,7 +530,7 @@ func DecodeSchemaJSON(buf []byte) (Schema, error) {
 				return nil, err
 			}
 
-			s.Element, err = DecodeSchemaJSON(tmp)
+			s.Element, err = DecodeSchemaJSON(bytes.NewReader(tmp))
 			if err != nil {
 				return nil, err
 			}
@@ -542,7 +548,7 @@ func DecodeSchemaJSON(buf []byte) (Schema, error) {
 				return nil, err
 			}
 
-			s.Element, err = DecodeSchemaJSON(tmp)
+			s.Element, err = DecodeSchemaJSON(bytes.NewReader(tmp))
 			if err != nil {
 				return nil, err
 			}
@@ -587,7 +593,7 @@ func DecodeSchemaJSON(buf []byte) (Schema, error) {
 					return nil, err
 				}
 				// recursive call to process this field of this object...
-				of.Schema, err = DecodeSchemaJSON(tmp)
+				of.Schema, err = DecodeSchemaJSON(bytes.NewReader(tmp))
 				if err != nil {
 					return nil, err
 				}
@@ -606,7 +612,7 @@ func DecodeSchemaJSON(buf []byte) (Schema, error) {
 			if err != nil {
 				return nil, err
 			}
-			s.Key, err = DecodeSchemaJSON(tmp)
+			s.Key, err = DecodeSchemaJSON(bytes.NewReader(tmp))
 			if err != nil {
 				return nil, err
 			}
@@ -615,7 +621,7 @@ func DecodeSchemaJSON(buf []byte) (Schema, error) {
 			if err != nil {
 				return nil, err
 			}
-			s.Value, err = DecodeSchemaJSON(tmp)
+			s.Value, err = DecodeSchemaJSON(bytes.NewReader(tmp))
 			if err != nil {
 				return nil, err
 			}
@@ -653,27 +659,6 @@ func decodeSchema(buf []byte, byteIndex *int) (Schema, error) {
 			return s, err
 		}
 	}
-
-	// if we encounter a custom schema, loop through all registered custom schemas
-	// and see if any of them is a match
-
-	/*
-
-		if buf[*byteIndex]&SixBitSchemaMask == CustomSchemaMask {
-			UUID := buf[*byteIndex+1]
-
-			for _, s := range RegisteredSchemas() {
-				if s.UUID() == UUID {
-					s, err := s.UnMarshalSchemer(buf, byteIndex)
-					if err != nil {
-						return nil, err
-					}
-					return s, nil
-				}
-			}
-
-		}
-	*/
 
 	// decode fixed int schema
 	if buf[*byteIndex]&TwoBitSchemaMask == FixedIntSchemaMask {

@@ -42,7 +42,7 @@ func testRegisteredType1(useJSON bool, t *testing.T) {
 		}
 
 		// recreate the schema from the JSON
-		readerSchema, err = DecodeSchemaJSON(binarywriterSchema)
+		readerSchema, err = DecodeSchemaJSON(bytes.NewReader(binarywriterSchema))
 		if err != nil {
 			t.Error("cannot create writerSchema from raw JSON data", err)
 			return
@@ -125,7 +125,7 @@ func testRegisteredType2(useJSON bool, t *testing.T) {
 		}
 
 		// recreate the schema from the JSON
-		readerSchema, err = DecodeSchemaJSON(binarywriterSchema)
+		readerSchema, err = DecodeSchemaJSON(bytes.NewReader(binarywriterSchema))
 		if err != nil {
 			t.Error("cannot create writerSchema from raw JSON data", err)
 			return
