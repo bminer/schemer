@@ -49,7 +49,7 @@ func (s *FloatSchema) MarshalJSON() ([]byte, error) {
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *FloatSchema) MarshalSchemer() []byte {
+func (s *FloatSchema) MarshalSchemer() ([]byte, error) {
 
 	// floating point schemas are 1 byte long
 	var schema []byte = []byte{FloatBinarySchemaFormat}
@@ -66,7 +66,7 @@ func (s *FloatSchema) MarshalSchemer() []byte {
 		schema[0] |= 1
 	}
 
-	return schema
+	return schema, nil
 }
 
 // Encode uses the schema to write the encoded value of i to the output stream
@@ -82,7 +82,7 @@ func (s *FloatSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 		return fmt.Errorf("cannot encode using invalid StringSchema schema")
 	}
 
-	ok, err := PreEncode(s, w, &v)
+	ok, err := PreEncode(s.Nullable(), w, &v)
 	if err != nil {
 		return err
 	}
@@ -157,7 +157,7 @@ func (s *FloatSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		return fmt.Errorf("cannot decode using invalid floating point schema")
 	}
 
-	v, err := PreDecode(s, r, v)
+	v, err := PreDecode(s.Nullable(), r, v)
 	if err != nil {
 		return err
 	}

@@ -30,7 +30,7 @@ func (s *FixedArraySchema) Valid() bool {
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *FixedArraySchema) MarshalSchemer() []byte {
+func (s *FixedArraySchema) MarshalSchemer() ([]byte, error) {
 
 	// fixed length schemas are 1 byte long total
 	var schema []byte = []byte{FixedArraySchemaMask}
@@ -46,9 +46,19 @@ func (s *FixedArraySchema) MarshalSchemer() []byte {
 	schema = append(schema, buf[0:varIntByteLength]...)
 
 	// now encode the schema for the type of this array
-	schema = append(schema, s.Element.MarshalSchemer()...)
 
-	return schema
+	m, ok := s.Element.(Marshaler)
+	if !ok {
+		return nil, fmt.Errorf("element does not implement MarshalSchemer")
+	}
+
+	elementData, err := m.MarshalSchemer()
+	if err != nil {
+		return nil, fmt.Errorf("element does not implement MarshalSchemer")
+	}
+
+	schema = append(schema, elementData...)
+	return schema, nil
 
 }
 
@@ -63,7 +73,13 @@ func (s *FixedArraySchema) MarshalJSON() ([]byte, error) {
 	tmpMap["nullable"] = s.Nullable()
 
 	// now encode the schema for the element
-	elementJSON, err := s.Element.MarshalJSON()
+
+	t, ok := s.Element.(json.Marshaler)
+	if !ok {
+		return nil, fmt.Errorf("element does not implement MarshalJSON")
+	}
+
+	elementJSON, err := t.MarshalJSON()
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +109,7 @@ func (s *FixedArraySchema) EncodeValue(w io.Writer, v reflect.Value) error {
 		return fmt.Errorf("cannot encode using invalid FixedArraySchema schema")
 	}
 
-	ok, err := PreEncode(s, w, &v)
+	ok, err := PreEncode(s.Nullable(), w, &v)
 	if err != nil {
 		return err
 	}
@@ -135,10 +151,11 @@ func (s *FixedArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		return fmt.Errorf("cannot decode using invalid FixedArraySchema schema")
 	}
 
-	v, err := PreDecode(s, r, v)
+	v, err := PreDecode(s.Nullable(), r, v)
 	if err != nil {
 		return err
 	}
+
 	// if PreDecode() returns a zero value for v, it means we are done decoding
 	if !(v.IsValid()) {
 		return nil

@@ -35,8 +35,10 @@ func (s *VarObjectSchema) MarshalJSON() ([]byte, error) {
 	tmpMap["type"] = "object"
 	tmpMap["nullable"] = s.Nullable()
 
+	m := s.Key.(json.Marshaler)
+
 	// now encode the schema for the key
-	keyJSON, err := s.Key.MarshalJSON()
+	keyJSON, err := m.MarshalJSON()
 	if err != nil {
 		return nil, err
 	}
@@ -50,8 +52,13 @@ func (s *VarObjectSchema) MarshalJSON() ([]byte, error) {
 
 	tmpMap["key"] = keyMap
 
+	tmp, ok := s.Value.(json.Marshaler)
+	if !ok {
+		return nil, fmt.Errorf("json.marshaler assertion failed")
+	}
+
 	// now encode the schema for the value
-	ValueJSON, err := s.Value.MarshalJSON()
+	ValueJSON, err := tmp.MarshalJSON()
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +76,7 @@ func (s *VarObjectSchema) MarshalJSON() ([]byte, error) {
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *VarObjectSchema) MarshalSchemer() []byte {
+func (s *VarObjectSchema) MarshalSchemer() ([]byte, error) {
 
 	// string schemas are 1 byte long
 	var schema []byte = []byte{VarObjectSchemaMask}
@@ -81,10 +88,22 @@ func (s *VarObjectSchema) MarshalSchemer() []byte {
 
 	// bit 3 is clear from above, indicating this is a var length string
 
-	schema = append(schema, s.Key.MarshalSchemer()...)
-	schema = append(schema, s.Value.MarshalSchemer()...)
+	k := s.Key.(Marshaler)
+	key, err := k.MarshalSchemer()
+	if err != nil {
+		return nil, err
+	}
 
-	return schema
+	v := s.Value.(Marshaler)
+	value, err := v.MarshalSchemer()
+	if err != nil {
+		return nil, err
+	}
+
+	schema = append(schema, key...)
+	schema = append(schema, value...)
+
+	return schema, nil
 }
 
 // Encode uses the schema to write the encoded value of i to the output stream
@@ -95,7 +114,7 @@ func (s *VarObjectSchema) Encode(w io.Writer, i interface{}) error {
 // EncodeValue uses the schema to write the encoded value of v to the output streamm
 func (s *VarObjectSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 
-	ok, err := PreEncode(s, w, &v)
+	ok, err := PreEncode(s.Nullable(), w, &v)
 	if err != nil {
 		return err
 	}
@@ -142,7 +161,7 @@ func (s *VarObjectSchema) Decode(r io.Reader, i interface{}) error {
 // DecodeValue uses the schema to read the next encoded value from the input stream and store it in v
 func (s *VarObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
-	v, err := PreDecode(s, r, v)
+	v, err := PreDecode(s.Nullable(), r, v)
 	if err != nil {
 		return err
 	}

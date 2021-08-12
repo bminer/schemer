@@ -11,11 +11,21 @@ func testRegisteredType1(useJSON bool, t *testing.T) {
 
 	var Date1 time.Time = time.Now()
 
-	writerSchema := SchemaOf(&Date1)
+	tmp, err := SchemaOf(&Date1)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	writerSchema, ok := tmp.(*DateSchema)
+	if !ok {
+		t.Error("Incorrect (non DateSchema) type returned by SchemaOf")
+		return
+	}
 
 	var encodedData bytes.Buffer
 
-	err := writerSchema.Encode(&encodedData, Date1)
+	err = writerSchema.Encode(&encodedData, Date1)
 	if err != nil {
 		t.Error(err)
 		return
@@ -32,14 +42,14 @@ func testRegisteredType1(useJSON bool, t *testing.T) {
 		}
 
 		// recreate the schema from the JSON
-		readerSchema, err = DecodeJSONSchema(binarywriterSchema)
+		readerSchema, err = DecodeSchemaJSON(binarywriterSchema)
 		if err != nil {
 			t.Error("cannot create writerSchema from raw JSON data", err)
 			return
 		}
 	} else {
 		// write out our schema as binary
-		binarywriterSchema = writerSchema.MarshalSchemer()
+		binarywriterSchema, err = writerSchema.MarshalSchemer()
 		if err != nil {
 			t.Error("writerSchema.MarshalSchemer() failed", err)
 		}
@@ -84,11 +94,21 @@ func testRegisteredType2(useJSON bool, t *testing.T) {
 
 	var structToEncode = SourceStruct{IntField1: 42, Date: time.Now(), Str: "test"}
 
-	writerSchema := SchemaOf(&structToEncode)
+	tmp, err := SchemaOf(&structToEncode)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	writerSchema, ok := tmp.(*FixedObjectSchema)
+	if !ok {
+		t.Error("Incorrect (non DateSchema) type returned by SchemaOf")
+		return
+	}
 
 	var encodedData bytes.Buffer
 
-	err := writerSchema.Encode(&encodedData, structToEncode)
+	err = writerSchema.Encode(&encodedData, structToEncode)
 	if err != nil {
 		t.Error(err)
 		return
@@ -105,14 +125,14 @@ func testRegisteredType2(useJSON bool, t *testing.T) {
 		}
 
 		// recreate the schema from the JSON
-		readerSchema, err = DecodeJSONSchema(binarywriterSchema)
+		readerSchema, err = DecodeSchemaJSON(binarywriterSchema)
 		if err != nil {
 			t.Error("cannot create writerSchema from raw JSON data", err)
 			return
 		}
 	} else {
 		// write out our schema as binary
-		binarywriterSchema = writerSchema.MarshalSchemer()
+		binarywriterSchema, err = writerSchema.MarshalSchemer()
 		if err != nil {
 			t.Error("writerSchema.MarshalSchemer() failed", err)
 		}

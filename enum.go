@@ -39,7 +39,7 @@ func (s *EnumSchema) MarshalJSON() ([]byte, error) {
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s EnumSchema) MarshalSchemer() []byte {
+func (s EnumSchema) MarshalSchemer() ([]byte, error) {
 
 	// fixed length schemas are 1 byte long total
 	var schema []byte = []byte{EnumSchemaMask}
@@ -52,15 +52,19 @@ func (s EnumSchema) MarshalSchemer() []byte {
 	// write all the enumerated values as part of the schema...
 	var buf bytes.Buffer
 
-	varObjectSchema := SchemaOf(s.Values)
-	err := varObjectSchema.Encode(&buf, s.Values)
+	varObjectSchema, err := SchemaOf(s.Values)
 	if err != nil {
-		return nil
+		return nil, err
+	}
+
+	err = varObjectSchema.Encode(&buf, s.Values)
+	if err != nil {
+		return nil, err
 	}
 
 	schema = append(schema, buf.Bytes()...)
 
-	return schema
+	return schema, nil
 
 }
 

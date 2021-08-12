@@ -138,20 +138,30 @@ func readFromDisk(fileName string) []byte {
 
 func fixedObjectWriter(t *testing.T, useJSON bool) {
 
-	writerSchema := SchemaOf(&structToEncode)
+	s, err := SchemaOf(&structToEncode)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	writerSchema := s.(*FixedObjectSchema)
 
 	var binaryWriterSchema []byte
-	var err error
 
 	if useJSON {
 		binaryWriterSchema, err = writerSchema.MarshalJSON()
 
 		if err != nil {
 			t.Error(err)
+			return
 		}
 
 	} else {
-		binaryWriterSchema = writerSchema.MarshalSchemer()
+		binaryWriterSchema, err = writerSchema.MarshalSchemer()
+		if err != nil {
+			t.Error(err)
+			return
+		}
 	}
 
 	var encodedData bytes.Buffer
@@ -185,7 +195,7 @@ func fixedObjectReader1(t *testing.T, useJSON bool) {
 	binarywriterSchema := readFromDisk(schemaFileName)
 
 	if useJSON {
-		writerSchema, err = DecodeJSONSchema(binarywriterSchema)
+		writerSchema, err = DecodeSchemaJSON(binarywriterSchema)
 		if err != nil {
 			t.Error("cannot create writerSchema from raw JSON data", err)
 		}
@@ -251,7 +261,7 @@ func fixedObjectReader2(t *testing.T, useJSON bool) {
 	binarywriterSchema := readFromDisk(schemaFileName)
 
 	if useJSON {
-		writerSchema, err = DecodeJSONSchema(binarywriterSchema)
+		writerSchema, err = DecodeSchemaJSON(binarywriterSchema)
 		if err != nil {
 			t.Error("cannot create writerSchema from raw JSON data")
 		}

@@ -751,12 +751,17 @@ func TestVarIntSchema5(t *testing.T) {
 	varIntSchema := VarIntSchema{Signed: true, SchemaOptions: SchemaOptions{nullable: true}}
 
 	// encode it
-	b := varIntSchema.MarshalSchemer()
+	b, err := varIntSchema.MarshalSchemer()
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	// make sure we can successfully decode it
 	tmp, err := DecodeSchema(b)
 	if err != nil {
 		t.Error("cannot encode binary encoded VarIntSchema")
+		return
 	}
 
 	decodedVarintSchema := tmp.(*VarIntSchema)

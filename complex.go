@@ -50,7 +50,7 @@ func (s *ComplexSchema) MarshalJSON() ([]byte, error) {
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *ComplexSchema) MarshalSchemer() []byte {
+func (s *ComplexSchema) MarshalSchemer() ([]byte, error) {
 
 	// floating point schemas are 1 byte long
 	var schema []byte = []byte{ComplexSchemaMask}
@@ -68,7 +68,7 @@ func (s *ComplexSchema) MarshalSchemer() []byte {
 		schema[0] |= 1
 	}
 
-	return schema
+	return schema, nil
 }
 
 // Encode uses the schema to write the encoded value of i to the output stream
@@ -84,7 +84,7 @@ func (s *ComplexSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 		return fmt.Errorf("cannot encode using invalid ComplexNumber schema")
 	}
 
-	ok, err := PreEncode(s, w, &v)
+	ok, err := PreEncode(s.Nullable(), w, &v)
 	if err != nil {
 		return err
 	}
@@ -171,7 +171,7 @@ func (s *ComplexSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		return fmt.Errorf("cannot decode using invalid ComplexNumber schema")
 	}
 
-	v, err := PreDecode(s, r, v)
+	v, err := PreDecode(s.Nullable(), r, v)
 	if err != nil {
 		return err
 	}

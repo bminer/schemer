@@ -26,7 +26,10 @@ func TestDecodeEnum1(t *testing.T) {
 	enumSchema := EnumSchema{SchemaOptions: SchemaOptions{nullable: false}}
 
 	// encode it
-	b := enumSchema.MarshalSchemer()
+	b, err := enumSchema.MarshalSchemer()
+	if err != nil {
+		t.Error(err)
+	}
 
 	// make sure we can successfully decode it
 
@@ -261,18 +264,21 @@ func testEnumWriter(useJSON bool) {
 	enumToDecode := Saturday
 
 	var binaryReaderSchema []byte
+	var err error
 	if useJSON {
 		binaryReaderSchema, _ = enumSchema.MarshalJSON()
 		s := string(binaryReaderSchema)
 		_ = s
 	} else {
-		binaryReaderSchema = enumSchema.MarshalSchemer()
-
+		binaryReaderSchema, err = enumSchema.MarshalSchemer()
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 
 	var encodedData bytes.Buffer
 
-	err := enumSchema.Encode(&encodedData, enumToDecode)
+	err = enumSchema.Encode(&encodedData, enumToDecode)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -292,7 +298,7 @@ func testEnumReader(useJSON bool) {
 	var err error
 
 	if useJSON {
-		writerSchema, _ = DecodeJSONSchema(binarywriterSchema)
+		writerSchema, _ = DecodeSchemaJSON(binarywriterSchema)
 	} else {
 		writerSchema, _ = DecodeSchema(binarywriterSchema)
 	}

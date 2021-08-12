@@ -34,7 +34,7 @@ func (s *VarIntSchema) GoType() reflect.Type {
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *VarIntSchema) MarshalSchemer() []byte {
+func (s *VarIntSchema) MarshalSchemer() ([]byte, error) {
 
 	// fixed length schemas are 1 byte long total
 	var schema []byte = []byte{VarIntSchemaMask}
@@ -49,7 +49,7 @@ func (s *VarIntSchema) MarshalSchemer() []byte {
 		schema[0] |= 1
 	}
 
-	return schema
+	return schema, nil
 
 }
 
@@ -57,7 +57,7 @@ func (s *VarIntSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"type":     "int",
 		"nullable": s.Nullable(),
-		"signed": s.Signed,
+		"signed":   s.Signed,
 	})
 }
 
@@ -112,7 +112,7 @@ func (s *VarIntSchema) Encode(w io.Writer, i interface{}) error {
 // EncodeValue uses the schema to write the encoded value of v to the output stream
 func (s *VarIntSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 
-	ok, err := PreEncode(s, w, &v)
+	ok, err := PreEncode(s.Nullable(), w, &v)
 	if err != nil {
 		return err
 	}
@@ -167,7 +167,7 @@ func (s *VarIntSchema) Decode(r io.Reader, i interface{}) error {
 // DecodeValue uses the schema to read the next encoded value from the input stream and store it in v
 func (s *VarIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
-	v, err := PreDecode(s, r, v)
+	v, err := PreDecode(s.Nullable(), r, v)
 	if err != nil {
 		return err
 	}

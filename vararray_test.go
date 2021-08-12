@@ -13,14 +13,26 @@ func TestDecodeVarLenArray1(t *testing.T) {
 	slice := []int{1, 2, 3, 4}
 
 	// setup an example schema
-	varArraySchema := SchemaOf(slice)
+	s, err := SchemaOf(slice)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	varArraySchema := s.(*VarArraySchema)
+
 	// encode i
-	b := varArraySchema.MarshalSchemer()
+	b, err := varArraySchema.MarshalSchemer()
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	// make sure we can successfully decode it
 	tmp, err := DecodeSchema(b)
 	if err != nil {
 		t.Error("cannot encode binary encoded VarLenArraySchema")
+		return
 	}
 
 	decodedSchema := tmp.(*VarArraySchema)
@@ -29,6 +41,7 @@ func TestDecodeVarLenArray1(t *testing.T) {
 	// to make sure it contains the correct values
 	if decodedSchema.Nullable() != varArraySchema.Nullable() {
 		t.Error("unexpected values when decoding binary EnumSchema")
+		return
 	}
 
 }
@@ -86,7 +99,10 @@ func TestDecodeVarLenArray3(t *testing.T) {
 		{8, 9, 10, 11},
 	}
 
-	FixedArraySchema := SchemaOf(floatSlice)
+	FixedArraySchema, err := SchemaOf(floatSlice)
+	if err != nil {
+		t.Error(err)
+	}
 
 	buf.Reset()
 

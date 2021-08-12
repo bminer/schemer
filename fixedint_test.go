@@ -767,13 +767,16 @@ func TestFixedIntSchema5(t *testing.T) {
 
 func TestFixedIntSchema6(t *testing.T) {
 
+	var err error
+
 	// setup an example schema
 	fixedIntSchema := FixedIntSchema{Bits: 8, Signed: true, SchemaOptions: SchemaOptions{nullable: false}}
 
 	// encode it
-	b := fixedIntSchema.MarshalSchemer()
-
-	var err error
+	b, err := fixedIntSchema.MarshalSchemer()
+	if err != nil {
+		t.Error(err)
+	}
 
 	var tmp Schema
 

@@ -6,27 +6,64 @@ import (
 	"io"
 	"net"
 	"reflect"
+	"strings"
 )
 
 // each custom type has a unique name an a unique UUID
-const ipV4SchemaName string = "ipv4"
+//const ipV4SchemaName string = "ipv4"
 const ipV4SchemaUUID byte = 02
 
 type ipv4Schema struct {
 	SchemaOptions
 }
 
-// CustomSchema receivers --------------------------------------
+type ipv4SchemaGenerator struct{}
 
-func (s *ipv4Schema) Name() string {
-	return ipV4SchemaName
+func (sg ipv4SchemaGenerator) SchemaOfType(t reflect.Type) (Schema, error) {
+	nullable := false
+
+	// Dereference pointer / interface types
+	for k := t.Kind(); k == reflect.Ptr || k == reflect.Interface; k = t.Kind() {
+		t = t.Elem()
+
+		// If we encounter any pointers, then we know this type is nullable
+		nullable = true
+	}
+
+	if t.Name() == "IP" && t.PkgPath() == "net" {
+		s := &ipv4Schema{}
+		s.SetNullable(nullable)
+		return s, nil
+	}
+
+	return nil, nil
 }
 
-func (s *ipv4Schema) UUID() byte {
-	return ipV4SchemaUUID
+func (sg ipv4SchemaGenerator) DecodeSchema(buf []byte, byteIndex *int) (Schema, error) {
+
+	if buf[*byteIndex] == CustomSchemaMask {
+		// don't advance byte index if we don't have an IPv4 schema
+		if buf[*byteIndex+1] != ipV4SchemaUUID {
+			return nil, nil
+		}
+	} else {
+		return nil, nil
+	}
+
+	nullable := (buf[*byteIndex]&SchemaNullBit == SchemaNullBit)
+
+	// advance past customSchemaMask and UUID
+	*byteIndex++
+	*byteIndex++
+
+	s := ipv4Schema{}
+	s.SetNullable(nullable)
+	return &s, nil
+
 }
 
-func (s *ipv4Schema) Unmarshaljson(buf []byte) (Schema, error) {
+func (sg ipv4SchemaGenerator) DecodeSchemaJSON(buf []byte) (Schema, error) {
+
 	fields := make(map[string]interface{})
 
 	err := json.Unmarshal(buf, &fields)
@@ -34,29 +71,31 @@ func (s *ipv4Schema) Unmarshaljson(buf []byte) (Schema, error) {
 		return nil, err
 	}
 
-	b, ok := fields["nullable"].(bool)
+	// Parse `type`
+	tmp, ok := fields["type"].(string)
 	if !ok {
-		return nil, fmt.Errorf("missing nullable field in JSON data while decoding ipv4Schema")
+		return nil, fmt.Errorf("missing or invalid schema type")
+	}
+	typeStr := strings.ToLower(tmp)
+
+	if typeStr != "ipv4" {
+		return nil, nil
 	}
 
-	s.SchemaOptions.nullable = b
-	return s, nil
-}
-
-func (s *ipv4Schema) UnMarshalSchemer(buf []byte, byteIndex *int) (Schema, error) {
-
-	s.SchemaOptions.nullable = (buf[*byteIndex]&SchemaNullBit == SchemaNullBit)
-
-	// advance to the UUID
-	*byteIndex++
-	if buf[*byteIndex] != s.UUID() {
-		return nil, fmt.Errorf("invalid call to ipSchema(), invalid UUID encountered in binary schema")
+	// Parse `nullable`
+	nullable := false
+	tmp1, found := fields["nullable"]
+	if found {
+		if b, ok := tmp1.(bool); ok {
+			nullable = b
+		} else {
+			return nil, fmt.Errorf("nullable must be a boolean")
+		}
 	}
 
-	// advance past the UUID
-	*byteIndex++
-
-	return s, nil
+	s := ipv4Schema{}
+	s.SetNullable(nullable)
+	return &s, nil
 }
 
 // returns an ipv4Schema if the passed in reflect.type is a net.IP
@@ -67,8 +106,6 @@ func (s *ipv4Schema) ForType(t reflect.Type) Schema {
 
 	return nil
 }
-
-// Schema receivers --------------------------------------
 
 func (s *ipv4Schema) GoType() reflect.Type {
 	var t net.IP
@@ -83,14 +120,13 @@ func (s *ipv4Schema) GoType() reflect.Type {
 func (s *ipv4Schema) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal(map[string]interface{}{
-		"type":       "custom",
-		"customtype": ipV4SchemaName,
-		"nullable":   s.Nullable(),
+		"type":     "ipv4",
+		"nullable": s.Nullable(),
 	})
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *ipv4Schema) MarshalSchemer() []byte {
+func (s *ipv4Schema) MarshalSchemer() ([]byte, error) {
 
 	const schemerDateSize byte = 1 + 1 // 1 byte for the schema + 1 bytes for the UUID
 
@@ -106,7 +142,7 @@ func (s *ipv4Schema) MarshalSchemer() []byte {
 
 	schema[1] = ipV4SchemaUUID
 
-	return schema
+	return schema, nil
 }
 
 // Encode uses the schema to write the encoded value of i to the output stream
@@ -117,7 +153,7 @@ func (s *ipv4Schema) Encode(w io.Writer, i interface{}) error {
 // EncodeValue uses the schema to write the encoded value of he output stream
 func (s *ipv4Schema) EncodeValue(w io.Writer, v reflect.Value) error {
 
-	ok, err := PreEncode(s, w, &v)
+	ok, err := PreEncode(s.Nullable(), w, &v)
 	if err != nil {
 		return err
 	}
@@ -139,7 +175,11 @@ func (s *ipv4Schema) EncodeValue(w io.Writer, v reflect.Value) error {
 	bytesToEncode[2] = byte(v.Index(2).Uint())
 	bytesToEncode[3] = byte(v.Index(3).Uint())
 
-	fixedArraySchema := SchemaOf(bytesToEncode)
+	fixedArraySchema, err := SchemaOf(bytesToEncode)
+	if err != nil {
+		return err
+	}
+
 	err = fixedArraySchema.Encode(w, bytesToEncode)
 
 	if err != nil {
@@ -160,7 +200,7 @@ func (s *ipv4Schema) Decode(r io.Reader, i interface{}) error {
 // DecodeValue uses the schema to read the next encoded valuethe input stream and store it in v
 func (s *ipv4Schema) DecodeValue(r io.Reader, v reflect.Value) error {
 
-	v, err := PreDecode(s, r, v)
+	v, err := PreDecode(s.Nullable(), r, v)
 	if err != nil {
 		return err
 	}
@@ -187,7 +227,10 @@ func (s *ipv4Schema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	var decodedBytes [4]byte
 
-	fixedArraySchema := SchemaOf(decodedBytes)
+	fixedArraySchema, err := SchemaOf(decodedBytes)
+	if err != nil {
+		return err
+	}
 	err = fixedArraySchema.Decode(r, &decodedBytes)
 
 	if err != nil {

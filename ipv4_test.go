@@ -11,11 +11,17 @@ func testIPv41(useJSON bool, t *testing.T) {
 
 	var srcIP net.IP = net.IPv4(192, 168, 0, 2)
 
-	writerSchema := SchemaOf(&srcIP)
+	s, err := SchemaOf(&srcIP)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	writerSchema := s.(*ipv4Schema)
 
 	var encodedData bytes.Buffer
 
-	err := writerSchema.Encode(&encodedData, srcIP)
+	err = writerSchema.Encode(&encodedData, srcIP)
 	if err != nil {
 		t.Error(err)
 		return
@@ -32,14 +38,14 @@ func testIPv41(useJSON bool, t *testing.T) {
 		}
 
 		// recreate the schema from the JSON
-		readerSchema, err = DecodeJSONSchema(binarywriterSchema)
+		readerSchema, err = DecodeSchemaJSON(binarywriterSchema)
 		if err != nil {
 			t.Error("cannot create writerSchema from raw JSON data", err)
 			return
 		}
 	} else {
 		// write out our schema as binary
-		binarywriterSchema = writerSchema.MarshalSchemer()
+		binarywriterSchema, err = writerSchema.MarshalSchemer()
 		if err != nil {
 			t.Error("writerSchema.MarshalSchemer() failed", err)
 		}
@@ -80,11 +86,21 @@ func testIPv42(useJSON bool, t *testing.T) {
 
 	var structToEncode = SourceStruct{IntField1: 42, IP: net.IPv4(192, 168, 0, 1), Str: "test"}
 
-	writerSchema := SchemaOf(&structToEncode)
+	s, err := SchemaOf(&structToEncode)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	writerSchema, ok := s.(*FixedObjectSchema)
+	if !ok {
+		t.Error(err)
+		return
+	}
 
 	var encodedData bytes.Buffer
 
-	err := writerSchema.Encode(&encodedData, structToEncode)
+	err = writerSchema.Encode(&encodedData, structToEncode)
 	if err != nil {
 		t.Error(err)
 		return
@@ -101,14 +117,14 @@ func testIPv42(useJSON bool, t *testing.T) {
 		}
 
 		// recreate the schema from the JSON
-		readerSchema, err = DecodeJSONSchema(binarywriterSchema)
+		readerSchema, err = DecodeSchemaJSON(binarywriterSchema)
 		if err != nil {
 			t.Error("cannot create writerSchema from raw JSON data", err)
 			return
 		}
 	} else {
 		// write out our schema as binary
-		binarywriterSchema = writerSchema.MarshalSchemer()
+		binarywriterSchema, err = writerSchema.MarshalSchemer()
 		if err != nil {
 			t.Error("writerSchema.MarshalSchemer() failed", err)
 		}

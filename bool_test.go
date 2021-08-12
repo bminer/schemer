@@ -174,7 +174,10 @@ func TestDecodeBool6(t *testing.T) {
 	schema := BoolSchema{SchemaOptions{nullable: false}}
 
 	// encode it
-	b := schema.MarshalSchemer()
+	b, err := schema.MarshalSchemer()
+	if err != nil {
+		t.Error("cannot marshall schemer")
+	}
 
 	// make sure we can successfully decode it
 	tmp, err := DecodeSchema(b)
@@ -244,7 +247,11 @@ func TestDecodeBool7A(t *testing.T) {
 	}
 
 	// encode it
-	b := boolSchema.MarshalSchemer()
+	b, err := boolSchema.MarshalSchemer()
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	//------------
 

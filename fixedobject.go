@@ -46,9 +46,14 @@ func (s *FixedObjectSchema) MarshalJSON() ([]byte, error) {
 
 	for i := range s.Fields {
 		fields := make(map[string]interface{})
-		fields["name"] = s.Fields[i].Aliases 
+		fields["name"] = s.Fields[i].Aliases
 
-		b, err := s.Fields[i].Schema.MarshalJSON()
+		tmp, ok := s.Fields[i].Schema.(json.Marshaler)
+		if !ok {
+			return nil, fmt.Errorf("json.Marshaler assertion failed")
+		}
+
+		b, err := tmp.MarshalJSON()
 		if err != nil {
 			return nil, err
 		}
@@ -64,7 +69,7 @@ func (s *FixedObjectSchema) MarshalJSON() ([]byte, error) {
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *FixedObjectSchema) MarshalSchemer() []byte {
+func (s *FixedObjectSchema) MarshalSchemer() ([]byte, error) {
 
 	// fixedObject schemas are 1 byte long
 	var schemaBytes []byte = []byte{FixedObjectSchemaMask}
@@ -93,15 +98,25 @@ func (s *FixedObjectSchema) MarshalSchemer() []byte {
 		// now write each field alias
 		for i := 0; i < len(f.Aliases); i++ {
 			s := f.Aliases[i]
-			varLenStringSchema := SchemaOf(s)
+			varLenStringSchema, _ := SchemaOf(s)
 			var buf bytes.Buffer
 			varLenStringSchema.Encode(&buf, s)
 			schemaBytes = append(schemaBytes, buf.Bytes()...)
 		}
 
-		schemaBytes = append(schemaBytes, f.Schema.MarshalSchemer()...)
+		m, ok := f.Schema.(Marshaler)
+		if !ok {
+			return nil, fmt.Errorf("Marshaler assertion failed")
+		}
+
+		tmp, err := m.MarshalSchemer()
+		if err != nil {
+			return nil, err
+		}
+
+		schemaBytes = append(schemaBytes, tmp...)
 	}
-	return schemaBytes
+	return schemaBytes, nil
 }
 
 // Encode uses the schema to write the encoded value of i to the output stream
@@ -112,7 +127,7 @@ func (s *FixedObjectSchema) Encode(w io.Writer, i interface{}) error {
 // EncodeValue uses the schema to write the encoded value of v to the output stream
 func (s *FixedObjectSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 
-	ok, err := PreEncode(s, w, &v)
+	ok, err := PreEncode(s.Nullable(), w, &v)
 	if err != nil {
 		return err
 	}
@@ -175,7 +190,7 @@ func (s *FixedObjectSchema) Decode(r io.Reader, i interface{}) error {
 // DecodeValue uses the schema to read the next encoded value from the input stream and store it in v
 func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
-	v, err := PreDecode(s, r, v)
+	v, err := PreDecode(s.Nullable(), r, v)
 	if err != nil {
 		return err
 	}

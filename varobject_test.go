@@ -11,10 +11,22 @@ func TestDecodeVarObject1(t *testing.T) {
 	m := map[int]string{1: "b"}
 
 	// setup an example schema
-	varObjectSchema := SchemaOf(m)
+	s, err := SchemaOf(m)
+	if err != nil {
+		t.Error(err)
+	}
+
+	varObjectSchema, ok := s.(*VarObjectSchema)
+	if !ok {
+		t.Error("varObjectSchema assertion failed")
+		return
+	}
 
 	// encode it
-	b := varObjectSchema.MarshalSchemer()
+	b, err := varObjectSchema.MarshalSchemer()
+	if err != nil {
+		t.Error(err)
+	}
 
 	// make sure we can successfully decode it
 	tmp, err := DecodeSchema(b)
@@ -46,11 +58,16 @@ func TestDecodeVarObject2(t *testing.T) {
 
 	buf.Reset()
 
-	varObjectSchema := SchemaOf(&strToIntMap)
+	varObjectSchema, err := SchemaOf(&strToIntMap)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	err = varObjectSchema.Encode(&buf, strToIntMap)
 	if err != nil {
 		t.Error(err)
+		return
 	}
 
 	fmt.Println("map to map")
@@ -64,6 +81,7 @@ func TestDecodeVarObject2(t *testing.T) {
 	err = varObjectSchema.Decode(r, &mapToDecode)
 	if err != nil {
 		t.Error(err)
+		return
 	}
 
 	for key, element := range strToIntMap {

@@ -30,7 +30,7 @@ func (s *BoolSchema) MarshalJSON() ([]byte, error) {
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *BoolSchema) MarshalSchemer() []byte {
+func (s *BoolSchema) MarshalSchemer() ([]byte, error) {
 	// bool schemas are 1 byte long
 	var schema []byte = []byte{BoolSchemaMask}
 
@@ -39,7 +39,7 @@ func (s *BoolSchema) MarshalSchemer() []byte {
 		schema[0] |= 0x80
 	}
 
-	return schema
+	return schema, nil
 }
 
 // Encode uses the schema to write the encoded value of i to the output stream

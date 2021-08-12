@@ -30,7 +30,7 @@ func (sg dateSchemaGenerator) SchemaOfType(t reflect.Type) (Schema, error) {
 	}
 
 	if t.Name() == "Time" && t.PkgPath() == "time" {
-		s := DateSchema{}
+		s := &DateSchema{}
 		s.SetNullable(nullable)
 		return s, nil
 	}
@@ -38,24 +38,30 @@ func (sg dateSchemaGenerator) SchemaOfType(t reflect.Type) (Schema, error) {
 	return nil, nil
 }
 
-func (sg dateSchemaGenerator) DecodeSchema(io.Reader) (Schema, error) {
+func (sg dateSchemaGenerator) DecodeSchema(buf []byte, byteIndex *int) (Schema, error) {
+
+	if buf[*byteIndex] == CustomSchemaMask {
+		// don't advance byte index if we don't have a date schema
+		if buf[*byteIndex+1] != dateSchemaUUID {
+			return nil, nil
+		}
+	} else {
+		return nil, nil
+	}
+
+	nullable := (buf[*byteIndex]&SchemaNullBit == SchemaNullBit)
+
+	// advance past customSchemaMask and UUID
+	*byteIndex++
+	*byteIndex++
+
+	s := DateSchema{}
+	s.SetNullable(nullable)
+	return &s, nil
+
 }
 
-// 	s.SchemaOptions.nullable = (buf[*byteIndex]&SchemaNullBit == SchemaNullBit)
-
-// 	// advance to the UUID
-// 	*byteIndex++
-// 	if buf[*byteIndex] != s.UUID() {
-// 		return nil, fmt.Errorf("invalid call to dateSchema(), invalid UUID encountered in binary schema")
-// 	}
-
-// 	// advance past the UUID
-// 	*byteIndex++
-
-// 	return s, nil
-// }
-
-func (sg dateSchemaGenerator) DecodeSchemaJSON(io.Reader) (Schema, error) {
+func (sg dateSchemaGenerator) DecodeSchemaJSON(buf []byte) (Schema, error) {
 	fields := make(map[string]interface{})
 
 	err := json.Unmarshal(buf, &fields)
@@ -76,17 +82,18 @@ func (sg dateSchemaGenerator) DecodeSchemaJSON(io.Reader) (Schema, error) {
 
 	// Parse `nullable`
 	nullable := false
-	tmp, found := fields["nullable"]
+	tmp1, found := fields["nullable"]
 	if found {
-		if b, ok := tmp.(bool); ok {
+		if b, ok := tmp1.(bool); ok {
 			nullable = b
+		} else {
+			return nil, fmt.Errorf("nullable must be a boolean")
 		}
-		return fmt.Errorf("nullable must be a boolean")
 	}
 
 	s := DateSchema{}
 	s.SetNullable(nullable)
-	return s, nil
+	return &s, nil
 }
 
 // Schema receivers --------------------------------------
@@ -111,21 +118,21 @@ func (s *DateSchema) MarshalJSON() ([]byte, error) {
 // Bytes encodes the schema in a portable binary format
 func (s *DateSchema) MarshalSchemer() ([]byte, error) {
 
-	// const schemerDateSize byte = 1 + 1 // 1 byte for the schema + 1 bytes for the UUID
+	const schemerDateSize byte = 1 + 1 // 1 byte for the schema + 1 bytes for the UUID
 
-	// // string schemas are 1 byte long
-	// var schema []byte = make([]byte, schemerDateSize)
+	// string schemas are 1 byte long
+	var schema []byte = make([]byte, schemerDateSize)
 
-	// schema[0] = CustomSchemaMask
+	schema[0] = CustomSchemaMask
 
-	// // The most signifiant bit indicates whether or not the type is nullable
-	// if s.Nullable() {
-	// 	schema[0] |= 0x80
-	// }
+	// The most signifiant bit indicates whether or not the type is nullable
+	if s.Nullable() {
+		schema[0] |= 0x80
+	}
 
-	// schema[1] = dateSchemaUUID
+	schema[1] = dateSchemaUUID
 
-	// return schema
+	return schema, nil
 }
 
 // Encode uses the schema to write the encoded value of i to the output stream
@@ -157,9 +164,12 @@ func (s *DateSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 	retValSlice := v.MethodByName("UnixNano").Call(nil)
 	milisecondsToEncode := retValSlice[0].Int() / 1000000
 
-	varIntSchema := SchemaOf(milisecondsToEncode)
-	err = varIntSchema.Encode(w, milisecondsToEncode)
+	varIntSchema, err := SchemaOf(milisecondsToEncode)
+	if err != nil {
+		return err
+	}
 
+	err = varIntSchema.Encode(w, milisecondsToEncode)
 	if err != nil {
 		return err
 	}
@@ -178,7 +188,7 @@ func (s *DateSchema) Decode(r io.Reader, i interface{}) error {
 // DecodeValue uses the schema to read the next encoded valuethe input stream and store it in v
 func (s *DateSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
-	v, err := PreDecode(s, r, v)
+	v, err := PreDecode(s.Nullable(), r, v)
 	if err != nil {
 		return err
 	}
@@ -205,9 +215,12 @@ func (s *DateSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	var decodedMilliseconds int64
 
-	varIntSchema := SchemaOf(decodedMilliseconds)
-	err = varIntSchema.Decode(r, &decodedMilliseconds)
+	varIntSchema, err := SchemaOf(decodedMilliseconds)
+	if err != nil {
+		return err
+	}
 
+	err = varIntSchema.Decode(r, &decodedMilliseconds)
 	if err != nil {
 		return err
 	}

@@ -10,11 +10,11 @@ import (
 	"strings"
 )
 
-type VarLenStringSchema struct {
+type VarStringSchema struct {
 	SchemaOptions
 }
 
-func (s *VarLenStringSchema) GoType() reflect.Type {
+func (s *VarStringSchema) GoType() reflect.Type {
 	var t string
 	retval := reflect.TypeOf(t)
 
@@ -25,7 +25,7 @@ func (s *VarLenStringSchema) GoType() reflect.Type {
 	return retval
 }
 
-func (s *VarLenStringSchema) MarshalJSON() ([]byte, error) {
+func (s *VarStringSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"type":     "string",
 		"nullable": s.Nullable(),
@@ -33,7 +33,7 @@ func (s *VarLenStringSchema) MarshalJSON() ([]byte, error) {
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *VarLenStringSchema) MarshalSchemer() []byte {
+func (s *VarStringSchema) MarshalSchemer() ([]byte, error) {
 
 	// string schemas are 1 byte long
 	var schema []byte = []byte{VarStringSchemaMask}
@@ -43,18 +43,18 @@ func (s *VarLenStringSchema) MarshalSchemer() []byte {
 		schema[0] |= 0x80
 	}
 
-	return schema
+	return schema, nil
 }
 
 // Encode uses the schema to write the encoded value of i to the output stream
-func (s *VarLenStringSchema) Encode(w io.Writer, i interface{}) error {
+func (s *VarStringSchema) Encode(w io.Writer, i interface{}) error {
 	return s.EncodeValue(w, reflect.ValueOf(i))
 }
 
 // EncodeValue uses the schema to write the encoded value of v to the output stream
-func (s *VarLenStringSchema) EncodeValue(w io.Writer, v reflect.Value) error {
+func (s *VarStringSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 
-	ok, err := PreEncode(s, w, &v)
+	ok, err := PreEncode(s.Nullable(), w, &v)
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func (s *VarLenStringSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 }
 
 // Decode uses the schema to read the next encoded value from the input stream and store it in i
-func (s *VarLenStringSchema) Decode(r io.Reader, i interface{}) error {
+func (s *VarStringSchema) Decode(r io.Reader, i interface{}) error {
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
 	}
@@ -102,9 +102,9 @@ func (s *VarLenStringSchema) Decode(r io.Reader, i interface{}) error {
 }
 
 // DecodeValue uses the schema to read the next encoded value from the input stream and store it in v
-func (s *VarLenStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
+func (s *VarStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
-	v, err := PreDecode(s, r, v)
+	v, err := PreDecode(s.Nullable(), r, v)
 	if err != nil {
 		return err
 	}

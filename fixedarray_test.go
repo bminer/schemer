@@ -11,10 +11,21 @@ func TestDecodeFixedLenArray1(t *testing.T) {
 
 	var testarray [10]byte = [10]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 
-	fixedArraySchema := SchemaOf(testarray)
+	s, err := SchemaOf(testarray)
+	if err != nil {
+		t.Error(err)
+	}
+
+	fixedArraySchema, ok := s.(*FixedArraySchema)
+	if !ok {
+		t.Error("expected a *FixedArraySchema")
+	}
 
 	// encode it
-	b := fixedArraySchema.MarshalSchemer()
+	b, err := fixedArraySchema.MarshalSchemer()
+	if err != nil {
+		t.Error(err)
+	}
 
 	// make sure we can successfully decode it
 	tmp, err := DecodeSchema(b)
@@ -39,7 +50,10 @@ func TestDecodeFixedLenArray2(t *testing.T) {
 	floatarray := [6]float32{2.0, 3.1, 5.2, 7.3, 11.4, 13.5}
 	buf.Reset()
 
-	FixedArraySchema := SchemaOf(floatarray)
+	FixedArraySchema, err := SchemaOf(floatarray)
+	if err != nil {
+		t.Error(err)
+	}
 
 	err = FixedArraySchema.Encode(&buf, floatarray)
 	if err != nil {
@@ -74,7 +88,10 @@ func TestDecodeFixedLenArray3(t *testing.T) {
 	}
 	buf.Reset()
 
-	FixedArraySchema := SchemaOf(floatArray)
+	FixedArraySchema, err := SchemaOf(floatArray)
+	if err != nil {
+		t.Error(err)
+	}
 
 	err = FixedArraySchema.Encode(&buf, floatArray)
 	if err != nil {
@@ -119,7 +136,10 @@ func TestDecodeFixedLenArray4(t *testing.T) {
 	}
 	buf.Reset()
 
-	FixedArraySchema := SchemaOf(floatArray)
+	FixedArraySchema, err := SchemaOf(floatArray)
+	if err != nil {
+		t.Error(err)
+	}
 
 	err = FixedArraySchema.Encode(&buf, floatArray)
 	if err != nil {

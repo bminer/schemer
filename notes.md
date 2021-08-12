@@ -37,7 +37,7 @@ TODO: remove this file
       - `Nullable bool`
       - `IsNullable() bool`
       - `SetNullable(b bool)`
-    - Add `DecodeJSONSchema`
+    - Add `DecodeSchemaJSON`
     - Rename `IsValid() bool` to `Valid() bool`
     - Remove `Valid() bool` where no validation is needed (i.e. `BoolSchema`)
     - Fix binary format:

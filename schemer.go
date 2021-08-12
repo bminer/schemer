@@ -68,20 +68,42 @@ type Marshaler interface {
 // If all schema generators return a nil Schema or if Register is never called,
 // then the built-in logic for returning a Schema is used.
 type SchemaGenerator interface {
-	SchemaOfType(i interface{}) (Schema, error)
-	DecodeSchema(io.Reader) (Schema, error)
-	DecodeSchemaJSON(io.Reader) (Schema, error)
+	SchemaOfType(t reflect.Type) (Schema, error)
+	DecodeSchema(buf []byte, byteIndex *int) (Schema, error)
+	DecodeSchemaJSON(buf []byte) (Schema, error)
 }
 
 type hasSchemaOfType interface {
-	SchemaOfType(i interface{}) (Schema, error)
+	SchemaOfType(t reflect.Type) (Schema, error)
 }
 type hasDecodeSchema interface {
-	DecodeSchema(io.Reader) (Schema, error)
+	DecodeSchema(buf []byte, byteIndex *int) (Schema, error)
 }
 type hasDecodeSchemaJSON interface {
-	DecodeSchemaJSON(io.Reader) (Schema, error)
+	DecodeSchemaJSON(buf []byte) (Schema, error)
 }
+
+/*
+
+
+	changed back to use byte slice for now...
+
+	type SchemaGenerator interface {
+		SchemaOfType(i interface{}) (Schema, error)
+		DecodeSchema(io.Reader) (Schema, error)
+		DecodeSchemaJSON(io.Reader) (Schema, error)
+	}
+
+	type hasSchemaOfType interface {
+		SchemaOfType(i interface{}) (Schema, error)
+	}
+	type hasDecodeSchema interface {
+		DecodeSchema(io.Reader) (Schema, error)
+	}
+	type hasDecodeSchemaJSON interface {
+		DecodeSchemaJSON(io.Reader) (Schema, error)
+	}
+*/
 
 var (
 	regSchemaOfType     = []hasSchemaOfType{}
@@ -105,6 +127,7 @@ func Register(ifaces ...interface{}) error {
 			regDecodeSchemaJSON = append(regDecodeSchemaJSON, sg)
 		}
 	}
+	return nil
 }
 
 // SchemaOf returns a Schema for the specified interface value.
@@ -307,6 +330,7 @@ func SchemaOfType(t reflect.Type) (Schema, error) {
 
 // DecodeSchemaJSON takes a buffer of JSON data and parses it to create a schema
 func DecodeSchemaJSON(buf []byte) (Schema, error) {
+
 	// Call registered schema generators
 	for _, sg := range regDecodeSchemaJSON {
 		if s, err := sg.DecodeSchemaJSON(buf); s != nil || err != nil {
@@ -330,12 +354,13 @@ func DecodeSchemaJSON(buf []byte) (Schema, error) {
 
 	// Parse `nullable`
 	nullable := false
-	tmp, found := fields["nullable"]
+	tmp1, found := fields["nullable"]
 	if found {
-		if b, ok := tmp.(bool); ok {
+		if b, ok := tmp1.(bool); ok {
 			nullable = b
+		} else {
+			return nil, fmt.Errorf("nullable must be a boolean")
 		}
-		return fmt.Errorf("nullable must be a boolean")
 	}
 
 	switch typeStr {
@@ -450,7 +475,7 @@ func DecodeSchemaJSON(buf []byte) (Schema, error) {
 
 			return s, nil
 		} else {
-			s := &VarLenStringSchema{}
+			s := &VarStringSchema{}
 
 			b, _ := fields["nullable"].(bool)
 			s.SchemaOptions.nullable = b
@@ -604,7 +629,7 @@ func DecodeSchemaJSON(buf []byte) (Schema, error) {
 }
 
 // DecodeSchema decodes a Schema from its binary representation
-func DecodeSchema(buf []byte) (Schema, int, error) {
+func DecodeSchema(buf []byte) (Schema, error) {
 	byteIndex := 0
 	return decodeSchema(buf, &byteIndex)
 }
@@ -622,23 +647,33 @@ func decodeSchema(buf []byte, byteIndex *int) (Schema, error) {
 
 	var err error
 
+	// Call registered schema generators
+	for _, sg := range regDecodeSchema {
+		if s, err := sg.DecodeSchema(buf, byteIndex); s != nil || err != nil {
+			return s, err
+		}
+	}
+
 	// if we encounter a custom schema, loop through all registered custom schemas
 	// and see if any of them is a match
 
-	if buf[*byteIndex]&SixBitSchemaMask == CustomSchemaMask {
-		UUID := buf[*byteIndex+1]
+	/*
 
-		for _, s := range RegisteredSchemas() {
-			if s.UUID() == UUID {
-				s, err := s.UnMarshalSchemer(buf, byteIndex)
-				if err != nil {
-					return nil, err
+		if buf[*byteIndex]&SixBitSchemaMask == CustomSchemaMask {
+			UUID := buf[*byteIndex+1]
+
+			for _, s := range RegisteredSchemas() {
+				if s.UUID() == UUID {
+					s, err := s.UnMarshalSchemer(buf, byteIndex)
+					if err != nil {
+						return nil, err
+					}
+					return s, nil
 				}
-				return s, nil
 			}
-		}
 
-	}
+		}
+	*/
 
 	// decode fixed int schema
 	if buf[*byteIndex]&TwoBitSchemaMask == FixedIntSchemaMask {
@@ -713,11 +748,14 @@ func decodeSchema(buf []byte, byteIndex *int) (Schema, error) {
 		*byteIndex++
 
 		// we want to read in all the enumerated values...
-		mapSchema := SchemaOf(enumSchema.Values)
+		mapSchema, err := SchemaOf(enumSchema.Values)
+		if err != nil {
+			return nil, err
+		}
 
 		r := bytes.NewReader(buf[*byteIndex:])
 		origBufferSize := r.Len()
-		err := mapSchema.Decode(r, &enumSchema.Values)
+		err = mapSchema.Decode(r, &enumSchema.Values)
 		if err != nil {
 			return nil, err
 		}
@@ -752,7 +790,7 @@ func decodeSchema(buf []byte, byteIndex *int) (Schema, error) {
 
 	// decode var len string
 	if buf[*byteIndex]&SixBitSchemaMask == VarStringSchemaMask {
-		var varLenStringSchema *VarLenStringSchema = &(VarLenStringSchema{})
+		var varLenStringSchema *VarStringSchema = &(VarStringSchema{})
 
 		varLenStringSchema.SchemaOptions.nullable = (buf[*byteIndex]&SchemaNullBit == SchemaNullBit)
 		*byteIndex++
@@ -840,11 +878,14 @@ func decodeSchema(buf []byte, byteIndex *int) (Schema, error) {
 			// read out each alias name...
 			for j := 0; j < int(numAlias); j++ {
 				AliasName := ""
-				varLenStringSchema := SchemaOf(AliasName)
+				varStringSchema, err := SchemaOf(AliasName)
+				if err != nil {
+					return nil, err
+				}
 				r := bytes.NewReader(buf[*byteIndex:])
 				origBufferSize := r.Len()
 				var tmp string
-				varLenStringSchema.Decode(r, &tmp)
+				varStringSchema.Decode(r, &tmp)
 				of.Aliases = append(of.Aliases, tmp)
 				*byteIndex = *byteIndex + (origBufferSize - r.Len())
 			}
@@ -891,7 +932,7 @@ func decodeSchema(buf []byte, byteIndex *int) (Schema, error) {
 }
 
 // PreEncode should be called by each Schema's Encode() routine.
-// It handles dereferencing points and interacts, and for writing
+// It handles dereferencing pointerss and interfaces, and for writing
 // a byte to indicate nullable if the schema indicates it is in fact
 // nullable.
 // If this routine returns false, no more processing is needed on the
@@ -980,6 +1021,5 @@ func PreDecode(nullable bool, r io.Reader, v reflect.Value) (reflect.Value, erro
 // initialization function for the Schemer Library
 func init() {
 	Register(dateSchemaGenerator{})
-	// RegisterCustomSchema(&dateSchema{})
-	// RegisterCustomSchema(&ipv4Schema{})
+	Register(ipv4SchemaGenerator{})
 }

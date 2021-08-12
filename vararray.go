@@ -25,7 +25,7 @@ func (s *VarArraySchema) GoType() reflect.Type {
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *VarArraySchema) MarshalSchemer() []byte {
+func (s *VarArraySchema) MarshalSchemer() ([]byte, error) {
 
 	// fixed length schemas are 1 byte long total
 	var schema []byte = []byte{VarArraySchemaMask}
@@ -35,10 +35,14 @@ func (s *VarArraySchema) MarshalSchemer() []byte {
 		schema[0] |= 0x80
 	}
 
-	schema = append(schema, s.Element.MarshalSchemer()...)
+	m := s.Element.(Marshaler)
+	tmp, err := m.MarshalSchemer()
+	if err != nil {
+		return nil, err
+	}
 
-	return schema
-
+	schema = append(schema, tmp...)
+	return schema, nil
 }
 
 func (s *VarArraySchema) MarshalJSON() ([]byte, error) {
@@ -47,8 +51,10 @@ func (s *VarArraySchema) MarshalJSON() ([]byte, error) {
 	tmpMap["type"] = "array"
 	tmpMap["nullable"] = s.Nullable()
 
+	m := s.Element.(json.Marshaler)
+
 	// now encode the schema for the element
-	elementJSON, err := s.Element.MarshalJSON()
+	elementJSON, err := m.MarshalJSON()
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +79,7 @@ func (s *VarArraySchema) Encode(w io.Writer, i interface{}) error {
 // EncodeValue uses the schema to write the encoded value of v to the output stream
 func (s *VarArraySchema) EncodeValue(w io.Writer, v reflect.Value) error {
 
-	ok, err := PreEncode(s, w, &v)
+	ok, err := PreEncode(s.Nullable(), w, &v)
 	if err != nil {
 		return err
 	}
@@ -114,7 +120,7 @@ func (s *VarArraySchema) Decode(r io.Reader, i interface{}) error {
 // DecodeValue uses the schema to read the next encoded value from the input stream and store it in v
 func (s *VarArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
-	v, err := PreDecode(s, r, v)
+	v, err := PreDecode(s.Nullable(), r, v)
 	if err != nil {
 		return err
 	}

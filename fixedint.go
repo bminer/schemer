@@ -68,7 +68,7 @@ func (s *FixedIntSchema) Valid() bool {
 }
 
 // Bytes encodes the schema in a portable binary format
-func (s *FixedIntSchema) MarshalSchemer() []byte {
+func (s *FixedIntSchema) MarshalSchemer() ([]byte, error) {
 
 	// fixed length schemas are 1 byte long total
 	var schema []byte = []byte{FixedIntSchemaMask}
@@ -96,7 +96,7 @@ func (s *FixedIntSchema) MarshalSchemer() []byte {
 	default:
 	}
 
-	return schema
+	return schema, nil
 
 }
 
@@ -255,7 +255,7 @@ func (s *FixedIntSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 		return fmt.Errorf("cannot encode using invalid FixedIntSchema schema")
 	}
 
-	ok, err := PreEncode(s, w, &v)
+	ok, err := PreEncode(s.Nullable(), w, &v)
 	if err != nil {
 		return err
 	}
@@ -341,7 +341,7 @@ func (s *FixedIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		return fmt.Errorf("cannot decode using invalid FixedIntSchema schema")
 	}
 
-	v, err := PreDecode(s, r, v)
+	v, err := PreDecode(s.Nullable(), r, v)
 	if err != nil {
 		return err
 	}

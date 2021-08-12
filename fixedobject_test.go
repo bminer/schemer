@@ -17,10 +17,23 @@ func TestDecodeFixedObject1(t *testing.T) {
 	var testStruct TestStruct
 
 	// setup an example schema
-	fixedObjectSchema := SchemaOf(testStruct)
+	s, err := SchemaOf(testStruct)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	fixedObjectSchema, ok := s.(*FixedObjectSchema)
+	if !ok {
+		t.Error("FixedObjectSchema expected")
+		return
+	}
 
 	// encode it
-	b := fixedObjectSchema.MarshalSchemer()
+	b, err := fixedObjectSchema.MarshalSchemer()
+	if err != nil {
+		t.Error(err)
+	}
 
 	tmp, err := DecodeSchema(b)
 	if err != nil {
@@ -51,7 +64,16 @@ func TestDecodeFixedObject2(t *testing.T) {
 
 	buf.Reset()
 
-	fixedObjectSchema := SchemaOf(&structToEncode)
+	s, err := SchemaOf(&structToEncode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	fixedObjectSchema, ok := s.(*FixedObjectSchema)
+	if !ok {
+		t.Error("FixedObjectSchema expected")
+		return
+	}
 
 	// test overririding the nullability of the string...
 	//fixedObjectSchema.(*FixedObjectSchema).Fields[0].Schema.(*VarLenStringSchema).IsNullable = false
@@ -98,11 +120,20 @@ func TestDecodeFixedObject5(t *testing.T) {
 
 	var structToEncode = SourceStruct{FName: "ben", LName: "pritchard", AgeInLife: 42}
 
-	writerSchema := SchemaOf(&structToEncode)
+	tmp, err := SchemaOf(&structToEncode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	writerSchema, ok := tmp.(*FixedObjectSchema)
+	if !ok {
+		t.Error("FixedObjectSchema expected")
+		return
+	}
 
 	var encodedData bytes.Buffer
 
-	err := writerSchema.Encode(&encodedData, structToEncode)
+	err = writerSchema.Encode(&encodedData, structToEncode)
 	if err != nil {
 		t.Error(err)
 		return
@@ -115,7 +146,7 @@ func TestDecodeFixedObject5(t *testing.T) {
 	}
 
 	// recreate the schmer from the JSON
-	readerSchema, err := DecodeJSONSchema(binarywriterSchema)
+	readerSchema, err := DecodeSchemaJSON(binarywriterSchema)
 	if err != nil {
 		t.Error("cannot create writerSchema from raw JSON data", err)
 		return
@@ -161,11 +192,14 @@ func TestDecodeFixedObject6(t *testing.T) {
 
 	var structToEncode = SourceStruct{FName: "ben", LName: "pritchard", AgeInLife: 42}
 
-	writerSchema := SchemaOf(&structToEncode)
+	writerSchema, err := SchemaOf(&structToEncode)
+	if err != nil {
+		t.Error(err)
+	}
 
 	var encodedData bytes.Buffer
 
-	err := writerSchema.Encode(&encodedData, structToEncode)
+	err = writerSchema.Encode(&encodedData, structToEncode)
 	if err != nil {
 		t.Error(err)
 	}

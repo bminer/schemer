@@ -13,22 +13,25 @@ func TestVarString1(t *testing.T) {
 	fmt.Println("Testing decoding var length string values")
 
 	// setup an example schema
-	schema := VarLenStringSchema{SchemaOptions{nullable: true}}
+	schema := VarStringSchema{SchemaOptions{nullable: true}}
 
 	// encode it
-	b := schema.MarshalSchemer()
+	b, err := schema.MarshalSchemer()
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	// make sure we can successfully decode it
 	tmp, err := DecodeSchema(b)
 	if err != nil {
 		t.Error("cannot decode binary encoded string schema")
+		return
 	}
 
-	decodedStringSchema := tmp.(*VarLenStringSchema)
+	decodedStringSchema := tmp.(*VarStringSchema)
 	if schema.Nullable() != decodedStringSchema.Nullable() {
-
 		// nothing else to test here...
-
 		t.Error("unexpected value for VarLenStringSchema")
 	}
 
@@ -36,7 +39,7 @@ func TestVarString1(t *testing.T) {
 
 func TestVarString2(t *testing.T) {
 
-	varLenStringSchema := VarLenStringSchema{SchemaOptions: SchemaOptions{nullable: false}}
+	varLenStringSchema := VarStringSchema{SchemaOptions: SchemaOptions{nullable: false}}
 
 	var buf bytes.Buffer
 	var err error
@@ -69,7 +72,7 @@ func TestVarString2(t *testing.T) {
 
 func TestVarFixedString3(t *testing.T) {
 
-	varLenStringSchema := VarLenStringSchema{SchemaOptions: SchemaOptions{nullable: true}}
+	varLenStringSchema := VarStringSchema{SchemaOptions: SchemaOptions{nullable: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -105,7 +108,7 @@ func TestVarFixedString3(t *testing.T) {
 
 func TestVarFixedString4(t *testing.T) {
 
-	varLenStringSchema := VarLenStringSchema{SchemaOptions: SchemaOptions{nullable: true}}
+	varLenStringSchema := VarStringSchema{SchemaOptions: SchemaOptions{nullable: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -141,7 +144,7 @@ func TestVarFixedString4(t *testing.T) {
 
 func TestVarFixedString5(t *testing.T) {
 
-	varLenStringSchema := VarLenStringSchema{SchemaOptions: SchemaOptions{nullable: true}}
+	varLenStringSchema := VarStringSchema{SchemaOptions: SchemaOptions{nullable: true}}
 
 	var buf bytes.Buffer
 	var err error
@@ -177,7 +180,7 @@ func TestVarFixedString5(t *testing.T) {
 
 func TestVarFixedString6(t *testing.T) {
 
-	varLenStringSchema := VarLenStringSchema{SchemaOptions: SchemaOptions{nullable: true}}
+	varLenStringSchema := VarStringSchema{SchemaOptions: SchemaOptions{nullable: true}}
 
 	var buf bytes.Buffer
 	var err error
