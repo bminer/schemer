@@ -176,11 +176,9 @@ func testRegisteredType2(useJSON bool, t *testing.T) {
 }
 
 func TestCustomDates(t *testing.T) {
-	//testRegisteredType1(true, t)
-	//testRegisteredType1(false, t)
+	testRegisteredType1(true, t)
+	testRegisteredType1(false, t)
 
-	//testRegisteredType2(true, t)
+	testRegisteredType2(true, t)
 	testRegisteredType2(false, t)
 }
-
-// 0x 29 06 02 09 49 6e 74 46 69 65 6c 64 31 11 02 04 44 61 74 65 3f01020353747220
