@@ -94,7 +94,7 @@ func (s *VarArraySchema) EncodeValue(w io.Writer, v reflect.Value) error {
 		return fmt.Errorf("VarArraySchema can only encode slices")
 	}
 
-	err = writeVarUint(w, uint64(v.Len()))
+	err = WriteVarUint(w, uint64(v.Len()))
 	if err != nil {
 		return errors.New("cannot encode var string length as var int")
 	}
@@ -144,7 +144,7 @@ func (s *VarArraySchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		return fmt.Errorf("VarArraySchema can only decode to slices")
 	}
 
-	expectedLen, err := readVarUint(r)
+	expectedLen, err := ReadVarUint(r)
 	if err != nil {
 		return err
 	}

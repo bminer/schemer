@@ -1,9 +1,7 @@
 package schemer
 
 import (
-	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -61,49 +59,6 @@ func (s *VarIntSchema) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func writeVarUint(w io.Writer, v uint64) error {
-
-	buf := make([]byte, binary.MaxVarintLen64)
-	varIntBytes := binary.PutUvarint(buf, v)
-	n, err := w.Write(buf[0:varIntBytes])
-	if err == nil && n != varIntBytes {
-		err = errors.New("unexpected number of bytes written")
-	}
-
-	return err
-}
-
-func readVarUint(r io.Reader) (uint64, error) {
-
-	buf := make([]byte, binary.MaxVarintLen64)
-	counter := 0
-
-	// read one byte at a a time
-	for {
-		b := make([]byte, 1)
-		_, err := io.ReadAtLeast(r, b, 1)
-		if err != nil {
-			return 0, err
-		}
-		buf[counter] = b[0]
-
-		// keep reading out bytes until
-		if b[0]&128 != 128 {
-			break
-		}
-
-		counter++
-	}
-
-	decodedUInt, n := binary.Uvarint(buf)
-	if n != counter+1 {
-		return 0, fmt.Errorf("uvarint did not consume expected number of bytes")
-	}
-
-	return decodedUInt, nil
-
-}
-
 // Encode uses the schema to write the encoded value of i to the output stream
 func (s *VarIntSchema) Encode(w io.Writer, i interface{}) error {
 	return s.EncodeValue(w, reflect.ValueOf(i))
@@ -139,7 +94,7 @@ func (s *VarIntSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 		if intVal < 0 {
 			uintVal = ^uintVal
 		}
-		return writeVarUint(w, uintVal)
+		return WriteVarUint(w, uintVal)
 	case reflect.Uint:
 		fallthrough
 	case reflect.Uint8:
@@ -150,7 +105,7 @@ func (s *VarIntSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 		fallthrough
 	case reflect.Uint64:
 		uintVal := v.Uint()
-		return writeVarUint(w, uintVal)
+		return WriteVarUint(w, uintVal)
 	}
 
 	return nil
@@ -189,7 +144,7 @@ func (s *VarIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// Decode value
 	if s.Signed {
-		uintVal, err := readVarUint(r)
+		uintVal, err := ReadVarUint(r)
 		if err != nil {
 			return err
 		}
@@ -272,7 +227,7 @@ func (s *VarIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		}
 	} else {
 		// Unsigned
-		uintVal, err := readVarUint(r)
+		uintVal, err := ReadVarUint(r)
 		if err != nil {
 			return err
 		}
