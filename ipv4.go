@@ -10,8 +10,7 @@ import (
 )
 
 // each custom type has a unique name an a unique UUID
-//const ipV4SchemaName string = "ipv4"
-const ipV4SchemaUUID byte = 02
+const ipV4SchemaUUID byte = 2
 
 type ipv4Schema struct {
 	SchemaOptions
@@ -41,29 +40,25 @@ func (sg ipv4SchemaGenerator) SchemaOfType(t reflect.Type) (Schema, error) {
 
 func (sg ipv4SchemaGenerator) DecodeSchema(r io.Reader) (Schema, error) {
 
-	return nil, nil
+	tmpBuf := make([]byte, 1)
+	_, err := r.Read(tmpBuf)
+	if err != nil {
+		return nil, err
+	}
 
-	/*
-
-		if buf[*byteIndex] == CustomSchemaMask {
-			// don't advance byte index if we don't have an IPv4 schema
-			if buf[*byteIndex+1] != ipV4SchemaUUID {
-				return nil, nil
-			}
-		} else {
+	if tmpBuf[0]&CustomSchemaMask == CustomSchemaMask {
+		if tmpBuf[0]&(ipV4SchemaUUID<<4) != (ipV4SchemaUUID << 4) {
 			return nil, nil
 		}
+	} else {
+		return nil, nil
+	}
 
-		nullable := (buf[*byteIndex]&SchemaNullBit == SchemaNullBit)
+	nullable := (tmpBuf[0]&SchemaNullBit == SchemaNullBit)
 
-		// advance past customSchemaMask and UUID
-		*byteIndex++
-		*byteIndex++
-
-		s := ipv4Schema{}
-		s.SetNullable(nullable)
-		return &s, nil
-	*/
+	s := ipv4Schema{}
+	s.SetNullable(nullable)
+	return &s, nil
 
 }
 
@@ -138,19 +133,18 @@ func (s *ipv4Schema) MarshalJSON() ([]byte, error) {
 // Bytes encodes the schema in a portable binary format
 func (s *ipv4Schema) MarshalSchemer() ([]byte, error) {
 
-	const schemerDateSize byte = 1 + 1 // 1 byte for the schema + 1 bytes for the UUID
+	const schemerDateSize byte = 1
 
 	// string schemas are 1 byte long
 	var schema []byte = make([]byte, schemerDateSize)
 
-	schema[0] = CustomSchemaMask
+	schema[0] |= CustomSchemaMask
+	schema[0] |= (ipV4SchemaUUID << 4)
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {
 		schema[0] |= 0x80
 	}
-
-	schema[1] = ipV4SchemaUUID
 
 	return schema, nil
 }

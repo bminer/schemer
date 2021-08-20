@@ -1,6 +1,10 @@
 package schemer
 
-/*
+import (
+	"bytes"
+	"net"
+	"testing"
+)
 
 // uses a net.IP  directly...
 func testIPv41(useJSON bool, t *testing.T) {
@@ -171,5 +175,3 @@ func TestIPv41(t *testing.T) {
 	testIPv42(true, t)
 	testIPv42(false, t)
 }
-
-*/

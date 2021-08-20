@@ -1,7 +1,12 @@
 package schemer
 
+// TODO:
+//		-> type TypeByte byte
+//	-	-> model decode after decodeJSON
+//	-	-> squeze custom type into 6 bits , based on reserved type (CustomSchemaMask to be 0x40)
+//
+
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -26,7 +31,7 @@ const (
 	VarArraySchemaMask      = 0x24
 	FixedObjectSchemaMask   = 0x29 // 0b10 100f 	where f indicates that the object has fixed number of fields
 	VarObjectSchemaMask     = 0x28
-	CustomSchemaMask        = 0x3F // 0b11 1111
+	CustomSchemaMask        = 0x40 // bit 7 indicates custom schema type
 	SchemaNullBit           = 0x80 // The most signifiant bit indicates whether or not the type is nullable
 )
 
@@ -69,7 +74,7 @@ type Marshaler interface {
 // then the built-in logic for returning a Schema is used.
 type SchemaGenerator interface {
 	SchemaOfType(t reflect.Type) (Schema, error)
-	DecodeSchema(b *bufio.Reader) (Schema, error)
+	DecodeSchema(r io.Reader) (Schema, error)
 	DecodeSchemaJSON(r io.Reader) (Schema, error)
 }
 
@@ -612,15 +617,11 @@ func DecodeSchemaJSON(r io.Reader) (Schema, error) {
 	return nil, fmt.Errorf("invalid schema type: %s", typeStr)
 }
 
-func DecodeSchema(r io.Reader) (Schema, error) {
-	br := bufio.NewReader(r)
-	return decodeSchema(br)
-}
-
 // decodeSchema processes buf[] to actually decode the binary schema.
 // As each byte is processed, this routine advances *byteIndex, which indicates
 // how far into the buffer we have processed already.
-func decodeSchema(r io.Reader) (Schema, error) {
+func DecodeSchema(r io.Reader) (Schema, error) {
+
 	const (
 		TwoBitSchemaMask  = 0x30
 		FourBitSchemaMask = 0x3C
@@ -630,21 +631,19 @@ func decodeSchema(r io.Reader) (Schema, error) {
 
 	var err error
 
-	// Call registered schema generators
-
-	/*
-		for _, sg := range regDecodeSchema {
-			if s, err := sg.DecodeSchema(r); s != nil || err != nil {
-				return s, err
-			}
-		}
-	*/
-
 	buf := make([]byte, 1)
 	_, err = r.Read(buf)
 	if err != nil {
 		return nil, err
 	}
+
+	// Call registered schema generators
+	for _, sg := range regDecodeSchema {
+		if s, err := sg.DecodeSchema(bytes.NewReader(buf)); s != nil || err != nil {
+			return s, err
+		}
+	}
+
 	curByte := buf[0]
 
 	// decode fixed int schema
@@ -763,7 +762,7 @@ func decodeSchema(r io.Reader) (Schema, error) {
 			return nil, err
 		}
 
-		FixedArraySchema.Element, err = decodeSchema(r)
+		FixedArraySchema.Element, err = DecodeSchema(r)
 		if err != nil {
 			return nil, err
 		}
@@ -777,7 +776,7 @@ func decodeSchema(r io.Reader) (Schema, error) {
 
 		varArraySchema.SchemaOptions.nullable = (curByte&SchemaNullBit == SchemaNullBit)
 
-		varArraySchema.Element, err = decodeSchema(r)
+		varArraySchema.Element, err = DecodeSchema(r)
 		if err != nil {
 			return nil, err
 		}
@@ -818,8 +817,7 @@ func decodeSchema(r io.Reader) (Schema, error) {
 
 			}
 
-			// decodeSchema recursive call will advance *byteIndex for each field...
-			of.Schema, err = decodeSchema(r)
+			of.Schema, err = DecodeSchema(r)
 			if err != nil {
 				return nil, err
 			}
@@ -836,12 +834,12 @@ func decodeSchema(r io.Reader) (Schema, error) {
 
 		varObjectSchema.SchemaOptions.nullable = (curByte&SchemaNullBit == SchemaNullBit)
 
-		varObjectSchema.Key, err = decodeSchema(r)
+		varObjectSchema.Key, err = DecodeSchema(r)
 		if err != nil {
 			return nil, err
 		}
 
-		varObjectSchema.Value, err = decodeSchema(r)
+		varObjectSchema.Value, err = DecodeSchema(r)
 		if err != nil {
 			return nil, err
 		}
@@ -948,5 +946,5 @@ func PreDecode(nullable bool, r io.Reader, v reflect.Value) (reflect.Value, erro
 // initialization function for the Schemer Library
 func init() {
 	Register(dateSchemaGenerator{})
-	//Register(ipv4SchemaGenerator{})
+	Register(ipv4SchemaGenerator{})
 }

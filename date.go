@@ -1,7 +1,6 @@
 package schemer
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,7 +10,7 @@ import (
 )
 
 // each custom type has a unique name an a unique UUID
-const dateSchemaUUID byte = 1 // each custom type has a unique id
+const dateSchemaUUID byte = 1
 
 type DateSchema struct {
 	SchemaOptions
@@ -39,16 +38,16 @@ func (sg dateSchemaGenerator) SchemaOfType(t reflect.Type) (Schema, error) {
 	return nil, nil
 }
 
-func (sg dateSchemaGenerator) DecodeSchema(br *bufio.Reader) (Schema, error) {
+func (sg dateSchemaGenerator) DecodeSchema(r io.Reader) (Schema, error) {
 
-	tmpBuf, err := br.Peek(2)
+	tmpBuf := make([]byte, 1)
+	_, err := r.Read(tmpBuf)
 	if err != nil {
 		return nil, err
 	}
 
-	if tmpBuf[0] == CustomSchemaMask {
-		// don't advance byte index if we don't have a date schema
-		if tmpBuf[1] != dateSchemaUUID {
+	if tmpBuf[0]&CustomSchemaMask == CustomSchemaMask {
+		if tmpBuf[0]&(dateSchemaUUID<<4) != (dateSchemaUUID << 4) {
 			return nil, nil
 		}
 	} else {
@@ -60,6 +59,7 @@ func (sg dateSchemaGenerator) DecodeSchema(br *bufio.Reader) (Schema, error) {
 	s := DateSchema{}
 	s.SetNullable(nullable)
 	return &s, nil
+
 }
 
 func (sg dateSchemaGenerator) DecodeSchemaJSON(r io.Reader) (Schema, error) {
@@ -125,19 +125,18 @@ func (s *DateSchema) MarshalJSON() ([]byte, error) {
 // Bytes encodes the schema in a portable binary format
 func (s *DateSchema) MarshalSchemer() ([]byte, error) {
 
-	const schemerDateSize byte = 1 + 1 // 1 byte for the schema + 1 bytes for the UUID
+	const schemerDateSize byte = 1
 
 	// string schemas are 1 byte long
 	var schema []byte = make([]byte, schemerDateSize)
 
-	schema[0] = CustomSchemaMask
+	schema[0] |= CustomSchemaMask
+	schema[0] |= (dateSchemaUUID<<4)
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {
 		schema[0] |= 0x80
 	}
-
-	schema[1] = dateSchemaUUID
 
 	return schema, nil
 }
