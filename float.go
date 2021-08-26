@@ -52,11 +52,11 @@ func (s *FloatSchema) MarshalJSON() ([]byte, error) {
 func (s *FloatSchema) MarshalSchemer() ([]byte, error) {
 
 	// floating point schemas are 1 byte long
-	var schema []byte = []byte{FloatBinarySchemaFormat}
+	var schema []byte = []byte{FloatByte}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {
-		schema[0] |= 0x80
+		schema[0] |= NullMask
 	}
 
 	if s.Bits == 32 {

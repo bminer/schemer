@@ -33,11 +33,11 @@ func (s *FixedArraySchema) Valid() bool {
 func (s *FixedArraySchema) MarshalSchemer() ([]byte, error) {
 
 	// fixed length schemas are 1 byte long total
-	var schema []byte = []byte{FixedArraySchemaMask}
+	var schema []byte = []byte{FixedArrayByte}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {
-		schema[0] |= 0x80
+		schema[0] |= NullMask
 	}
 
 	// encode array fixed length as a varint

@@ -13,25 +13,25 @@ func TestDecodeVarObject1(t *testing.T) {
 	// setup an example schema
 	s, err := SchemaOf(m)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	varObjectSchema, ok := s.(*VarObjectSchema)
 	if !ok {
-		t.Error("varObjectSchema assertion failed")
+		t.Fatal("varObjectSchema assertion failed")
 		return
 	}
 
 	// encode it
 	b, err := varObjectSchema.MarshalSchemer()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	// make sure we can successfully decode it
 	tmp, err := DecodeSchema(bytes.NewReader(b))
 	if err != nil {
-		t.Error("cannot encode binary encoded VarObjectSchema")
+		t.Fatal("cannot encode binary encoded VarObjectSchema", err)
 	}
 
 	decodedIntSchema := tmp.(*VarObjectSchema)
@@ -39,7 +39,7 @@ func TestDecodeVarObject1(t *testing.T) {
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
 	if decodedIntSchema.Nullable() != varObjectSchema.Nullable() {
-		t.Error("unexpected values when decoding binary EnumSchema")
+		t.Fatal("unexpected values when decoding binary EnumSchema")
 	}
 
 }

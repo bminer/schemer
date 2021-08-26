@@ -7,11 +7,15 @@ import (
 	"io"
 )
 
+// byter wraps an io.Reader and provides a ReadByte() function
+// Caution: ReadByte() usually implies that reading a single byte is fast, so
+// please ensure that the underlying Reader can read individual bytes in
+// sequence without major performance issues.
 type byter struct {
 	io.Reader
 }
 
-func (r *byter) ReadByte() (byte, error) {
+func (r byter) ReadByte() (byte, error) {
 	var buf [1]byte
 	n, err := r.Reader.Read(buf[:])
 	if err != nil {
@@ -21,6 +25,10 @@ func (r *byter) ReadByte() (byte, error) {
 		return 0, io.ErrNoProgress
 	}
 	return buf[0], nil
+}
+
+func (r byter) ReadVarint() (int64, error) {
+	return binary.ReadVarint(r)
 }
 
 func VarIntFromIOReader(r io.Reader) (int64, error) {

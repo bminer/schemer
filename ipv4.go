@@ -46,7 +46,7 @@ func (sg ipv4SchemaGenerator) DecodeSchema(r io.Reader) (Schema, error) {
 		return nil, err
 	}
 
-	if tmpBuf[0]&CustomSchemaMask == CustomSchemaMask {
+	if tmpBuf[0]&CustomMask == CustomMask {
 		if tmpBuf[0]&(ipV4SchemaUUID<<4) != (ipV4SchemaUUID << 4) {
 			return nil, nil
 		}
@@ -54,7 +54,7 @@ func (sg ipv4SchemaGenerator) DecodeSchema(r io.Reader) (Schema, error) {
 		return nil, nil
 	}
 
-	nullable := (tmpBuf[0]&SchemaNullBit == SchemaNullBit)
+	nullable := (tmpBuf[0]&NullMask == NullMask)
 
 	s := ipv4Schema{}
 	s.SetNullable(nullable)
@@ -138,7 +138,7 @@ func (s *ipv4Schema) MarshalSchemer() ([]byte, error) {
 	// string schemas are 1 byte long
 	var schema []byte = make([]byte, schemerDateSize)
 
-	schema[0] |= CustomSchemaMask
+	schema[0] |= CustomMask
 	schema[0] |= (ipV4SchemaUUID << 4)
 
 	// The most signifiant bit indicates whether or not the type is nullable

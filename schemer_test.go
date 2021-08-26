@@ -197,12 +197,12 @@ func fixedObjectReader1(t *testing.T, useJSON bool) {
 	if useJSON {
 		writerSchema, err = DecodeSchemaJSON(bytes.NewReader(binarywriterSchema))
 		if err != nil {
-			t.Error("cannot create writerSchema from raw JSON data", err)
+			t.Fatal("cannot create writerSchema from raw JSON data", err)
 		}
 	} else {
 		writerSchema, err = DecodeSchema(bytes.NewReader(binarywriterSchema))
 		if err != nil {
-			t.Error("cannot create writerSchema from raw binary data", err)
+			t.Fatal("cannot create writerSchema from raw binary data", err)
 		}
 	}
 

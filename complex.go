@@ -53,11 +53,11 @@ func (s *ComplexSchema) MarshalJSON() ([]byte, error) {
 func (s *ComplexSchema) MarshalSchemer() ([]byte, error) {
 
 	// floating point schemas are 1 byte long
-	var schema []byte = []byte{ComplexSchemaMask}
+	var schema []byte = []byte{ComplexByte}
 
 	// bit 8 indicates whether or not the type is nullable
 	if s.Nullable() {
-		schema[0] |= 0x80
+		schema[0] |= NullMask
 	}
 
 	// bit 1 = complex number size in (64 << n) bits

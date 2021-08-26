@@ -72,11 +72,11 @@ func (s *FixedObjectSchema) MarshalJSON() ([]byte, error) {
 func (s *FixedObjectSchema) MarshalSchemer() ([]byte, error) {
 
 	// fixedObject schemas are 1 byte long
-	var schemaBytes []byte = []byte{FixedObjectSchemaMask}
+	var schemaBytes []byte = []byte{FixedObjectByte}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {
-		schemaBytes[0] |= 0x80
+		schemaBytes[0] |= NullMask
 	}
 
 	// encode total number of fields as a varint

@@ -48,11 +48,11 @@ func (s *FixedStringSchema) MarshalJSON() ([]byte, error) {
 func (s *FixedStringSchema) MarshalSchemer() ([]byte, error) {
 
 	// string schemas are 1 byte long
-	var schema []byte = []byte{FixedStringSchemaMask}
+	var schema []byte = []byte{FixedStringByte}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {
-		schema[0] |= 0x80
+		schema[0] |= NullMask
 	}
 
 	// set bit 1, which indicates this is fixed len string

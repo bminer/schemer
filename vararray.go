@@ -28,11 +28,11 @@ func (s *VarArraySchema) GoType() reflect.Type {
 func (s *VarArraySchema) MarshalSchemer() ([]byte, error) {
 
 	// fixed length schemas are 1 byte long total
-	var schema []byte = []byte{VarArraySchemaMask}
+	var schema []byte = []byte{VarArrayByte}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {
-		schema[0] |= 0x80
+		schema[0] |= NullMask
 	}
 
 	m := s.Element.(Marshaler)

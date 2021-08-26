@@ -42,22 +42,22 @@ func (s *EnumSchema) MarshalJSON() ([]byte, error) {
 func (s EnumSchema) MarshalSchemer() ([]byte, error) {
 
 	// fixed length schemas are 1 byte long total
-	var schema []byte = []byte{EnumSchemaMask}
+	var schema []byte = []byte{EnumByte}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {
-		schema[0] |= 0x80
+		schema[0] |= NullMask
 	}
 
 	// write all the enumerated values as part of the schema...
 	var buf bytes.Buffer
 
-	varObjectSchema, err := SchemaOf(s.Values)
-	if err != nil {
-		return nil, err
+	mapSchema := VarObjectSchema{
+		Key:   &VarIntSchema{Signed: false},
+		Value: &VarStringSchema{},
 	}
 
-	err = varObjectSchema.Encode(&buf, s.Values)
+	err := mapSchema.Encode(&buf, s.Values)
 	if err != nil {
 		return nil, err
 	}

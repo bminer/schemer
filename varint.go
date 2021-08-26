@@ -35,11 +35,11 @@ func (s *VarIntSchema) GoType() reflect.Type {
 func (s *VarIntSchema) MarshalSchemer() ([]byte, error) {
 
 	// fixed length schemas are 1 byte long total
-	var schema []byte = []byte{VarIntSchemaMask}
+	var schema []byte = []byte{VarIntByte}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {
-		schema[0] |= 0x80
+		schema[0] |= NullMask
 	}
 
 	// next bit indicates if the the fixed length int is signed or not

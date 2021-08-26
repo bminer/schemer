@@ -71,11 +71,11 @@ func (s *FixedIntSchema) Valid() bool {
 func (s *FixedIntSchema) MarshalSchemer() ([]byte, error) {
 
 	// fixed length schemas are 1 byte long total
-	var schema []byte = []byte{FixedIntSchemaMask}
+	var schema []byte = []byte{FixedIntByte}
 
 	// bit8 indicates whether or not the type is nullable
 	if s.Nullable() {
-		schema[0] |= 0x80
+		schema[0] |= NullMask
 	}
 
 	// bit1 indicates if the the fixed length int is signed or not
