@@ -407,7 +407,6 @@ func DecodeSchemaJSON(r io.Reader) (Schema, error) {
 	case "float":
 		s := &FloatSchema{}
 		bits, ok := fields["bits"].(float64)
-
 		if !ok {
 			return nil, fmt.Errorf("bits not present for float type in JSON data")
 		}
@@ -420,9 +419,20 @@ func DecodeSchemaJSON(r io.Reader) (Schema, error) {
 			return nil, fmt.Errorf("invalid float bit size encountered in JSON data: %d", int(bits))
 		}
 
-		b, _ := fields["nullable"].(bool)
-		s.SchemaOptions.nullable = b
+		// Parse `nullable`
+		nullable = false
+		tmp1, found := fields["nullable"]
+		if found {
+			if b, ok := tmp1.(bool); ok {
+				nullable = b
+			} else {
+				return nil, fmt.Errorf("nullable must be a boolean for float type in JSON data")
+			}
+		} else {
+			return nil, fmt.Errorf("nullable must present for float type in JSON data")
+		}
 
+		s.SchemaOptions.nullable = nullable
 		return s, nil
 
 	case "complex":
@@ -473,8 +483,21 @@ func DecodeSchemaJSON(r io.Reader) (Schema, error) {
 
 	case "enum":
 		s := &EnumSchema{}
-		b, _ := fields["nullable"].(bool)
-		s.SchemaOptions.nullable = b
+
+		// Parse `nullable`
+		nullable = false
+		tmp1, found := fields["nullable"]
+		if found {
+			if b, ok := tmp1.(bool); ok {
+				nullable = b
+			} else {
+				return nil, fmt.Errorf("nullable must be a boolean for enum type in JSON data")
+			}
+		} else {
+			return nil, fmt.Errorf("nullable must present for enum type in JSON data")
+		}
+
+		s.SchemaOptions.nullable = nullable
 		tmp, ok := fields["values"]
 		if ok {
 
@@ -486,6 +509,8 @@ func DecodeSchemaJSON(r io.Reader) (Schema, error) {
 				}
 			}
 
+		} else {
+			return nil, fmt.Errorf("values must present for enum type in JSON data")
 		}
 
 		return s, nil
@@ -522,8 +547,19 @@ func DecodeSchemaJSON(r io.Reader) (Schema, error) {
 		} else {
 			s := &VarArraySchema{}
 
-			b, _ := fields["nullable"].(bool)
-			s.SchemaOptions.nullable = b
+			// Parse `nullable`
+			nullable = false
+			tmp1, found := fields["nullable"]
+			if found {
+				if b, ok := tmp1.(bool); ok {
+					nullable = b
+				} else {
+					return nil, fmt.Errorf("nullable must be a boolean for array type in JSON data")
+				}
+			} else {
+				return nil, fmt.Errorf("nullable must present for array type in JSON data")
+			}
+			s.SchemaOptions.nullable = nullable
 
 			// process the array element
 			tmp, err := json.Marshal(fields["element"])
@@ -547,8 +583,19 @@ func DecodeSchemaJSON(r io.Reader) (Schema, error) {
 			s := &FixedObjectSchema{
 				Fields: make([]ObjectField, 0, len(objectFields)),
 			}
-			b, _ := fields["nullable"].(bool)
-			s.SchemaOptions.nullable = b
+			// Parse `nullable`
+			nullable = false
+			tmp1, found := fields["nullable"]
+			if found {
+				if b, ok := tmp1.(bool); ok {
+					nullable = b
+				} else {
+					return nil, fmt.Errorf("nullable must be a boolean for object type in JSON data")
+				}
+			} else {
+				return nil, fmt.Errorf("nullable must present for object type in JSON data")
+			}
+			s.SchemaOptions.nullable = nullable
 
 			// loop through all fields in this object
 			for i := 0; i < len(objectFields); i++ {
@@ -588,8 +635,19 @@ func DecodeSchemaJSON(r io.Reader) (Schema, error) {
 		} else {
 			s := &VarObjectSchema{}
 
-			b, _ := fields["nullable"].(bool)
-			s.SchemaOptions.nullable = b
+			// Parse `nullable`
+			nullable = false
+			tmp1, found := fields["nullable"]
+			if found {
+				if b, ok := tmp1.(bool); ok {
+					nullable = b
+				} else {
+					return nil, fmt.Errorf("nullable must be a boolean for object type in JSON data")
+				}
+			} else {
+				return nil, fmt.Errorf("nullable must present for object type in JSON data")
+			}
+			s.SchemaOptions.nullable = nullable
 
 			tmp, err := json.Marshal(fields["key"])
 			if err != nil {
