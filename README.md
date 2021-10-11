@@ -1,5 +1,7 @@
 # schemer
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/bminer/schemer.svg)](https://pkg.go.dev/github.com/bminer/schemer)
+
 Lightweight and robust data encoding library for [Go](https://golang.org/)
 
 Schemer provides an API to construct schemata that describe data structures; a schema is then used to encode and decode values into sequences of bytes to be sent over the network or written to a file.
