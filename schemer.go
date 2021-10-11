@@ -325,7 +325,7 @@ func DecodeSchemaJSON(r io.Reader) (Schema, error) {
 	// Parse `type`
 	tmp, ok := fields["type"].(string)
 	if !ok {
-		return nil, fmt.Errorf("missing or invalid schema type")
+		return nil, fmt.Errorf("missing schema type")
 	}
 	typeStr := strings.ToLower(tmp)
 
@@ -347,22 +347,16 @@ func DecodeSchemaJSON(r io.Reader) (Schema, error) {
 		return s, nil
 
 	case "int":
-		bitsStr, ok := fields["bits"]
+		bitsI, ok := fields["bits"]
 		// if bits is present, then we are dealing with a fixed int
 		if ok {
-			bits, ok := bitsStr.(float64)
+			bits, ok := bitsI.(float64)
 			if !ok {
 				return nil, fmt.Errorf("bits must be a number")
 			}
+
 			s := &FixedIntSchema{}
 			s.SetNullable(nullable)
-			if str, ok := fields["signed"]; ok {
-				b, ok := str.(bool)
-				if !ok {
-					return nil, fmt.Errorf("signed must be a boolean")
-				}
-				s.Signed = b
-			}
 
 			switch bits {
 			case 8:
@@ -374,15 +368,11 @@ func DecodeSchemaJSON(r io.Reader) (Schema, error) {
 			case 64:
 				s.Bits = int(bits)
 			default:
-				return nil, fmt.Errorf("invalid bit size: %d", int(bits))
+				return nil, fmt.Errorf("invalid bit size: %v", bits)
 			}
 
-			return s, nil
-		} else {
-			s := &VarIntSchema{}
-			s.SetNullable(nullable)
-			if str, ok := fields["signed"]; ok {
-				b, ok := str.(bool)
+			if signedI, ok := fields["signed"]; ok {
+				b, ok := signedI.(bool)
 				if !ok {
 					return nil, fmt.Errorf("signed must be a boolean")
 				}
@@ -392,133 +382,121 @@ func DecodeSchemaJSON(r io.Reader) (Schema, error) {
 			return s, nil
 		}
 
-	case "float":
-		s := &FloatSchema{}
-		bits, ok := fields["bits"].(float64)
-		if !ok {
-			return nil, fmt.Errorf("bits not present for float type in JSON data")
+		// no bits field
+		s := &VarIntSchema{}
+		s.SetNullable(nullable)
+
+		if signedI, ok := fields["signed"]; ok {
+			b, ok := signedI.(bool)
+			if !ok {
+				return nil, fmt.Errorf("signed must be a boolean")
+			}
+			s.Signed = b
 		}
 
+		return s, nil
+
+	case "float":
+		s := &FloatSchema{}
+		s.SetNullable(nullable)
+
+		bits, ok := fields["bits"].(float64)
+		if !ok {
+			return nil, fmt.Errorf("bits must be a number")
+		}
 		if bits == 64 {
 			s.Bits = 64
 		} else if bits == 32 {
 			s.Bits = 32
 		} else {
-			return nil, fmt.Errorf("invalid float bit size encountered in JSON data: %d", int(bits))
+			return nil, fmt.Errorf("invalid bit size: %v", bits)
 		}
 
-		// Parse `nullable`
-		nullable = false
-		tmp1, found := fields["nullable"]
-		if found {
-			if b, ok := tmp1.(bool); ok {
-				nullable = b
-			} else {
-				return nil, fmt.Errorf("nullable must be a boolean for float type in JSON data")
-			}
-		} else {
-			return nil, fmt.Errorf("nullable must present for float type in JSON data")
-		}
-
-		s.SchemaOptions.nullable = nullable
 		return s, nil
 
 	case "complex":
 		s := &ComplexSchema{}
+		s.SetNullable(nullable)
+
 		bits, ok := fields["bits"].(float64)
-
 		if !ok {
-			return nil, fmt.Errorf("bits not present for complex type in JSON data")
+			return nil, fmt.Errorf("bits must be a number")
 		}
-
 		if bits == 128 {
 			s.Bits = 128
 		} else if bits == 64 {
 			s.Bits = 64
 		} else {
-			return nil, fmt.Errorf("invalid complex bit size encountered in JSON data: %d", int(bits))
+			return nil, fmt.Errorf("invalid bit size: %v", bits)
 		}
-		b, _ := fields["nullable"].(bool)
-		s.SchemaOptions.nullable = b
 
 		return s, nil
 
 	case "string":
-		tmpLen, ok := fields["length"].(float64)
+		lengthI, ok := fields["length"]
 
 		// if string length is present, then we are dealing with a fixed string
 		if ok {
-			s := &FixedStringSchema{}
-
-			b, _ := fields["nullable"].(bool)
-			s.SchemaOptions.nullable = b
-
-			// validate that `tmpLen` is greater than 0 and is an integer
-			if (tmpLen < 0) || (tmpLen-float64(int(tmpLen)) != 0) {
-				return nil, fmt.Errorf("invalid string length encountered in JSON data: %d", int(tmpLen))
+			lengthNum, ok := lengthI.(float64)
+			if !ok {
+				return nil, fmt.Errorf("length must be a number")
 			}
 
-			s.Length = int(tmpLen)
+			// validate that `lengthNum >= 0` and is an integer
+			if (lengthNum < 0) || (lengthNum-float64(int(lengthNum)) != 0) {
+				return nil, fmt.Errorf("invalid string length: %v", lengthNum)
+			}
 
-			return s, nil
-		} else {
-			s := &VarStringSchema{}
-
-			b, _ := fields["nullable"].(bool)
-			s.SchemaOptions.nullable = b
+			s := &FixedStringSchema{Length: int(lengthNum)}
+			s.SetNullable(nullable)
 			return s, nil
 		}
+
+		// variable length string
+		s := &VarStringSchema{}
+		s.SetNullable(nullable)
+		return s, nil
 
 	case "enum":
-		s := &EnumSchema{}
-
-		// Parse `nullable`
-		nullable = false
-		tmp1, found := fields["nullable"]
-		if found {
-			if b, ok := tmp1.(bool); ok {
-				nullable = b
-			} else {
-				return nil, fmt.Errorf("nullable must be a boolean for enum type in JSON data")
-			}
-		} else {
-			return nil, fmt.Errorf("nullable must present for enum type in JSON data")
+		values, ok := fields["values"].(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("enum values must be an object")
 		}
 
-		s.SchemaOptions.nullable = nullable
-		tmp, ok := fields["values"]
-		if ok {
+		s := &EnumSchema{
+			Values: make(map[int]string, len(values)),
+		}
+		s.SetNullable(nullable)
 
-			s.Values = make(map[int]string)
-			for key, value := range tmp.(map[string]interface{}) {
-				x, err := strconv.Atoi(key)
-				if err == nil {
-					s.Values[x] = value.(string)
-				}
+		for key, value := range values {
+			i, err := strconv.Atoi(key)
+			if err != nil {
+				return nil, fmt.Errorf("enum value object has non-integer key: %v", key)
 			}
-
-		} else {
-			return nil, fmt.Errorf("values must present for enum type in JSON data")
+			if s.Values[i], ok = value.(string); !ok {
+				return nil, fmt.Errorf("enum value object has non-string value: %v", value)
+			}
 		}
 
 		return s, nil
 
 	case "array":
-		tmpLen, ok := fields["length"].(float64)
+		lengthI, ok := fields["length"]
 
 		// if length is present, then we are dealing with a fixed length array
 		if ok {
-			s := &FixedArraySchema{}
-
-			b, _ := fields["nullable"].(bool)
-			s.SchemaOptions.nullable = b
-
-			// validate that `tmpLen` is greater than 0 and is an integer
-			if (tmpLen < 0) || (tmpLen-float64(int(tmpLen)) != 0) {
-				return nil, fmt.Errorf("invalid string length encountered in JSON data: %d", int(tmpLen))
+			lengthNum, ok := lengthI.(float64)
+			if !ok {
+				return nil, fmt.Errorf("length must be a number")
 			}
 
-			s.Length = int(tmpLen)
+			// validate that `lengthNum >= 0` and is an integer
+			if (lengthNum < 0) || (lengthNum-float64(int(lengthNum)) != 0) {
+				return nil, fmt.Errorf("invalid string length: %v", lengthNum)
+			}
+
+			s := &FixedArraySchema{Length: int(lengthNum)}
+			s.SetNullable(nullable)
 
 			// process the array element
 			tmp, err := json.Marshal(fields["element"])
@@ -534,20 +512,7 @@ func DecodeSchemaJSON(r io.Reader) (Schema, error) {
 			return s, nil
 		} else {
 			s := &VarArraySchema{}
-
-			// Parse `nullable`
-			nullable = false
-			tmp1, found := fields["nullable"]
-			if found {
-				if b, ok := tmp1.(bool); ok {
-					nullable = b
-				} else {
-					return nil, fmt.Errorf("nullable must be a boolean for array type in JSON data")
-				}
-			} else {
-				return nil, fmt.Errorf("nullable must present for array type in JSON data")
-			}
-			s.SchemaOptions.nullable = nullable
+			s.SetNullable(nullable)
 
 			// process the array element
 			tmp, err := json.Marshal(fields["element"])
@@ -564,53 +529,48 @@ func DecodeSchemaJSON(r io.Reader) (Schema, error) {
 		}
 
 	case "object":
-		objectFields, ok := fields["fields"].([]interface{})
+		fieldsI, ok := fields["fields"]
 
 		// if fields are present, then we are dealing with a fixed object
 		if ok {
+			fieldsArr, ok := fieldsI.([]interface{})
+			if !ok {
+				return nil, fmt.Errorf("for fixed object, fields must be an array")
+			}
 			s := &FixedObjectSchema{
-				Fields: make([]ObjectField, 0, len(objectFields)),
+				Fields: make([]ObjectField, 0, len(fieldsArr)),
 			}
-			// Parse `nullable`
-			nullable = false
-			tmp1, found := fields["nullable"]
-			if found {
-				if b, ok := tmp1.(bool); ok {
-					nullable = b
-				} else {
-					return nil, fmt.Errorf("nullable must be a boolean for object type in JSON data")
-				}
-			} else {
-				return nil, fmt.Errorf("nullable must present for object type in JSON data")
-			}
-			s.SchemaOptions.nullable = nullable
+			s.SetNullable(nullable)
 
 			// loop through all fields in this object
-			for i := 0; i < len(objectFields); i++ {
-				var of ObjectField = ObjectField{}
+			for _, fieldI := range fieldsArr {
+				of := ObjectField{}
 
-				// fill in the name of this field...
-				// (the json encoded data only includes the name, not a list of aliases)
-				tmpMap, ok := objectFields[i].(map[string]interface{})
-
+				// Populate `of.Aliases`
+				tmpMap, ok := fieldI.(map[string]interface{})
 				if !ok {
-					return nil, fmt.Errorf("invalid field definition encountered in JSON data")
+					return nil, fmt.Errorf("fields must be an array of objects")
 				}
 
-				name, ok := tmpMap["name"]
+				nameArr, ok := tmpMap["name"].([]interface{})
 				if !ok {
-					return nil, fmt.Errorf("missing name field encountered in JSON data")
+					return nil, fmt.Errorf("field name must be an array of strings")
 				}
 
-				for j := 0; j < len(name.([]interface{})); j++ {
-					of.Aliases = append(of.Aliases, name.([]interface{})[j].(string))
+				for _, nameI := range nameArr {
+					nameStr, ok := nameI.(string)
+					if !ok {
+						return nil, fmt.Errorf("field name must be an array of strings")
+					}
+					of.Aliases = append(of.Aliases, nameStr)
 				}
 
-				tmp, err := json.Marshal(objectFields[i])
+				// Decode schema for this field
+				tmp, err := json.Marshal(fieldI)
 				if err != nil {
 					return nil, err
 				}
-				// recursive call to process this field of this object...
+
 				of.Schema, err = DecodeSchemaJSON(bytes.NewReader(tmp))
 				if err != nil {
 					return nil, err
@@ -620,44 +580,33 @@ func DecodeSchemaJSON(r io.Reader) (Schema, error) {
 			}
 
 			return s, nil
-		} else {
-			s := &VarObjectSchema{}
-
-			// Parse `nullable`
-			nullable = false
-			tmp1, found := fields["nullable"]
-			if found {
-				if b, ok := tmp1.(bool); ok {
-					nullable = b
-				} else {
-					return nil, fmt.Errorf("nullable must be a boolean for object type in JSON data")
-				}
-			} else {
-				return nil, fmt.Errorf("nullable must present for object type in JSON data")
-			}
-			s.SchemaOptions.nullable = nullable
-
-			tmp, err := json.Marshal(fields["key"])
-			if err != nil {
-				return nil, err
-			}
-			s.Key, err = DecodeSchemaJSON(bytes.NewReader(tmp))
-			if err != nil {
-				return nil, err
-			}
-
-			tmp, err = json.Marshal(fields["value"])
-			if err != nil {
-				return nil, err
-			}
-			s.Value, err = DecodeSchemaJSON(bytes.NewReader(tmp))
-			if err != nil {
-				return nil, err
-			}
-
-			return s, nil
-
 		}
+
+		// not a fixed-field object
+		s := &VarObjectSchema{}
+		s.SetNullable(nullable)
+
+		// Decode schema for key
+		tmp, err := json.Marshal(fields["key"])
+		if err != nil {
+			return nil, err
+		}
+		s.Key, err = DecodeSchemaJSON(bytes.NewReader(tmp))
+		if err != nil {
+			return nil, err
+		}
+
+		// Decode schema for value
+		tmp, err = json.Marshal(fields["value"])
+		if err != nil {
+			return nil, err
+		}
+		s.Value, err = DecodeSchemaJSON(bytes.NewReader(tmp))
+		if err != nil {
+			return nil, err
+		}
+
+		return s, nil
 	}
 
 	return nil, fmt.Errorf("invalid schema type: %s", typeStr)
