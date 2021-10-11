@@ -510,23 +510,24 @@ func DecodeSchemaJSON(r io.Reader) (Schema, error) {
 			}
 
 			return s, nil
-		} else {
-			s := &VarArraySchema{}
-			s.SetNullable(nullable)
-
-			// process the array element
-			tmp, err := json.Marshal(fields["element"])
-			if err != nil {
-				return nil, err
-			}
-
-			s.Element, err = DecodeSchemaJSON(bytes.NewReader(tmp))
-			if err != nil {
-				return nil, err
-			}
-
-			return s, nil
 		}
+
+		// array length not present
+		s := &VarArraySchema{}
+		s.SetNullable(nullable)
+
+		// process the array element
+		tmp, err := json.Marshal(fields["element"])
+		if err != nil {
+			return nil, err
+		}
+
+		s.Element, err = DecodeSchemaJSON(bytes.NewReader(tmp))
+		if err != nil {
+			return nil, err
+		}
+
+		return s, nil
 
 	case "object":
 		fieldsI, ok := fields["fields"]
@@ -849,10 +850,9 @@ func PreEncode(w io.Writer, v *reflect.Value, nullable bool) (bool, error) {
 			// 1 indicates null
 			w.Write([]byte{1})
 			return true, nil
-		} else {
-			// 0 indicates not null
-			w.Write([]byte{0})
 		}
+		// 0 indicates not null
+		w.Write([]byte{0})
 	} else if isNil {
 		return false, fmt.Errorf("cannot encode nil value: schema is not nullable")
 	}
@@ -894,9 +894,8 @@ func PreDecode(r io.Reader, v *reflect.Value, nullable bool) (bool, error) {
 					return true, nil
 				}
 				return false, fmt.Errorf("destination not settable")
-			} else {
-				return false, fmt.Errorf("cannot decode null value to a %s", v.Kind())
 			}
+			return false, fmt.Errorf("cannot decode null value to a %s", v.Kind())
 		}
 	}
 

@@ -31,36 +31,31 @@ func (r byter) ReadVarint() (int64, error) {
 	return binary.ReadVarint(r)
 }
 
-func VarIntFromIOReader(r io.Reader) (int64, error) {
-	b := &byter{r}
-	return binary.ReadVarint(b)
-}
+// ReadUvarint reads an Uvarint from r one byte at a time
+func ReadUvarint(r io.Reader) (uint64, error) {
 
-// ReadVarUint() returns an uint64 by reading from r
-func ReadVarUint(r io.Reader) (uint64, error) {
-
+	rb := byter{r}
 	buf := make([]byte, binary.MaxVarintLen64)
-	counter := 0
 
-	// read one byte at a a time
-	for {
-		b := make([]byte, 1)
-		_, err := io.ReadAtLeast(r, b, 1)
+	// Read first byte into `buf`
+	b, err := rb.ReadByte()
+	if err != nil {
+		return 0, err
+	}
+	buf[0] = b
+
+	// Read subsequent bytes into `buf`
+	i := 1
+	for ; b&0x80 > 0; i++ {
+		b, err = rb.ReadByte()
 		if err != nil {
 			return 0, err
 		}
-		buf[counter] = b[0]
-
-		// keep reading out bytes until no more data
-		if b[0]&128 != 128 {
-			break
-		}
-
-		counter++
+		buf[i] = b
 	}
 
 	decodedUInt, n := binary.Uvarint(buf)
-	if n != counter+1 {
+	if n != i {
 		return 0, fmt.Errorf("uvarint did not consume expected number of bytes")
 	}
 
@@ -68,8 +63,8 @@ func ReadVarUint(r io.Reader) (uint64, error) {
 
 }
 
-// WriteVarUint() writes a 64 bit unsigned integer to w
-func WriteVarUint(w io.Writer, v uint64) error {
+// WriteUvarint writes v to w as an Uvarint
+func WriteUvarint(w io.Writer, v uint64) error {
 
 	buf := make([]byte, binary.MaxVarintLen64)
 	varIntBytes := binary.PutUvarint(buf, v)

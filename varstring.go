@@ -77,7 +77,7 @@ func (s *VarStringSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 	var stringToEncode string = v.String()
 	var stringLen int = len(stringToEncode)
 
-	err = WriteVarUint(w, uint64(stringLen))
+	err = WriteUvarint(w, uint64(stringLen))
 	if err != nil {
 		return errors.New("cannot encode var string length as var int")
 	}
@@ -117,7 +117,7 @@ func (s *VarStringSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		k = t.Kind()
 	}
 
-	expectedLen, err := ReadVarUint(r)
+	expectedLen, err := ReadUvarint(r)
 	if err != nil {
 		return err
 	}

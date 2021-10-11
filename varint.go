@@ -91,7 +91,7 @@ func (s *VarIntSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 		if intVal < 0 {
 			uintVal = ^uintVal
 		}
-		return WriteVarUint(w, uintVal)
+		return WriteUvarint(w, uintVal)
 	case reflect.Uint:
 		fallthrough
 	case reflect.Uint8:
@@ -102,7 +102,7 @@ func (s *VarIntSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 		fallthrough
 	case reflect.Uint64:
 		uintVal := v.Uint()
-		return WriteVarUint(w, uintVal)
+		return WriteUvarint(w, uintVal)
 	}
 
 	return nil
@@ -137,7 +137,7 @@ func (s *VarIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// Decode value
 	if s.Signed {
-		uintVal, err := ReadVarUint(r)
+		uintVal, err := ReadUvarint(r)
 		if err != nil {
 			return err
 		}
@@ -220,7 +220,7 @@ func (s *VarIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		}
 	} else {
 		// Unsigned
-		uintVal, err := ReadVarUint(r)
+		uintVal, err := ReadUvarint(r)
 		if err != nil {
 			return err
 		}

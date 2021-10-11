@@ -126,7 +126,7 @@ func (s *VarObjectSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 		return fmt.Errorf("varObjectSchema can only encode maps")
 	}
 
-	err = WriteVarUint(w, uint64(v.Len()))
+	err = WriteUvarint(w, uint64(v.Len()))
 	if err != nil {
 		return errors.New("cannot encode var string length as var int")
 	}
@@ -182,7 +182,7 @@ func (s *VarObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// we wrote the number of entries in the map as a var int
 	// when we did the encoding
-	expectedNumEntries, err := ReadVarUint(r)
+	expectedNumEntries, err := ReadUvarint(r)
 	if err != nil {
 		return err
 	}
