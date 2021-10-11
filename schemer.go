@@ -1,11 +1,5 @@
 package schemer
 
-// TODO:
-//		-> type TypeByte byte
-//	-	-> model decode after decodeJSON
-//	-	-> squeze custom type into 6 bits , based on reserved type (CustomMask to be 0x40)
-//
-
 import (
 	"bytes"
 	"encoding/binary"
@@ -16,6 +10,12 @@ import (
 	"strconv"
 	"strings"
 )
+
+// initialization function for the Schemer Library
+func init() {
+	Register(dateSchemaGenerator{})
+	Register(ipv4SchemaGenerator{})
+}
 
 // Schema is an interface that encodes and decodes data of a specific type
 type Schema interface {
@@ -47,7 +47,7 @@ type Marshaler interface {
 
 // SchemaGenerator is an interface implemented by custom schema generators.
 // When Register is called on a SchemaGenerator, the global SchemaOf,
-// decodeSchema, and DecodeSchemaJSON functions will call the identically
+// DecodeSchema, and DecodeSchemaJSON functions will call the identically
 // named method on each schema generator to determine if a custom schema should
 // be returned.
 // If a SchemaGenerator cannot return a Schema for a specific type, it should
@@ -127,7 +127,9 @@ func SchemaOfType(t reflect.Type) (Schema, error) {
 	nullable := false
 
 	// Dereference pointer / interface types
-	for k := t.Kind(); k == reflect.Ptr || k == reflect.Interface; k = t.Kind() {
+	for k := t.Kind(); k == reflect.Ptr ||
+		k == reflect.Interface; k = t.Kind() {
+
 		t = t.Elem()
 
 		// If we encounter any pointers, then we know this type is nullable
@@ -270,6 +272,8 @@ func SchemaOfType(t reflect.Type) (Schema, error) {
 
 			// Note: only override option if explicitly set in the tag
 			if tagOpts.NullableSet {
+				// Note: Most schemas implement SetNullable(bool), but Schema
+				// does not require it; we must check here
 				if opt, ok := of.Schema.(interface {
 					SetNullable(bool)
 				}); ok {
@@ -277,6 +281,7 @@ func SchemaOfType(t reflect.Type) (Schema, error) {
 				}
 			}
 			if tagOpts.WeakDecodingSet {
+				// Note: Most schemas implement SetWeakDecoding(bool)
 				if opt, ok := of.Schema.(interface {
 					SetWeakDecoding(bool)
 				}); ok {
@@ -294,6 +299,7 @@ func SchemaOfType(t reflect.Type) (Schema, error) {
 }
 
 // DecodeSchemaJSON takes a buffer of JSON data and parses it to create a schema
+// The input stream r is read in its entirety before the JSON is decoded.
 func DecodeSchemaJSON(r io.Reader) (Schema, error) {
 
 	buf, err := io.ReadAll(r)
@@ -873,72 +879,74 @@ func DecodeSchema(r io.Reader) (Schema, error) {
 	return nil, fmt.Errorf("invalid binary schema encountered")
 }
 
-// PreEncode should be called by each Schema's Encode() routine.
-// It handles dereferencing pointerss and interfaces, and for writing
-// a byte to indicate nullable if the schema indicates it is in fact
-// nullable.
-// If this routine returns false, no more processing is needed on the
-// encoder who called this routine.
-func PreEncode(nullable bool, w io.Writer, v *reflect.Value) (bool, error) {
+// PreEncode is a helper function that should be called by each Schema's Encode
+// routine. It dereferences v if the value is a pointer or interface type and
+// writes the null byte if nullable is set.
+// If nullable is false and v resolves to nil, an error is returned.
+// If nullable is true and v resolves to nil, (true, nil) is returned,
+// indicating that no further processing is needed by the encoder who called
+// this routine. Otherwise, false, nil is returned.
+func PreEncode(w io.Writer, v *reflect.Value, nullable bool) (bool, error) {
 	// Dereference pointer / interface types
 	for k := v.Kind(); k == reflect.Ptr || k == reflect.Interface; k = v.Kind() {
 		*v = v.Elem()
 	}
 
+	// Note: v.Elem() returns invalid Value if v is nil
+	isNil := !v.IsValid()
+
 	if nullable {
-		// did the caller pass in a nil value, or a null pointer?
-		if !v.IsValid() {
-			// per the revised spec, 1 indicates null
+		if isNil {
+			// 1 indicates null
 			w.Write([]byte{1})
-			return false, nil
+			return true, nil
 		} else {
 			// 0 indicates not null
 			w.Write([]byte{0})
 		}
-	} else {
-		// if nullable is false
-		// but they are trying to encode a nil value.. then that is an error
-		if !v.IsValid() {
-			return false, fmt.Errorf("cannot enoded nil value when IsNullable is false")
-		}
+	} else if isNil {
+		return false, fmt.Errorf("cannot encode nil value: schema is not nullable")
 	}
 
-	return true, nil
+	return false, nil
 }
 
-// PreDecode() is called before each Decode() routine from all the schemas. This routine
-// handles checking on the nullable flag if the schema indicates the schema
-// is nullable.
-// This routine also handles derefering pointers and interfaces, and returns
-// the new value of v after it is set.
-func PreDecode(nullable bool, r io.Reader, v reflect.Value) (reflect.Value, error) {
-	// if t is a ptr or interface type, remove exactly ONE level of indirection
+// PreDecode is a helper function that should be called by each Schema's Decode
+// routine. It removes exactly one level of indirection for v and reads the
+// null byte if nullable is set. If a null value is read, (true, nil) is
+// returned, indicating that no further processing is needed by the decoder who
+// called this routine. This routine also ensures that the destination value is
+// settable and returns errors if not. Finally, this routine populates nested
+// pointer values recursively, as needed.
+func PreDecode(r io.Reader, v *reflect.Value, nullable bool) (bool, error) {
+	// if v is a pointer or interface type, remove exactly ONE level of indirection
 	if k := v.Kind(); !v.CanSet() && (k == reflect.Ptr || k == reflect.Interface) {
-		v = v.Elem()
+		*v = v.Elem()
 	}
 
 	// if the data indicates this type is nullable, then the actual
-	// value is preceeded by one byte [which indicates if the encoder encoded a nill value]
+	// value is preceded by the null byte
+	// (which indicates if the encoded value is null)
 	if nullable {
 		buf := make([]byte, 1)
 
 		// first byte indicates whether value is null or not...
 		_, err := io.ReadAtLeast(r, buf, 1)
 		if err != nil {
-			return reflect.Value{}, err
+			return false, err
 		}
-		valueIsNull := (buf[0] == 1)
+		isNull := (buf[0] == 1)
 
-		if valueIsNull {
+		if isNull {
 			if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
 				if v.CanSet() {
 					// special way to set pointer to nil value
 					v.Set(reflect.Zero(v.Type()))
-					return reflect.Value{}, nil
+					return true, nil
 				}
-				return reflect.Value{}, fmt.Errorf("destination not settable")
+				return false, fmt.Errorf("destination not settable")
 			} else {
-				return reflect.Value{}, fmt.Errorf("cannot decode null value to non pointer to pointer type")
+				return false, fmt.Errorf("cannot decode null value to a %s", v.Kind())
 			}
 		}
 	}
@@ -950,18 +958,12 @@ func PreDecode(nullable bool, r io.Reader, v reflect.Value) (reflect.Value, erro
 				break
 			}
 			if !v.CanSet() {
-				return reflect.Value{}, fmt.Errorf("decode destination is not settable")
+				return false, fmt.Errorf("destination not settable")
 			}
 			v.Set(reflect.New(v.Type().Elem()))
 		}
-		v = v.Elem()
+		*v = v.Elem()
 	}
 
-	return v, nil
-}
-
-// initialization function for the Schemer Library
-func init() {
-	Register(dateSchemaGenerator{})
-	Register(ipv4SchemaGenerator{})
+	return false, nil
 }

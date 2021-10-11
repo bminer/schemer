@@ -84,12 +84,9 @@ func (s *ComplexSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 		return fmt.Errorf("cannot encode using invalid ComplexNumber schema")
 	}
 
-	ok, err := PreEncode(s.Nullable(), w, &v)
-	if err != nil {
+	done, err := PreEncode(w, &v, s.Nullable())
+	if err != nil || done {
 		return err
-	}
-	if !ok {
-		return nil
 	}
 
 	t := v.Type()
@@ -171,14 +168,9 @@ func (s *ComplexSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		return fmt.Errorf("cannot decode using invalid ComplexNumber schema")
 	}
 
-	v, err := PreDecode(s.Nullable(), r, v)
-	if err != nil {
+	done, err := PreDecode(r, &v, s.Nullable())
+	if err != nil || done {
 		return err
-	}
-
-	// if PreDecode() returns a zero value for v, it means we are done decoding
-	if !(v.IsValid()) {
-		return nil
 	}
 
 	t := v.Type()

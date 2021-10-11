@@ -8,38 +8,9 @@ import (
 	"reflect"
 )
 
+// BoolSchema is a Schema for encoding and decoding boolean values
 type BoolSchema struct {
 	SchemaOptions
-}
-
-func (s *BoolSchema) GoType() reflect.Type {
-	var b bool
-	retval := reflect.TypeOf(b)
-
-	if s.Nullable() {
-		retval = reflect.PtrTo(retval)
-	}
-	return retval
-}
-
-func (s *BoolSchema) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}{
-		"type":     "bool",
-		"nullable": s.Nullable(),
-	})
-}
-
-// Bytes encodes the schema in a portable binary format
-func (s *BoolSchema) MarshalSchemer() ([]byte, error) {
-	// bool schemas are 1 byte long
-	var schema []byte = []byte{BoolByte}
-
-	// The most significant bit indicates whether or not the type is nullable
-	if s.Nullable() {
-		schema[0] |= NullMask
-	}
-
-	return schema, nil
 }
 
 // Encode uses the schema to write the encoded value of i to the output stream
@@ -47,15 +18,13 @@ func (s *BoolSchema) Encode(w io.Writer, i interface{}) error {
 	return s.EncodeValue(w, reflect.ValueOf(i))
 }
 
-// EncodeValue uses the schema to write the encoded value of v to the output stream
+// EncodeValue uses the schema to write the encoded value of v to the output
+// stream
 func (s *BoolSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 
-	ok, err := PreEncode(s.Nullable(), w, &v)
-	if err != nil {
+	done, err := PreEncode(w, &v, s.Nullable())
+	if err != nil || done {
 		return err
-	}
-	if !ok {
-		return nil
 	}
 
 	t := v.Type()
@@ -86,7 +55,8 @@ func (s *BoolSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 	return nil
 }
 
-// Decode uses the schema to read the next encoded value from the input stream and store it in i
+// Decode uses the schema to read the next encoded value from the input
+// stream and stores it in i
 func (s *BoolSchema) Decode(r io.Reader, i interface{}) error {
 	if i == nil {
 		return fmt.Errorf("cannot decode to nil destination")
@@ -94,16 +64,13 @@ func (s *BoolSchema) Decode(r io.Reader, i interface{}) error {
 	return s.DecodeValue(r, reflect.ValueOf(i))
 }
 
-// DecodeValue uses the schema to read the next encoded value from the input stream and store it in v
+// DecodeValue uses the schema to read the next encoded value from the input
+// stream and stores it in v
 func (s *BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
-	v, err := PreDecode(s.Nullable(), r, v)
-	if err != nil {
+	done, err := PreDecode(r, &v, s.Nullable())
+	if err != nil || done {
 		return err
-	}
-	// if PreDecode() returns a zero value for v, it means we are done decoding
-	if !(v.IsValid()) {
-		return nil
 	}
 
 	t := v.Type()
@@ -189,4 +156,36 @@ func (s *BoolSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	}
 
 	return nil
+}
+
+// GoType returns the default Go type that represents the schema
+func (s *BoolSchema) GoType() reflect.Type {
+	var b bool
+	retval := reflect.TypeOf(b)
+
+	if s.Nullable() {
+		retval = reflect.PtrTo(retval)
+	}
+	return retval
+}
+
+// MarshalJSON encodes the schema in a JSON format
+func (s *BoolSchema) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"type":     "bool",
+		"nullable": s.Nullable(),
+	})
+}
+
+// MarshalSchemer encodes the schema in a portable binary format
+func (s *BoolSchema) MarshalSchemer() ([]byte, error) {
+	// bool schemas are 1 byte long
+	var schema []byte = []byte{BoolByte}
+
+	// The most significant bit indicates whether or not the type is nullable
+	if s.Nullable() {
+		schema[0] |= NullMask
+	}
+
+	return schema, nil
 }

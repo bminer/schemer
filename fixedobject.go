@@ -127,12 +127,9 @@ func (s *FixedObjectSchema) Encode(w io.Writer, i interface{}) error {
 // EncodeValue uses the schema to write the encoded value of v to the output stream
 func (s *FixedObjectSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 
-	ok, err := PreEncode(s.Nullable(), w, &v)
-	if err != nil {
+	done, err := PreEncode(w, &v, s.Nullable())
+	if err != nil || done {
 		return err
-	}
-	if !ok {
-		return nil
 	}
 
 	t := v.Type()
@@ -190,13 +187,9 @@ func (s *FixedObjectSchema) Decode(r io.Reader, i interface{}) error {
 // DecodeValue uses the schema to read the next encoded value from the input stream and store it in v
 func (s *FixedObjectSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
-	v, err := PreDecode(s.Nullable(), r, v)
-	if err != nil {
+	done, err := PreDecode(r, &v, s.Nullable())
+	if err != nil || done {
 		return err
-	}
-	// if PreDecode() returns a zero value for v, it means we are done decoding
-	if !(v.IsValid()) {
-		return nil
 	}
 
 	t := v.Type()
