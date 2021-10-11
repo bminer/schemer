@@ -17,47 +17,6 @@ import (
 	"strings"
 )
 
-// The most signifiant bit indicates whether or not the type is nullable
-// The 6 least significant bits identify the type, per below
-const (
-	NullMask   = 0x80 // nullable bit
-	CustomMask = 0x40 // custom schema type bit
-
-	FixedIntMask  = 0x70 // 0b00 nnns 	where s is the signed/unsigned bit and n represents the encoded integer size in (8 << n) bits.
-	FixedIntByte  = 0x00
-	IntSignedMask = 0x01
-	IntBitsMask   = 0x0E
-
-	VarIntMask = 0x7E
-	VarIntByte = 0x10 // 0b01 000s 	where s is the signed/unsigned bit
-
-	FloatMask     = 0x7C
-	FloatBitsMask = 0x01
-	FloatByte     = 0x14 // 0b01 01*n 	where n is the floating-point size in (32 << n) bits and * is reserved for future use
-
-	ComplexMask     = 0x7C
-	ComplexBitsMask = 0x01
-	ComplexByte     = 0x18 // 0b01 10*n 	where n is the complex number size in (64 << n) bits and * is reserved for future use
-
-	BoolMask = 0x7F
-	BoolByte = 0x1C // 0b01 1100
-
-	EnumMask = 0x7F
-	EnumByte = 0x1D // 0b01 1101
-
-	StringMask      = 0x7F
-	VarStringByte   = 0x20 // 0b10 000f 	where f indicates that the string is of fixed byte length
-	FixedStringByte = 0x21
-
-	ArrayMask      = 0x7F
-	VarArrayByte   = 0x24 // 0b10 010f 	where f indicates that the array is of fixed length
-	FixedArrayByte = 0x25
-
-	ObjectMask      = 0x7F
-	VarObjectByte   = 0x28 // 0b10 100f 	where f indicates that the object has fixed number of fields
-	FixedObjectByte = 0x29
-)
-
 // Schema is an interface that encodes and decodes data of a specific type
 type Schema interface {
 	// Encode uses the schema to write the encoded value of i to the output
@@ -729,7 +688,7 @@ func DecodeSchema(r io.Reader) (Schema, error) {
 		s := &FixedIntSchema{}
 		s.SetNullable(curByte&NullMask > 0)
 		s.Signed = curByte&IntSignedMask > 0
-		s.Bits = 8 << ((curByte & IntBitsMask) >> 1)
+		s.Bits = 8 << ((curByte & FixedIntBitsMask) >> 1)
 
 		return s, nil
 	}
@@ -861,6 +820,7 @@ func DecodeSchema(r io.Reader) (Schema, error) {
 			return nil, err
 		}
 
+		varStringSchema := VarStringSchema{}
 		for i := 0; i < int(numFields); i++ {
 			of := ObjectField{}
 
@@ -873,7 +833,6 @@ func DecodeSchema(r io.Reader) (Schema, error) {
 			// read out each alias name...
 			for j := 0; j < int(numAliases); j++ {
 				alias := ""
-				varStringSchema := VarStringSchema{}
 
 				err = varStringSchema.Decode(r, &alias)
 				if err != nil {
