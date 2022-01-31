@@ -43,6 +43,7 @@ func (s *ComplexSchema) MarshalJSON() ([]byte, error) {
 		return nil, fmt.Errorf("invalid ComplexSchema")
 	}
 	return json.Marshal(map[string]interface{}{
+		"version":  SchemerVersion,
 		"type":     "complex",
 		"nullable": s.Nullable(),
 		"bits":     s.Bits,

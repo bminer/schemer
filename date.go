@@ -117,6 +117,7 @@ func (s *DateSchema) GoType() reflect.Type {
 
 func (s *DateSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
+		"version":  SchemerVersion,
 		"type":     "date",
 		"nullable": s.Nullable(),
 	})

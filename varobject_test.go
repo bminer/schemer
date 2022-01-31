@@ -3,6 +3,7 @@ package schemer
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -88,6 +89,36 @@ func TestDecodeVarObject2(t *testing.T) {
 		if element != mapToDecode[key] {
 			t.Error("encoded data not present in decoded map")
 		}
+	}
+
+}
+
+// test JSON marshaling...
+// to make sure schemer version number is present, and is correctly stripped from child elements
+func TestDecodeVarObject3(t *testing.T) {
+
+	m := map[int]string{1: "b"}
+
+	// setup an example schema
+	s, err := SchemaOf(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	varObjectSchema, ok := s.(*VarObjectSchema)
+	if !ok {
+		t.Fatal("varObjectSchema assertion failed")
+		return
+	}
+
+	// encode it
+	b, err := varObjectSchema.MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if count := strings.Count(string(b), "version"); count != 1 {
+		t.Error("expected 1 JSON version element; got:", count)
 	}
 
 }

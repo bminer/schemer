@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -222,6 +223,38 @@ func TestDecodeFixedObject6(t *testing.T) {
 
 	if !decodeOK {
 		t.Error("unexpected struct to struct decode")
+	}
+
+}
+
+// test JSON marshaling...
+// to make sure schemer version number is present, and is correctly stripped from child elements
+func TestDecodeFixedObject7(t *testing.T) {
+
+	type SourceStruct struct {
+		S string
+		I int
+	}
+
+	var structToEncode = SourceStruct{S: "ben", I: 42}
+
+	s, err := SchemaOf(structToEncode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	fixedObjectSchema, ok := s.(*FixedObjectSchema)
+	if !ok {
+		t.Error("expected a *FixedArraySchema")
+	}
+
+	b, err := fixedObjectSchema.MarshalJSON()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if count := strings.Count(string(b), "version"); count != 1 {
+		t.Error("expected 1 JSON version element; got:", count)
 	}
 
 }

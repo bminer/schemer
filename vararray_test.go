@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"strings"
 	"testing"
 )
 
@@ -136,4 +137,30 @@ func TestDecodeVarLenArray3(t *testing.T) {
 			}
 		}
 	}
+}
+
+// test JSON marshaling...
+// to make sure schemer version number is present, and is correctly stripped from child elements
+func TestDecodeVarLenArray4(t *testing.T) {
+
+	slice := []int{1, 2, 3, 4}
+
+	// setup an example schema
+	s, err := SchemaOf(slice)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	varArraySchema := s.(*VarArraySchema)
+
+	b, err := varArraySchema.MarshalJSON()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if count := strings.Count(string(b), "version"); count != 1 {
+		t.Error("expected 1 JSON version element; got:", count)
+	}
+
 }

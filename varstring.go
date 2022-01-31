@@ -28,6 +28,7 @@ func (s *VarStringSchema) GoType() reflect.Type {
 func (s *VarStringSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"type":     "string",
+		"version":  SchemerVersion,
 		"nullable": s.Nullable(),
 	})
 }

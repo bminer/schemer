@@ -276,13 +276,3 @@ func TestDecodeBool7A(t *testing.T) {
 	}
 
 }
-
-func TestDecodeBool8(t *testing.T) {
-
-	boolSchema := BoolSchema{SchemaOptions{nullable: true}}
-
-	b, _ := boolSchema.MarshalJSON()
-
-	fmt.Print(string(b))
-
-}

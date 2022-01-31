@@ -172,6 +172,7 @@ func (s *BoolSchema) GoType() reflect.Type {
 // MarshalJSON encodes the schema in a JSON format
 func (s *BoolSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
+		"version":  SchemerVersion,
 		"type":     "bool",
 		"nullable": s.Nullable(),
 	})

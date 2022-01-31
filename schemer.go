@@ -11,6 +11,8 @@ import (
 	"strings"
 )
 
+const SchemerVersion = 1
+
 // initialization function for the Schemer Library
 func init() {
 	Register(dateSchemaGenerator{})
@@ -530,6 +532,20 @@ func DecodeSchemaJSON(r io.Reader) (Schema, error) {
 		return s, nil
 
 	case "object":
+
+		ver, ok := fields["version"]
+		if !ok {
+			return nil, fmt.Errorf("schemer version must be present")
+		}
+		v, ok := ver.(float64)
+		if !ok {
+			return nil, fmt.Errorf("version must be a number")
+		}
+		// REMEMBER: we cannot decode schemas that were created with newer versions of the schemer!!!
+		if v > SchemerVersion {
+			return nil, fmt.Errorf("cannot decode schema with version %v", v)
+		}
+
 		fieldsI, ok := fields["fields"]
 
 		// if fields are present, then we are dealing with a fixed object

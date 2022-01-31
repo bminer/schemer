@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"strings"
 	"testing"
 )
 
@@ -164,5 +165,31 @@ func TestDecodeFixedLenArray4(t *testing.T) {
 				t.Error("unexpected value decoding 2-dimensional boolean array")
 			}
 		}
+	}
+}
+
+// test JSON marshaling...
+// to make sure schemer version number is present, and is correctly stripped from child elements
+func TestDecodeFixedLenArray5(t *testing.T) {
+
+	var testarray [10]byte = [10]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+
+	s, err := SchemaOf(testarray)
+	if err != nil {
+		t.Error(err)
+	}
+
+	fixedArraySchema, ok := s.(*FixedArraySchema)
+	if !ok {
+		t.Error("expected a *FixedArraySchema")
+	}
+
+	b, err := fixedArraySchema.MarshalJSON()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if count := strings.Count(string(b), "version"); count != 1 {
+		t.Error("expected 1 JSON version element; got:", count)
 	}
 }

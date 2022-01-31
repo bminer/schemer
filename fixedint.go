@@ -9,6 +9,14 @@ import (
 	"strconv"
 )
 
+/*
+	- only schemer is versioned
+	- every level of nested type has its own version included
+	- composite types delete children's versions
+	- extra byte prepended to each binary schema
+	- no versioning or checksum or anything on binary data
+*/
+
 const uintSize = 32 << (^uint(0) >> 32 & 1) // 32 or 64
 
 const maxFloatInt = int64(1)<<53 - 1
@@ -105,6 +113,7 @@ func (s *FixedIntSchema) MarshalJSON() ([]byte, error) {
 		return nil, fmt.Errorf("invalid FixedIntSchema schema")
 	}
 	return json.Marshal(map[string]interface{}{
+		"version":  SchemerVersion,
 		"type":     "int",
 		"nullable": s.Nullable(),
 		"bits":     s.Bits,

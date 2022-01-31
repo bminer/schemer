@@ -54,6 +54,7 @@ func (s *VarIntSchema) MarshalSchemer() ([]byte, error) {
 func (s *VarIntSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"type":     "int",
+		"version":  SchemerVersion,
 		"nullable": s.Nullable(),
 		"signed":   s.Signed,
 	})

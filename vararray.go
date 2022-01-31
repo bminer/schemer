@@ -50,6 +50,7 @@ func (s *VarArraySchema) MarshalJSON() ([]byte, error) {
 	tmpMap := make(map[string]interface{}, 2)
 	tmpMap["type"] = "array"
 	tmpMap["nullable"] = s.Nullable()
+	tmpMap["version"] = SchemerVersion
 
 	m := s.Element.(json.Marshaler)
 
@@ -66,6 +67,8 @@ func (s *VarArraySchema) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 
+	// strip off the schemer version of child type
+	delete(elementMap, "version")
 	tmpMap["element"] = elementMap
 
 	return json.Marshal(tmpMap)

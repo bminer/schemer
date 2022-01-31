@@ -38,9 +38,10 @@ func (s *FixedObjectSchema) GoType() reflect.Type {
 }
 
 func (s *FixedObjectSchema) MarshalJSON() ([]byte, error) {
-	tmpMap := make(map[string]interface{}, 4)
+	tmpMap := make(map[string]interface{}, 5)
 	tmpMap["type"] = "object"
 	tmpMap["nullable"] = s.Nullable()
+	tmpMap["version"] = SchemerVersion
 
 	var fieldMap []map[string]interface{}
 
@@ -61,6 +62,8 @@ func (s *FixedObjectSchema) MarshalJSON() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		// strip off the schemer version of child type
+		delete(fields, "version")
 		fieldMap = append(fieldMap, fields)
 	}
 

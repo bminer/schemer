@@ -34,6 +34,7 @@ func (s *VarObjectSchema) MarshalJSON() ([]byte, error) {
 	tmpMap := make(map[string]interface{}, 1)
 	tmpMap["type"] = "object"
 	tmpMap["nullable"] = s.Nullable()
+	tmpMap["version"] = SchemerVersion
 
 	m := s.Key.(json.Marshaler)
 
@@ -49,7 +50,8 @@ func (s *VarObjectSchema) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	// strip off the schemer version of child type
+	delete(keyMap, "version")
 	tmpMap["key"] = keyMap
 
 	tmp, ok := s.Value.(json.Marshaler)
@@ -69,7 +71,8 @@ func (s *VarObjectSchema) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	// strip off the schemer version of child type
+	delete(valueMap, "version")
 	tmpMap["value"] = valueMap
 
 	return json.Marshal(tmpMap)

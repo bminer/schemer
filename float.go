@@ -44,6 +44,7 @@ func (s *FloatSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"type":     "float",
 		"nullable": s.Nullable(),
+		"version":  SchemerVersion,
 		"bits":     s.Bits,
 	})
 }

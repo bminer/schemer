@@ -126,6 +126,7 @@ func (s *ipv4Schema) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal(map[string]interface{}{
 		"type":     "ipv4",
+		"version":  SchemerVersion,
 		"nullable": s.Nullable(),
 	})
 }

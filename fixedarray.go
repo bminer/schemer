@@ -67,8 +67,10 @@ func (s *FixedArraySchema) MarshalJSON() ([]byte, error) {
 		return nil, fmt.Errorf("invalid FixedArraySchema")
 	}
 
-	tmpMap := make(map[string]interface{}, 3)
+	tmpMap := make(map[string]interface{}, 4)
+
 	tmpMap["type"] = "array"
+	tmpMap["version"] = SchemerVersion
 	tmpMap["length"] = s.Length
 	tmpMap["nullable"] = s.Nullable()
 
@@ -91,6 +93,8 @@ func (s *FixedArraySchema) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 
+	// strip off the schemer version of child type
+	delete(elementMap, "version")
 	tmpMap["element"] = elementMap
 
 	return json.Marshal(tmpMap)

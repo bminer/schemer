@@ -27,7 +27,8 @@ func (s *EnumSchema) GoType() reflect.Type {
 
 func (s *EnumSchema) MarshalJSON() ([]byte, error) {
 
-	tmpMap := make(map[string]interface{}, 3)
+	tmpMap := make(map[string]interface{}, 4)
+	tmpMap["version"] = SchemerVersion
 	tmpMap["type"] = "enum"
 	tmpMap["nullable"] = s.Nullable()
 

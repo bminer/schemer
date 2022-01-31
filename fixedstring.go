@@ -38,6 +38,7 @@ func (s *FixedStringSchema) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal(map[string]interface{}{
 		"type":     "string",
+		"version":  SchemerVersion,
 		"length":   s.Length,
 		"nullable": s.Nullable(),
 	})
