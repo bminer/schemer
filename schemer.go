@@ -533,18 +533,22 @@ func DecodeSchemaJSON(r io.Reader) (Schema, error) {
 
 	case "object":
 
-		ver, ok := fields["version"]
-		if !ok {
-			return nil, fmt.Errorf("schemer version must be present")
-		}
-		v, ok := ver.(float64)
-		if !ok {
-			return nil, fmt.Errorf("version must be a number")
-		}
-		// REMEMBER: we cannot decode schemas that were created with newer versions of the schemer!!!
-		if v > SchemerVersion {
-			return nil, fmt.Errorf("cannot decode schema with version %v", v)
-		}
+		/*
+			FIXME: 	not version will not be present on nested objects...
+					need way to handle this
+			ver, ok := fields["version"]
+			if !ok {
+				return nil, fmt.Errorf("schemer version must be present")
+			}
+			v, ok := ver.(float64)
+			if !ok {
+				return nil, fmt.Errorf("version must be a number")
+			}
+			// REMEMBER: we cannot decode schemas that were created with newer versions of the schemer!!!
+			if v > SchemerVersion {
+				return nil, fmt.Errorf("cannot decode schema with version %v", v)
+			}
+		*/
 
 		fieldsI, ok := fields["fields"]
 
