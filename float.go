@@ -52,8 +52,8 @@ func (s *FloatSchema) MarshalJSON() ([]byte, error) {
 // Bytes encodes the schema in a portable binary format
 func (s *FloatSchema) MarshalSchemer() ([]byte, error) {
 
-	// floating point schemas are 1 byte long
-	var schema []byte = []byte{FloatByte}
+	// FloatSchema is 1 byte long + the schemer version
+	var schema []byte = []byte{FloatByte, SchemerVersion}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {

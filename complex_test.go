@@ -525,3 +525,27 @@ func TestDecodeComplex12(t *testing.T) {
 	}
 
 }
+
+func TestDecodeComplex13(t *testing.T) {
+
+	// setup an example schema
+	schema := ComplexSchema{SchemaOptions{nullable: false}, 128}
+
+	// encode it
+	b, err := schema.MarshalSchemer()
+	if err != nil {
+		t.Fatal(err, "; cannot marshall schemer")
+	}
+
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchema(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err, "; cannot decode complex schema")
+	}
+
+	decodedSchema := tmp.(*ComplexSchema)
+	if decodedSchema.Nullable() != schema.Nullable() {
+		t.Error("unexpected value for nullable in bool schema")
+	}
+
+}

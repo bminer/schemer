@@ -180,8 +180,8 @@ func (s *BoolSchema) MarshalJSON() ([]byte, error) {
 
 // MarshalSchemer encodes the schema in a portable binary format
 func (s *BoolSchema) MarshalSchemer() ([]byte, error) {
-	// bool schemas are 1 byte long
-	var schema []byte = []byte{BoolByte}
+	// BoolSchema is 1 byte long + the schemer version
+	var schema []byte = []byte{BoolByte, SchemerVersion}
 
 	// The most significant bit indicates whether or not the type is nullable
 	if s.Nullable() {

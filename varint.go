@@ -34,8 +34,8 @@ func (s *VarIntSchema) GoType() reflect.Type {
 // Bytes encodes the schema in a portable binary format
 func (s *VarIntSchema) MarshalSchemer() ([]byte, error) {
 
-	// fixed length schemas are 1 byte long total
-	var schema []byte = []byte{VarIntByte}
+	// VarIntSchema is 1 byte long total + the schemer version
+	var schema []byte = []byte{VarIntByte, SchemerVersion}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {

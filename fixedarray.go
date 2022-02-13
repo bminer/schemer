@@ -32,8 +32,8 @@ func (s *FixedArraySchema) Valid() bool {
 // Bytes encodes the schema in a portable binary format
 func (s *FixedArraySchema) MarshalSchemer() ([]byte, error) {
 
-	// fixed length schemas are 1 byte long total
-	var schema []byte = []byte{FixedArrayByte}
+	// FixedArraySchema is 1 byte long total + the schemer version
+	var schema []byte = []byte{FixedArrayByte, SchemerVersion}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {
@@ -53,9 +53,12 @@ func (s *FixedArraySchema) MarshalSchemer() ([]byte, error) {
 	}
 
 	elementData, err := m.MarshalSchemer()
+
 	if err != nil {
 		return nil, fmt.Errorf("element does not implement MarshalSchemer")
 	}
+
+	// chop off the schemer version of child type
 
 	schema = append(schema, elementData...)
 	return schema, nil

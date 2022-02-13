@@ -78,8 +78,8 @@ func (s *FixedIntSchema) Valid() bool {
 // Bytes encodes the schema in a portable binary format
 func (s *FixedIntSchema) MarshalSchemer() ([]byte, error) {
 
-	// fixed length schemas are 1 byte long total
-	var schema []byte = []byte{FixedIntByte}
+	// FixedIntSchema is 1 byte long total + the schemer version
+	var schema []byte = []byte{FixedIntByte, SchemerVersion}
 
 	// bit8 indicates whether or not the type is nullable
 	if s.Nullable() {

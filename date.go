@@ -40,7 +40,7 @@ func (sg dateSchemaGenerator) SchemaOfType(t reflect.Type) (Schema, error) {
 
 func (sg dateSchemaGenerator) DecodeSchema(r io.Reader) (Schema, error) {
 
-	tmpBuf := make([]byte, 1)
+	tmpBuf := make([]byte, 2)
 	_, err := r.Read(tmpBuf)
 	if err != nil {
 		return nil, err
@@ -126,10 +126,8 @@ func (s *DateSchema) MarshalJSON() ([]byte, error) {
 // Bytes encodes the schema in a portable binary format
 func (s *DateSchema) MarshalSchemer() ([]byte, error) {
 
-	const schemerDateSize byte = 1
-
-	// string schemas are 1 byte long
-	var schema []byte = make([]byte, schemerDateSize)
+	// DateSchema is 1 byte long + the schemer version
+	var schema []byte = []byte{1, SchemerVersion}
 
 	schema[0] |= CustomMask
 	schema[0] |= (dateSchemaUUID << 4)
@@ -189,7 +187,7 @@ func (s *DateSchema) Decode(r io.Reader, i interface{}) error {
 	return s.DecodeValue(r, reflect.ValueOf(i))
 }
 
-// DecodeValue uses the schema to read the next encoded valuethe input stream and store it in v
+// DecodeValue uses the schema to read the next encoded value from the input stream and store it in v
 func (s *DateSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	done, err := PreDecode(r, &v, s.Nullable())

@@ -87,8 +87,8 @@ func testRegisteredType1(useJSON bool, t *testing.T) {
 func testRegisteredType2(useJSON bool, t *testing.T) {
 
 	type SourceStruct struct {
-		IntField1 int
 		Date      time.Time
+		IntField1 int
 		Str       string
 	}
 
@@ -166,8 +166,8 @@ func testRegisteredType2(useJSON bool, t *testing.T) {
 	// and now make sure that the structs match!
 	decodeOK := true
 	decodeOK = decodeOK && (structToDecode.IntField1 == structToEncode.IntField1)
-	decodeOK = decodeOK && (structToDecode.Str == structToEncode.Str)
 	decodeOK = decodeOK && (origDate.Equal(structToDecode.Date))
+	decodeOK = decodeOK && (structToDecode.Str == structToEncode.Str)
 
 	if !decodeOK {
 		t.Error("unexpected struct to struct decode, using custom data type (date)")

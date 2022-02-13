@@ -775,3 +775,27 @@ func TestVarIntSchema5(t *testing.T) {
 	}
 
 }
+
+func TestVarIntSchema6(t *testing.T) {
+
+	// setup an example schema
+	schema := VarIntSchema{SchemaOptions{nullable: false}, true}
+
+	// encode it
+	b, err := schema.MarshalSchemer()
+	if err != nil {
+		t.Fatal(err, "; cannot marshall schemer")
+	}
+
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchema(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err, "; cannot decode complex schema")
+	}
+
+	decodedSchema := tmp.(*VarIntSchema)
+	if decodedSchema.Nullable() != schema.Nullable() {
+		t.Error("unexpected value for nullable in bool schema")
+	}
+
+}

@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-const SchemerVersion = 1
+const SchemerVersion = 192
 
 // initialization function for the Schemer Library
 func init() {
@@ -648,11 +648,17 @@ func DecodeSchema(r io.Reader) (Schema, error) {
 	}
 
 	buf = &bytes.Buffer{}
-	_, err := io.CopyN(buf, r, 1)
+	_, err := io.CopyN(buf, r, 2)
 	if err != nil {
 		return nil, err
 	}
+
 	curByte, _ := buf.ReadByte()
+	version, _ := buf.ReadByte()
+
+	if version > SchemerVersion {
+		return nil, fmt.Errorf("cannot decode schema with version %v; (are you using an out-dated version of schemer?)", version)
+	}
 
 	// decode fixed int schema
 	if curByte&FixedIntMask == FixedIntByte {

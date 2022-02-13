@@ -40,7 +40,7 @@ func (sg ipv4SchemaGenerator) SchemaOfType(t reflect.Type) (Schema, error) {
 
 func (sg ipv4SchemaGenerator) DecodeSchema(r io.Reader) (Schema, error) {
 
-	tmpBuf := make([]byte, 1)
+	tmpBuf := make([]byte, 2)
 	_, err := r.Read(tmpBuf)
 	if err != nil {
 		return nil, err
@@ -134,10 +134,8 @@ func (s *ipv4Schema) MarshalJSON() ([]byte, error) {
 // Bytes encodes the schema in a portable binary format
 func (s *ipv4Schema) MarshalSchemer() ([]byte, error) {
 
-	const schemerDateSize byte = 1
-
-	// string schemas are 1 byte long
-	var schema []byte = make([]byte, schemerDateSize)
+	// ipv4Schema is 1 byte long + the schemer version
+	var schema []byte = []byte{1, SchemerVersion}
 
 	schema[0] |= CustomMask
 	schema[0] |= (ipV4SchemaUUID << 4)

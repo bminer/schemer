@@ -19,19 +19,19 @@ func TestDecodeFixedLenArray1(t *testing.T) {
 
 	fixedArraySchema, ok := s.(*FixedArraySchema)
 	if !ok {
-		t.Error("expected a *FixedArraySchema")
+		t.Fatal("expected a *FixedArraySchema")
 	}
 
 	// encode it
 	b, err := fixedArraySchema.MarshalSchemer()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	// make sure we can successfully decode it
 	tmp, err := DecodeSchema(bytes.NewReader(b))
 	if err != nil {
-		t.Error("cannot encode binary encoded FixedArraySchema")
+		t.Fatal(err, "cannot decode FixedArraySchema")
 	}
 
 	decodedSchema := tmp.(*FixedArraySchema)
@@ -39,7 +39,7 @@ func TestDecodeFixedLenArray1(t *testing.T) {
 	// and then check the actual contents of the decoded schema
 	// to make sure it contains the correct values
 	if decodedSchema.Nullable() != fixedArraySchema.Nullable() {
-		t.Error("unexpected values when decoding binary fixedArraySchema")
+		t.Fatal(err, "unexpected values when decoding binary fixedArraySchema")
 	}
 
 }

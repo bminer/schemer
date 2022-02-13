@@ -42,8 +42,8 @@ func (s *EnumSchema) MarshalJSON() ([]byte, error) {
 // Bytes encodes the schema in a portable binary format
 func (s EnumSchema) MarshalSchemer() ([]byte, error) {
 
-	// fixed length schemas are 1 byte long total
-	var schema []byte = []byte{EnumByte}
+	// EnumSchema is 1 byte long total + the schemer version
+	var schema []byte = []byte{EnumByte, SchemerVersion}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {

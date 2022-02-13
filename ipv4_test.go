@@ -79,9 +79,11 @@ func testIPv41(useJSON bool, t *testing.T) {
 func testIPv42(useJSON bool, t *testing.T) {
 
 	type SourceStruct struct {
+		IP net.IP
+
 		IntField1 int
-		IP        net.IP
-		Str       string
+
+		Str string
 	}
 
 	var structToEncode = SourceStruct{IntField1: 42, IP: net.IPv4(192, 168, 0, 1), Str: "test"}

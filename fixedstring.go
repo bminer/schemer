@@ -48,8 +48,8 @@ func (s *FixedStringSchema) MarshalJSON() ([]byte, error) {
 // Bytes encodes the schema in a portable binary format
 func (s *FixedStringSchema) MarshalSchemer() ([]byte, error) {
 
-	// string schemas are 1 byte long
-	var schema []byte = []byte{FixedStringByte}
+	// FixedStringSchema  are 1 byte long + the schemer version
+	var schema []byte = []byte{FixedStringByte, SchemerVersion}
 
 	// The most signifiant bit indicates whether or not the type is nullable
 	if s.Nullable() {

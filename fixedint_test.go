@@ -797,19 +797,4 @@ func TestFixedIntSchema6(t *testing.T) {
 
 }
 
-func TestFixedIntSchema7(t *testing.T) {
 
-	var err error
-
-	// setup an example schema
-	fixedIntSchema := FixedIntSchema{Bits: 8, Signed: true, SchemaOptions: SchemaOptions{nullable: false}}
-
-	b, err := fixedIntSchema.MarshalJSON()
-	if err != nil {
-		t.Error(err)
-	}
-
-	// print out JSON
-	fmt.Printf("%s\n", b)
-
-}
