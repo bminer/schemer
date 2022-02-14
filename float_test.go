@@ -488,22 +488,52 @@ func TestFloatingPointSchema14(t *testing.T) {
 
 }
 
+// test binary marshalling / unmarshalling schema
 func TestFloatingPointSchema15(t *testing.T) {
 
 	// setup an example schema
-	floatingPointSchema := FloatSchema{Bits: 32, SchemaOptions: SchemaOptions{nullable: true, weakDecoding: true}}
-
-	// make sure we can successfully decode it
-	//var DecodedFloatSchema FloatSchema
-	var err error
-	var buf []byte
+	schema := FloatSchema{Bits: 32, SchemaOptions: SchemaOptions{weakDecoding: true}}
 
 	// encode it
-	buf, err = floatingPointSchema.MarshalJSON()
+	b, err := schema.MarshalSchemer()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err, "; cannot marshall schemer")
 	}
 
-	fmt.Println(string(buf))
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchema(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err, "; cannot decode FloatSchema")
+	}
+
+	decodedSchema := tmp.(*FloatSchema)
+	if decodedSchema.Nullable() != schema.Nullable() {
+		t.Fatal("unexpected value for nullable in FloatSchema")
+	}
+
+}
+
+// test JSON marshalling / unmarshalling schema
+func TestFloatingPointSchema16(t *testing.T) {
+
+	// setup an example schema
+	schema := FloatSchema{Bits: 32, SchemaOptions: SchemaOptions{weakDecoding: true}}
+
+	// encode it
+	b, err := schema.MarshalJSON()
+	if err != nil {
+		t.Fatal(err, "; cannot marshall schemer")
+	}
+
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchemaJSON(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err, "; cannot decode FloatSchema")
+	}
+
+	decodedSchema := tmp.(*FloatSchema)
+	if decodedSchema.Nullable() != schema.Nullable() {
+		t.Fatal("unexpected value for nullable in FloatSchema")
+	}
 
 }

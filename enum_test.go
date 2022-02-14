@@ -19,35 +19,6 @@ const (
 	Saturday  Weekday = 6
 )
 
-// make sure we can encode/decode binary schemas for EnumSchema
-func TestDecodeEnum1(t *testing.T) {
-
-	// setup an example schema
-	enumSchema := EnumSchema{SchemaOptions: SchemaOptions{nullable: false}}
-
-	// encode it
-	b, err := enumSchema.MarshalSchemer()
-	if err != nil {
-		t.Error(err)
-	}
-
-	// make sure we can successfully decode it
-
-	tmp, err := DecodeSchema(bytes.NewReader(b))
-	if err != nil {
-		t.Error("cannot encode binary encoded enumSchema")
-	}
-
-	decodedEnumSchema := tmp.(*EnumSchema)
-
-	// and then check the actual contents of the decoded schema
-	// to make sure it contains the correct values
-	if decodedEnumSchema.Nullable() != enumSchema.Nullable() {
-		t.Error("unexpected values when decoding binary EnumSchema")
-	}
-
-}
-
 // TestDecodeEnum2 just tests the base case of decoding an enum to another enum
 func TestDecodeEnum2(t *testing.T) {
 
@@ -315,6 +286,76 @@ func testEnumReader(useJSON bool) {
 
 }
 func TestEnumSerialize(t *testing.T) {
-	testEnumWriter(true)
-	testEnumReader(true)
+	testEnumWriter(false)
+	testEnumReader(false)
+}
+
+// test binary marshalling / unmarshalling schema
+func TestDecodeEnum7(t *testing.T) {
+
+	// setup an example schema
+	schema := EnumSchema{SchemaOptions: SchemaOptions{nullable: false}}
+
+	// we have to manually fill in the writer's schema
+	schema.Values = make(map[int]string)
+	schema.Values[int(Sunday)] = "Sunday"
+	schema.Values[int(Monday)] = "Monday"
+	schema.Values[int(Tuesday)] = "Tuesday"
+	schema.Values[int(Wednesday)] = "Wednesday"
+	schema.Values[int(Thursday)] = "Thursday"
+	schema.Values[int(Friday)] = "Friday"
+	schema.Values[int(Saturday)] = "Saturday"
+
+	// encode it
+	b, err := schema.MarshalSchemer()
+	if err != nil {
+		t.Fatal(err, "; cannot marshall schemer")
+	}
+
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchema(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err, "; cannot decode EnumSchema")
+	}
+
+	decodedSchema := tmp.(*EnumSchema)
+	if decodedSchema.Nullable() != schema.Nullable() {
+		t.Fatal("unexpected value for nullable in EnumSchema")
+	}
+
+}
+
+// test JSON marshalling / unmarshalling schema
+func TestDecodeEnum8(t *testing.T) {
+
+	// setup an example schema
+	schema := EnumSchema{SchemaOptions: SchemaOptions{nullable: false}}
+
+	// we have to manually fill in the writer's schema
+	schema.Values = make(map[int]string)
+	schema.Values[int(Sunday)] = "Sunday"
+	schema.Values[int(Monday)] = "Monday"
+	schema.Values[int(Tuesday)] = "Tuesday"
+	schema.Values[int(Wednesday)] = "Wednesday"
+	schema.Values[int(Thursday)] = "Thursday"
+	schema.Values[int(Friday)] = "Friday"
+	schema.Values[int(Saturday)] = "Saturday"
+
+	// encode it
+	b, err := schema.MarshalJSON()
+	if err != nil {
+		t.Fatal(err, "; cannot marshall schemer")
+	}
+
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchemaJSON(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err, "; cannot decode EnumSchema")
+	}
+
+	decodedSchema := tmp.(*EnumSchema)
+	if decodedSchema.Nullable() != schema.Nullable() {
+		t.Fatal("unexpected value for nullable in EnumSchema")
+	}
+
 }

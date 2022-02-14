@@ -7,44 +7,6 @@ import (
 	"testing"
 )
 
-func TestDecodeVarObject1(t *testing.T) {
-
-	m := map[int]string{1: "b"}
-
-	// setup an example schema
-	s, err := SchemaOf(m)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	varObjectSchema, ok := s.(*VarObjectSchema)
-	if !ok {
-		t.Fatal("varObjectSchema assertion failed")
-		return
-	}
-
-	// encode it
-	b, err := varObjectSchema.MarshalSchemer()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// make sure we can successfully decode it
-	tmp, err := DecodeSchema(bytes.NewReader(b))
-	if err != nil {
-		t.Fatal("cannot encode binary encoded VarObjectSchema", err)
-	}
-
-	decodedIntSchema := tmp.(*VarObjectSchema)
-
-	// and then check the actual contents of the decoded schema
-	// to make sure it contains the correct values
-	if decodedIntSchema.Nullable() != varObjectSchema.Nullable() {
-		t.Fatal("unexpected values when decoding binary EnumSchema")
-	}
-
-}
-
 func TestDecodeVarObject2(t *testing.T) {
 
 	strToIntMap := map[string]int{
@@ -119,6 +81,84 @@ func TestDecodeVarObject3(t *testing.T) {
 
 	if count := strings.Count(string(b), "version"); count != 1 {
 		t.Error("expected 1 JSON version element; got:", count)
+	}
+
+}
+
+// test binary marshalling / unmarshalling schema
+func TestDecodeVarObject4(t *testing.T) {
+
+	m := map[int]string{1: "b"}
+
+	// setup an example schema
+	s, err := SchemaOf(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	varObjectSchema, ok := s.(*VarObjectSchema)
+	if !ok {
+		t.Fatal("varObjectSchema assertion failed")
+		return
+	}
+
+	// encode it
+	b, err := varObjectSchema.MarshalSchemer()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchema(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal("cannot decode VarIntSchema schema")
+	}
+
+	decodedIntSchema := tmp.(*VarObjectSchema)
+
+	// and then check the actual contents of the decoded schema
+	// to make sure it contains the correct values
+	if decodedIntSchema.Nullable() != varObjectSchema.Nullable() {
+		t.Fatal("unexpected value for nullable in varObjectSchema")
+	}
+
+}
+
+// test json marshalling / unmarshalling schema
+func TestDecodeVarObject5(t *testing.T) {
+
+	m := map[int]string{1: "b"}
+
+	// setup an example schema
+	s, err := SchemaOf(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	varObjectSchema, ok := s.(*VarObjectSchema)
+	if !ok {
+		t.Fatal("varObjectSchema assertion failed")
+		return
+	}
+
+	// encode it
+	b, err := varObjectSchema.MarshalSchemer()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchema(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err, "; cannot decode varObjectSchema")
+	}
+
+	decodedIntSchema := tmp.(*VarObjectSchema)
+
+	// and then check the actual contents of the decoded schema
+	// to make sure it contains the correct values
+	if decodedIntSchema.Nullable() != varObjectSchema.Nullable() {
+		t.Fatal("unexpected value for nullable in varObjectSchema")
 	}
 
 }

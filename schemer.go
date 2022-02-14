@@ -722,7 +722,7 @@ func DecodeSchema(r io.Reader) (Schema, error) {
 
 		// Read in all the enumerated values
 		mapSchema := VarObjectSchema{
-			Key:   &VarIntSchema{Signed: false},
+			Key:   &VarIntSchema{Signed: true},
 			Value: &VarStringSchema{},
 		}
 		err = mapSchema.Decode(r, &s.Values)

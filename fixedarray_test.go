@@ -8,42 +8,6 @@ import (
 	"testing"
 )
 
-func TestDecodeFixedLenArray1(t *testing.T) {
-
-	var testarray [10]byte = [10]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-
-	s, err := SchemaOf(testarray)
-	if err != nil {
-		t.Error(err)
-	}
-
-	fixedArraySchema, ok := s.(*FixedArraySchema)
-	if !ok {
-		t.Fatal("expected a *FixedArraySchema")
-	}
-
-	// encode it
-	b, err := fixedArraySchema.MarshalSchemer()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// make sure we can successfully decode it
-	tmp, err := DecodeSchema(bytes.NewReader(b))
-	if err != nil {
-		t.Fatal(err, "cannot decode FixedArraySchema")
-	}
-
-	decodedSchema := tmp.(*FixedArraySchema)
-
-	// and then check the actual contents of the decoded schema
-	// to make sure it contains the correct values
-	if decodedSchema.Nullable() != fixedArraySchema.Nullable() {
-		t.Fatal(err, "unexpected values when decoding binary fixedArraySchema")
-	}
-
-}
-
 func TestDecodeFixedLenArray2(t *testing.T) {
 
 	var buf bytes.Buffer
@@ -192,4 +156,74 @@ func TestDecodeFixedLenArray5(t *testing.T) {
 	if count := strings.Count(string(b), "version"); count != 1 {
 		t.Error("expected 1 JSON version element; got:", count)
 	}
+}
+
+// test binary marshalling / unmarshalling schema
+func TestDecodeFixedLenArray6(t *testing.T) {
+
+	var testarray [10]byte = [10]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+
+	s, err := SchemaOf(testarray)
+	if err != nil {
+		t.Error(err)
+	}
+
+	schema, ok := s.(*FixedArraySchema)
+	if !ok {
+		t.Fatal("expected a *FixedArraySchema")
+	}
+	schema.SetNullable(true)
+
+	// encode it
+	b, err := schema.MarshalSchemer()
+	if err != nil {
+		t.Fatal(err, "; cannot marshall schemer")
+	}
+
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchema(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err, "; cannot decode FixedArraySchema")
+	}
+
+	decodedSchema := tmp.(*FixedArraySchema)
+	if decodedSchema.Nullable() != schema.Nullable() {
+		t.Fatal("unexpected value for nullable in FixedArraySchema")
+	}
+
+}
+
+// test binary marshalling / unmarshalling schema
+func TestDecodeFixedLenArray7(t *testing.T) {
+
+	var testarray [10]byte = [10]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+
+	s, err := SchemaOf(testarray)
+	if err != nil {
+		t.Error(err)
+	}
+
+	schema, ok := s.(*FixedArraySchema)
+	if !ok {
+		t.Fatal("expected a *FixedArraySchema")
+	}
+	schema.SetNullable(true)
+
+	// encode it
+	b, err := schema.MarshalJSON()
+	if err != nil {
+		t.Fatal(err, "; cannot marshall schemer")
+	}
+
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchemaJSON(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err, "; cannot decode FixedArraySchema")
+	}
+
+	decodedSchema := tmp.(*FixedArraySchema)
+	if decodedSchema.Nullable() != schema.Nullable() {
+		t.Fatal("unexpected value for nullable in FixedArraySchema")
+	}
+
 }

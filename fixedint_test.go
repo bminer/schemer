@@ -765,36 +765,62 @@ func TestFixedIntSchema5(t *testing.T) {
 
 }
 
+// test binary marshalling / unmarshalling schema
 func TestFixedIntSchema6(t *testing.T) {
 
 	var err error
 
 	// setup an example schema
-	fixedIntSchema := FixedIntSchema{Bits: 8, Signed: true, SchemaOptions: SchemaOptions{nullable: false}}
+	schema := FixedIntSchema{Bits: 8, Signed: true, SchemaOptions: SchemaOptions{nullable: false}}
 
 	// encode it
-	b, err := fixedIntSchema.MarshalSchemer()
+	b, err := schema.MarshalSchemer()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err, "; cannot marshall schemer")
 	}
 
-	var tmp Schema
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchema(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err, "; cannot decode FixedIntSchema")
+	}
 
-	tmp, err = DecodeSchema(bytes.NewReader(b))
 	decodedIntSchema := tmp.(*FixedIntSchema)
-	if err != nil {
-		t.Error("cannot encode binary encoded FixedIntSchema")
-	}
+	if decodedIntSchema.Bits != schema.Bits ||
+		decodedIntSchema.Nullable() != schema.Nullable() ||
+		decodedIntSchema.Signed != schema.Signed {
 
-	// and then check the actual contents of the decoded schema
-	// to make sure it contains the correct values
-	if decodedIntSchema.Bits != fixedIntSchema.Bits ||
-		decodedIntSchema.Nullable() != fixedIntSchema.Nullable() ||
-		decodedIntSchema.Signed != fixedIntSchema.Signed {
-
-		t.Error("unexpected values when decoding binary FixedIntSchema")
+		t.Fatal("unexpected schema options in FixedIntSchema")
 	}
 
 }
 
+// test JSON marshalling / unmarshalling schema
+func TestFixedIntSchema7(t *testing.T) {
 
+	var err error
+
+	// setup an example schema
+	schema := FixedIntSchema{Bits: 8, Signed: true, SchemaOptions: SchemaOptions{nullable: false}}
+
+	// encode it
+	b, err := schema.MarshalJSON()
+	if err != nil {
+		t.Fatal(err, "; cannot marshall schemer")
+	}
+
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchemaJSON(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err, "; cannot decode FixedIntSchema")
+	}
+
+	decodedIntSchema := tmp.(*FixedIntSchema)
+	if decodedIntSchema.Bits != schema.Bits ||
+		decodedIntSchema.Nullable() != schema.Nullable() ||
+		decodedIntSchema.Signed != schema.Signed {
+
+		t.Fatal("unexpected schema options in FixedIntSchema")
+	}
+
+}

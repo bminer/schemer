@@ -776,6 +776,7 @@ func TestVarIntSchema5(t *testing.T) {
 
 }
 
+// test binary marshalling / unmarshalling schema
 func TestVarIntSchema6(t *testing.T) {
 
 	// setup an example schema
@@ -790,12 +791,39 @@ func TestVarIntSchema6(t *testing.T) {
 	// make sure we can successfully decode it
 	tmp, err := DecodeSchema(bytes.NewReader(b))
 	if err != nil {
-		t.Fatal(err, "; cannot decode complex schema")
+		t.Fatal(err, "; cannot decode VarIntSchema")
 	}
 
 	decodedSchema := tmp.(*VarIntSchema)
 	if decodedSchema.Nullable() != schema.Nullable() {
-		t.Error("unexpected value for nullable in bool schema")
+		t.Fatal("unexpected value for nullable in VarIntSchema")
 	}
 
 }
+
+// test json marshalling / unmarshalling schema
+func TestVarIntSchema7(t *testing.T) {
+
+	// setup an example schema
+	schema := VarIntSchema{SchemaOptions{nullable: false}, true}
+
+	// encode it
+	b, err := schema.MarshalJSON()
+	if err != nil {
+		t.Fatal(err, "; cannot marshall schemer")
+	}
+
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchemaJSON(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err, "; cannot decode VarIntSchema schema")
+	}
+
+	decodedSchema := tmp.(*VarIntSchema)
+	if decodedSchema.Nullable() != schema.Nullable() {
+		t.Fatal("unexpected value for nullable in VarIntSchema")
+	}
+
+}
+
+

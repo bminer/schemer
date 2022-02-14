@@ -245,7 +245,7 @@ func TestDecodeFixedObject7(t *testing.T) {
 
 	fixedObjectSchema, ok := s.(*FixedObjectSchema)
 	if !ok {
-		t.Error("expected a *FixedArraySchema")
+		t.Error("expected a *fixedObjectSchema")
 	}
 
 	b, err := fixedObjectSchema.MarshalJSON()
@@ -255,6 +255,86 @@ func TestDecodeFixedObject7(t *testing.T) {
 
 	if count := strings.Count(string(b), "version"); count != 1 {
 		t.Error("expected 1 JSON version element; got:", count)
+	}
+
+}
+
+// test binary marshalling / unmarshalling schema
+func TestDecodeFixedObject8(t *testing.T) {
+
+	type SourceStruct struct {
+		S string
+		I int
+	}
+
+	var structToEncode = SourceStruct{S: "ben", I: 42}
+
+	s, err := SchemaOf(structToEncode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	schema, ok := s.(*FixedObjectSchema)
+	if !ok {
+		t.Error("expected a *fixedObjectSchema")
+	}
+	schema.SetNullable(true)
+
+	// encode it
+	b, err := schema.MarshalSchemer()
+	if err != nil {
+		t.Fatal(err, "; cannot marshall schemer")
+	}
+
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchema(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err, "; cannot decode fixedObjectSchema")
+	}
+
+	decodedSchema := tmp.(*FixedObjectSchema)
+	if decodedSchema.Nullable() != schema.Nullable() {
+		t.Fatal("unexpected value for nullable in fixedObjectSchema")
+	}
+
+}
+
+// test JSON marshalling / unmarshalling schema
+func TestDecodeFixedObject9(t *testing.T) {
+
+	type SourceStruct struct {
+		S string
+		I int
+	}
+
+	var structToEncode = SourceStruct{S: "ben", I: 42}
+
+	s, err := SchemaOf(structToEncode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	schema, ok := s.(*FixedObjectSchema)
+	if !ok {
+		t.Error("expected a *fixedObjectSchema")
+	}
+	schema.SetNullable(true)
+
+	// encode it
+	b, err := schema.MarshalJSON()
+	if err != nil {
+		t.Fatal(err, "; cannot marshall schemer")
+	}
+
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchemaJSON(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err, "; cannot decode fixedObjectSchema")
+	}
+
+	decodedSchema := tmp.(*FixedObjectSchema)
+	if decodedSchema.Nullable() != schema.Nullable() {
+		t.Fatal("unexpected value for nullable in fixedObjectSchema")
 	}
 
 }

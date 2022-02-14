@@ -80,9 +80,7 @@ func testIPv42(useJSON bool, t *testing.T) {
 
 	type SourceStruct struct {
 		IP net.IP
-
 		IntField1 int
-
 		Str string
 	}
 

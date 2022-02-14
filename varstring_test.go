@@ -214,6 +214,7 @@ func TestVarFixedString6(t *testing.T) {
 
 }
 
+// test binary marshalling / unmarshalling schema
 func TestVarFixedString7(t *testing.T) {
 
 	// setup an example schema
@@ -228,12 +229,37 @@ func TestVarFixedString7(t *testing.T) {
 	// make sure we can successfully decode it
 	tmp, err := DecodeSchema(bytes.NewReader(b))
 	if err != nil {
-		t.Fatal(err, "; cannot decode complex schema")
+		t.Fatal(err, "; cannot decode VarStringSchema")
 	}
 
 	decodedSchema := tmp.(*VarStringSchema)
 	if decodedSchema.Nullable() != schema.Nullable() {
-		t.Error("unexpected value for nullable in bool schema")
+		t.Fatal("unexpected value for nullable in VarStringSchema")
+	}
+
+}
+
+// test JSON marshalling / unmarshalling schema
+func TestVarFixedString8(t *testing.T) {
+
+	// setup an example schema
+	schema := VarStringSchema{SchemaOptions: SchemaOptions{nullable: true}}
+
+	// encode it
+	b, err := schema.MarshalJSON()
+	if err != nil {
+		t.Fatal(err, "; cannot marshall schemer")
+	}
+
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchemaJSON(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err, "; cannot decode VarStringSchema")
+	}
+
+	decodedSchema := tmp.(*VarStringSchema)
+	if decodedSchema.Nullable() != schema.Nullable() {
+		t.Fatal("unexpected value for nullable in VarStringSchema")
 	}
 
 }

@@ -8,45 +8,6 @@ import (
 	"testing"
 )
 
-// make sure we can encode/decode binary schemas for EnumSchema
-func TestDecodeVarLenArray1(t *testing.T) {
-
-	slice := []int{1, 2, 3, 4}
-
-	// setup an example schema
-	s, err := SchemaOf(slice)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	varArraySchema := s.(*VarArraySchema)
-
-	// encode i
-	b, err := varArraySchema.MarshalSchemer()
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	// make sure we can successfully decode it
-	tmp, err := DecodeSchema(bytes.NewReader(b))
-	if err != nil {
-		t.Error("cannot encode binary encoded VarLenArraySchema")
-		return
-	}
-
-	decodedSchema := tmp.(*VarArraySchema)
-
-	// and then check the actual contents of the decoded schema
-	// to make sure it contains the correct values
-	if decodedSchema.Nullable() != varArraySchema.Nullable() {
-		t.Error("unexpected values when decoding binary EnumSchema")
-		return
-	}
-
-}
-
 func TestDecodeVarLenArray2(t *testing.T) {
 
 	// build up the schema programatically
@@ -81,16 +42,6 @@ func TestDecodeVarLenArray2(t *testing.T) {
 }
 
 func TestDecodeVarLenArray3(t *testing.T) {
-
-	// build up the schema programatically
-	/*
-		FixedArraySchema := VarArraySchema{IsNullable: false}
-		fixedLenArraySchema1 := VarArraySchema{IsNullable: false}
-		FloatSchema := FloatSchema{Bits: 32}
-
-		fixedLenArraySchema1.Element = FloatSchema
-		FixedArraySchema.Element = fixedLenArraySchema1
-	*/
 
 	var buf bytes.Buffer
 	var err error
@@ -161,6 +112,76 @@ func TestDecodeVarLenArray4(t *testing.T) {
 
 	if count := strings.Count(string(b), "version"); count != 1 {
 		t.Error("expected 1 JSON version element; got:", count)
+	}
+
+}
+
+// test binary marshalling / unmarshalling schema
+func TestDecodeVarLenArray5(t *testing.T) {
+
+	slice := []int{1, 2, 3, 4}
+
+	// setup an example schema
+	s, err := SchemaOf(slice)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := s.(*VarArraySchema)
+
+	// encode it
+	b, err := schema.MarshalSchemer()
+	if err != nil {
+		t.Fatal(err, "; cannot marshall schemer")
+	}
+
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchema(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err, "; cannot decode VarArraySchema")
+	}
+
+	decodedSchema := tmp.(*VarArraySchema)
+
+	// and then check the actual contents of the decoded schema
+	// to make sure it contains the correct values
+	if decodedSchema.Nullable() != schema.Nullable() {
+		t.Fatal("unexpected values when decoding binary EnumSchema")
+	}
+
+}
+
+// test json marshalling / unmarshalling schema
+func TestDecodeVarLenArray6(t *testing.T) {
+
+	slice := []int{1, 2, 3, 4}
+
+	// setup an example schema
+	s, err := SchemaOf(slice)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := s.(*VarArraySchema)
+
+	// encode it
+	b, err := schema.MarshalJSON()
+	if err != nil {
+		t.Fatal(err, "; cannot marshall schemer")
+	}
+
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchemaJSON(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err, "; cannot decode VarArraySchema")
+	}
+
+	decodedSchema := tmp.(*VarArraySchema)
+
+	// and then check the actual contents of the decoded schema
+	// to make sure it contains the correct values
+	if decodedSchema.Nullable() != schema.Nullable() {
+		t.Fatal("unexpected values when decoding binary EnumSchema")
 	}
 
 }
