@@ -726,7 +726,6 @@ func TestFixedIntSchema4(t *testing.T) {
 	if err == nil {
 		t.Errorf("schemer library failure; cannot encode int16 using 8 bit schema")
 	}
-
 }
 
 func TestFixedIntSchema5(t *testing.T) {
@@ -762,7 +761,6 @@ func TestFixedIntSchema5(t *testing.T) {
 	if intPtr2 != nil {
 		t.Error("unexpected value decoding null int")
 	}
-
 }
 
 // test binary marshalling / unmarshalling schema
@@ -792,7 +790,6 @@ func TestFixedIntSchema6(t *testing.T) {
 
 		t.Fatal("unexpected schema options in FixedIntSchema")
 	}
-
 }
 
 // test JSON marshalling / unmarshalling schema
@@ -822,5 +819,4 @@ func TestFixedIntSchema7(t *testing.T) {
 
 		t.Fatal("unexpected schema options in FixedIntSchema")
 	}
-
 }

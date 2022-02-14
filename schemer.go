@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-const SchemerVersion = 192
+const SchemerVersion = 1
 
 // initialization function for the Schemer Library
 func init() {
