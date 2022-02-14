@@ -108,7 +108,7 @@ func TestDecodeBool3(t *testing.T) {
 	}
 
 	if strings.ToUpper(decodedValue1) != "TRUE" {
-		t.Errorf("Expected value")
+		t.Error("Expected value")
 	}
 
 }
@@ -163,31 +163,6 @@ func TestDecodeBool5(t *testing.T) {
 	err = bSchema.Decode(r, &decodedValue1)
 	if err == nil {
 		t.Error("schemer library decoding failure; decoding bool to string should not be allowed w/o weak decoding")
-	}
-
-}
-
-// TestDecodeBool6 makes sure we can encode and decode boolean schemas
-func TestDecodeBool6(t *testing.T) {
-
-	// setup an example schema
-	schema := BoolSchema{SchemaOptions{nullable: false}}
-
-	// encode it
-	b, err := schema.MarshalSchemer()
-	if err != nil {
-		t.Error("cannot marshall schemer")
-	}
-
-	// make sure we can successfully decode it
-	tmp, err := DecodeSchema(bytes.NewReader(b))
-	if err != nil {
-		t.Fatal(err, "; cannot decode binary encoded bool")
-	}
-
-	decodedBoolSchema := tmp.(*BoolSchema)
-	if decodedBoolSchema.Nullable() != schema.Nullable() {
-		t.Error("unexpected value for BoolSchema")
 	}
 
 }
@@ -274,6 +249,58 @@ func TestDecodeBool7A(t *testing.T) {
 
 	if decodedValue != nil {
 		t.Error("unexpected value decoding null boolean")
+	}
+
+}
+
+// test binary marshalling / unmarshalling schema
+func TestDecodeBool8(t *testing.T) {
+
+	// setup an example schema
+	schema := BoolSchema{SchemaOptions{nullable: false}}
+	schema.SetNullable(true)
+
+	// encode it
+	b, err := schema.MarshalSchemer()
+	if err != nil {
+		t.Error("cannot marshall schemer")
+	}
+
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchema(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err, "; cannot decode BoolSchema")
+	}
+
+	decodedBoolSchema := tmp.(*BoolSchema)
+	if decodedBoolSchema.Nullable() != schema.Nullable() {
+		t.Error("unexpected value for BoolSchema")
+	}
+
+}
+
+// test JSON marshalling / unmarshalling schema
+func TestDecodeBool9(t *testing.T) {
+
+	// setup an example schema
+	schema := BoolSchema{SchemaOptions{nullable: false}}
+	schema.SetNullable(true)
+
+	// encode it
+	b, err := schema.MarshalJSON()
+	if err != nil {
+		t.Error("cannot marshall schemer")
+	}
+
+	// make sure we can successfully decode it
+	tmp, err := DecodeSchemaJSON(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err, "; cannot decode BoolSchema")
+	}
+
+	decodedBoolSchema := tmp.(*BoolSchema)
+	if decodedBoolSchema.Nullable() != schema.Nullable() {
+		t.Error("unexpected value for BoolSchema")
 	}
 
 }
