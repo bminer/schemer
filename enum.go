@@ -75,7 +75,10 @@ func (s *EnumSchema) Encode(w io.Writer, i interface{}) error {
 
 // EncodeValue uses the schema to write the encoded value of v to the output streamtream
 func (s *EnumSchema) EncodeValue(w io.Writer, v reflect.Value) error {
-	varIntSchema := VarIntSchema{Signed: true, SchemaOptions: SchemaOptions{nullable: s.Nullable()}}
+	varIntSchema := VarIntSchema{
+		Signed:        false,
+		SchemaOptions: SchemaOptions{nullable: s.Nullable()},
+	}
 	return varIntSchema.EncodeValue(w, v)
 }
 
@@ -92,19 +95,22 @@ func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// first we decode the actual encoded binary value
 
-	varIntSchema := VarIntSchema{Signed: true, SchemaOptions: SchemaOptions{nullable: s.Nullable()}}
+	varIntSchema := VarIntSchema{
+		Signed:        false,
+		SchemaOptions: SchemaOptions{nullable: s.Nullable()},
+	}
 
-	var decodedVarInt int64
-	var intPtr *int64 = &decodedVarInt // we pass in a pointer to varIntSchema.Decode so we can potentially
+	var decodedVal uint64
+	var valPtr *uint64 = &decodedVal // we pass in a pointer to varIntSchema.Decode so we can potentially
 	// get back a nil value [in case we are dealing with a nullable type]
 
-	err := varIntSchema.Decode(r, &intPtr)
+	err := varIntSchema.Decode(r, &valPtr)
 	if err != nil {
 		return err
 	}
 
 	// now we check to see if varIntSchema.Decode returned us a nil value
-	if intPtr == nil {
+	if valPtr == nil {
 		if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
 			if v.CanSet() {
 				v.Set(reflect.Zero(v.Type()))
@@ -147,7 +153,7 @@ func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 	// check to see if the decoded value is in our map of enumerated values
 	if s.Values != nil {
-		if _, ok := s.Values[int(decodedVarInt)]; !ok {
+		if _, ok := s.Values[int(decodedVal)]; !ok {
 			// however, maybe it makes sense to allow this scenario
 			// when weak decoding is specified??
 			if !s.WeakDecoding() {
@@ -173,10 +179,11 @@ func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	case reflect.Int32:
 		fallthrough
 	case reflect.Int64:
-		if v.OverflowInt(decodedVarInt) {
-			return fmt.Errorf("decoded value %d overflows destination %v", decodedVarInt, k)
+		intVal := int64(decodedVal)
+		if uint64(intVal) != decodedVal || v.OverflowInt(intVal) {
+			return fmt.Errorf("decoded value %d overflows destination %v", decodedVal, k)
 		}
-		v.SetInt(int64(decodedVarInt))
+		v.SetInt(intVal)
 	case reflect.Uint:
 		fallthrough
 	case reflect.Uint8:
@@ -186,14 +193,10 @@ func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 	case reflect.Uint32:
 		fallthrough
 	case reflect.Uint64:
-		if decodedVarInt < 0 {
-			return fmt.Errorf("decoded value %d incompatible with %v", decodedVarInt, k)
+		if v.OverflowUint(decodedVal) {
+			return fmt.Errorf("decoded value %d overflows destination %v", decodedVal, k)
 		}
-		uintVal := uint64(decodedVarInt)
-		if v.OverflowUint(uintVal) {
-			return fmt.Errorf("decoded value %d overflows destination %v", uintVal, k)
-		}
-		v.SetUint(uintVal)
+		v.SetUint(decodedVal)
 	case reflect.String:
 		if !s.WeakDecoding() {
 			return fmt.Errorf("cannot decode enum to string without weak decoding enabled")
@@ -201,16 +204,16 @@ func (s *EnumSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 
 		// if we have the map, return the string value of the constant
 		if s.Values != nil {
-			if _, ok := s.Values[int(decodedVarInt)]; ok {
-				v.SetString(s.Values[int(decodedVarInt)])
+			if _, ok := s.Values[int(decodedVal)]; ok {
+				v.SetString(s.Values[int(decodedVal)])
 				return nil
 			}
 		}
 
 		// otherwise, just return a string version of the decoded integer value
-		v.SetString(strconv.FormatInt(decodedVarInt, 10))
+		v.SetString(strconv.FormatUint(decodedVal, 10))
 	default:
-		return fmt.Errorf("decoded value %d incompatible with %v", decodedVarInt, k)
+		return fmt.Errorf("decoded value %d incompatible with %v", decodedVal, k)
 	}
 
 	return nil

@@ -36,7 +36,7 @@ The following table describes how schemer encodes different values. Nullable val
 | Variable-size Integer    | Each byte's most significant bit indicates more bytes follow. Lower 7 bits are concatenated (in big-endian order) to form [ZigZag-encoded integer](https://developers.google.com/protocol-buffers/docs/encoding?csw=1#types). |
 | Floating-point Number    | Exactly `4 << n` bytes corresponding to the IEEE 754 binary representation of the floating-point number |
 | Complex Number           | Exactly `4 << n` bytes for each floating-point number `a` and `b` where the complex number is `a + bi`. |
-| Enum                     | Stored as an unsigned fixed-size integer (see above), where `n` is determined by the number of enumerated values |
+| Enum                     | Stored as an unsigned variable-size integer (see above) |
 | Boolean                  | A single boolean value is encoded as 1 byte. 0 indicates `false` and any other value indicates `true`. |
 | Fixed-Length String      | UTF-8 encoding of the string, padded with spaces to fit within allotted space. |
 | Variable-Length String   | Length of the string is encoded as an unsigned variable-size integer followed by UTF-8 encoding of the string |

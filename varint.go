@@ -87,11 +87,19 @@ func (s *VarIntSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 	case reflect.Int64:
 		intVal := v.Int()
 		// Write value
-		uintVal := uint64(intVal) << 1
-		if intVal < 0 {
-			uintVal = ^uintVal
+		if s.Signed {
+			uintVal := uint64(intVal) << 1
+			if intVal < 0 {
+				uintVal = ^uintVal
+			}
+			return WriteUvarint(w, uintVal)
+		} else {
+			if intVal < 0 {
+				return fmt.Errorf("cannot encode negative integer")
+			}
+			uintVal := uint64(intVal)
+			return WriteUvarint(w, uintVal)
 		}
-		return WriteUvarint(w, uintVal)
 	case reflect.Uint:
 		fallthrough
 	case reflect.Uint8:
@@ -102,7 +110,11 @@ func (s *VarIntSchema) EncodeValue(w io.Writer, v reflect.Value) error {
 		fallthrough
 	case reflect.Uint64:
 		uintVal := v.Uint()
-		return WriteUvarint(w, uintVal)
+		if s.Signed {
+			return WriteUvarint(w, uintVal<<1)
+		} else {
+			return WriteUvarint(w, uintVal)
+		}
 	}
 
 	return nil
@@ -239,10 +251,11 @@ func (s *VarIntSchema) DecodeValue(r io.Reader, v reflect.Value) error {
 		case reflect.Int32:
 			fallthrough
 		case reflect.Int64:
-			if v.OverflowUint(uintVal) {
+			intVal := int64(uintVal)
+			if uint64(intVal) != uintVal || v.OverflowInt(intVal) {
 				return fmt.Errorf("decoded value %d overflows destination %v", uintVal, k)
 			}
-			v.SetUint(uintVal)
+			v.SetInt(intVal)
 		case reflect.Uint:
 			fallthrough
 		case reflect.Uint8:
