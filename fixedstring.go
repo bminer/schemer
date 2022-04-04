@@ -27,7 +27,7 @@ func (s *FixedStringSchema) GoType() reflect.Type {
 }
 
 func (s *FixedStringSchema) Valid() bool {
-	return (s.Length > 0)
+	return s.Length > 0
 }
 
 func (s *FixedStringSchema) MarshalJSON() ([]byte, error) {
