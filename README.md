@@ -20,11 +20,11 @@ Schemer seeks to be an alternative to [protobuf](https://github.com/protocolbuff
 
 ## Why?
 
-Schemer is an attempt to further simplify data encoding. Unlike other encoding libraries that use [interface description languages](https://en.wikipedia.org/wiki/Interface_description_language) (i.e. protobuf), schemer allows developers to construct schemata programmatically with an API. Rather than generating code from a schema, a schema can be constructed from code. In Go, schemata can be generated from Go types using the reflection library. This subtlety adds a surprising amount of flexibility and extensibility to the encoding library.
+Schemer is an attempt to further simplify data encoding. Unlike other encoding libraries that use [interface description languages](https://en.wikipedia.org/wiki/Interface_description_language) (i.e. protobuf), schemer allows developers to construct schemata programmatically with an API. Rather than generating code from a schema, a schema can be constructed from code. In Go, schemata can be generated from Go types using the reflection library. This adds a surprising amount of flexibility and extensibility to the encoding library.
 
 Here's how schemer stacks up against other encoding formats:
 
-| Property                               | JSON               | XML                | MessagePack        | Protobuf           | Thrift             | Avro               | Gob                | Schemer            |
+| Property                               | JSON               | XML                | MessagePack        | Protobuf           | Thrift             | Avro               | Gob                | *Schemer*          |
 | -------------------------------------- | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ |
 | Human-Readable                         | :heavy_check_mark: | :neutral_face:     | :x:                | :x:                | :x:                | :x:                | :x:                | :x:                |
 | Support for Many Programming Languages | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: |
@@ -40,6 +40,8 @@ Here's how schemer stacks up against other encoding formats:
 | Supports Fixed-field Objects           | :x:                | :x:                | :x:                | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | Works on Web Browser                   | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :neutral_face:     | :heavy_check_mark: | :x:                | :calendar: soon…   |
 
+The table above is intended to guide the reader toward an encoding format based on their requirements, but the evaluations of these encoding formats are, of course, rather subjective. Please feel free to open an issue if you feel something should be adjusted and/or corrected.
+
 ## Types
 
 schemer uses type information provided by the schema to encode values. The following are all of the types that are supported:
@@ -47,7 +49,7 @@ schemer uses type information provided by the schema to encode values. The follo
 - Integer
   - Can be signed or unsigned
   - Fixed-size or variable-size [^1]
-  	- Fixed-size integers can be 8, 16, 32, 64, or 128 bits
+  	- Fixed-size integers can be 8, 16, 32, or 64 bits
 - Floating-point number (32 or 64-bit)
 - Complex number (64 or 128-bit)
 - Boolean
@@ -73,7 +75,7 @@ schemer uses type information provided by the schema to encode values. The follo
 
 | Type                     | JSON Type Name | Additional Options                                           |
 | ------------------------ | -------------- | ------------------------------------------------------------ |
-| Fixed-size Integer       | int            | * `signed` - boolean indicating if integer is signed or unsigned<br />* `bits` - one of the following numbers indicating the size of the integer: 8, 16, 32, 64, 128, 256, 512, 1024 |
+| Fixed-size Integer       | int            | * `signed` - boolean indicating if integer is signed or unsigned<br />* `bits` - one of the following numbers indicating the size of the integer: 8, 16, 32, 64, 128, 256, 512, 1024<br />Note: integers larger than 64 bits are not fully supported |
 | Variable-size Integer    | int            | * `signed` - boolean indicating if integer is signed or unsigned<br />* `bits` - must be `null` or omitted |
 | Floating-point Number    | float          | * `bits` - one of the following numbers indicating the size of the floating-point: 32, 64 |
 | Complex Number           | complex        | * `bits` - one of the following numbers indicating the size of the complex number: 64, 128 |
@@ -111,7 +113,7 @@ Here's a struct with three fields:
       "name": "age",
       "type": "int",
       "signed": false,
-      "size": 1
+      "bits": 8
     }
   ]
 }
@@ -121,7 +123,7 @@ Here's a struct with three fields:
 
 When decoding values from one type to another, schemer employs the following compatibility rules. These rules, while rather opinionated, provide safe defaults when decoding values. Users who want to carefully craft how values are decoded from one type to another can simply create a custom type.
 
-As a general rule, types are only compatible with themselves (i.e. boolean values can only be decoded to boolean values).  The table below outlines a few notable exceptions and describes how using "weak" decoding mode can increase type compatibility by sacrificing type safety and by making a few assumptions.
+As a general rule, types are only compatible with themselves (i.e. boolean values can only be decoded to boolean values). The table below outlines a few notable exceptions and describes how using "weak" decoding mode can increase type compatibility by sacrificing type safety and by making a few assumptions.
 
 |                 | Destination           |                       |                        |                        |                       |                        |                        |                       |
 | --------------- | --------------------- | --------------------- | ---------------------- | ---------------------- | --------------------- | ---------------------- | ---------------------- | --------------------- |
@@ -135,7 +137,7 @@ As a general rule, types are only compatible with themselves (i.e. boolean value
 | array (see #12) | :x:                   | :x:                   | :grey_exclamation: #11 | :x:                    | :x:                   | :x:                    | :heavy_check_mark: #3  | :x:                   |
 | object          | :x:                   | :x:                   | :x:                    | :x:                    | :x:                   | :x:                    | :x:                    | :heavy_check_mark: #4 |
 
-**Legend**:<br/>:heavy_check_mark: - indicates compatibility according to the specified rule<br/>:grey_exclamation:- indicates compatibility according to the specified rule only if weak decoding is used<br/>:x: - indicates that the source type cannot be decoded to the destination
+**Legend**:<br/>:heavy_check_mark: - indicates compatibility according to the specified rule<br/>:grey_exclamation:- indicates compatibility according to the specified rule only if weak decoding is used<br/>:x: - indicates that the source type cannot be decoded to the destination (excepting rule #12)
 
 #### Compatibility Rules:
 
@@ -163,13 +165,13 @@ The following compatibility rules apply for weak decoding only:
 
 #### String to number decoding:
 
-| String Example | Regular Expression | Decoded As              |
-| -------------- | ------------------ | ----------------------- |
-| `"-3.14"`      |                    | Number, base 10         |
-| `"0b1101"`     |                    | Number, base 2          |
-| `"0775"`       |                    | Number, base 8          |
-| `"0x2020"`     |                    | Number, base 16         |
-| `"2.34 + 2i"`  |                    | Complex number, base 10 |
+| String Example | Decoded As              | Regular Expression                                           |
+| -------------- | ----------------------- | ------------------------------------------------------------ |
+| `"-3.14"`      | Number, base 10         | `^[-+]?(0|[1-9][0-9]*)(\.[0-9]*)?([eE][+-]?[0-9]+)?$`        |
+| `"0b1101"`     | Integer, base 2         | `^[-+]?0[bB][01]+$`                                          |
+| `"0775"`       | Integer, base 8         | `^[-+]?0[oO]?[0-7]+$`                                        |
+| `"0x2020"`     | Number, base 16         | `^[-+]?0[xX][0-9A-Fa-f]+(\.[0-9A-Fa-f]*)?([pP][+-]?[0-9A-Fa-f]+)?$` |
+| `"2.34 + 2i"`  | Complex number, base 10 | You don't want to see it, but here's [the link](https://regexper.com/#%5E%5B-%2B%5D%3F%280%7C%5B1-9%5D%5B0-9%5D*%29%28%5C.%5B0-9%5D*%29%3F%28%5BeE%5D%5B%2B-%5D%3F%5B0-9%5D%2B%29%3F%28%5Cs*%5B-%2B%5D%5Cs*%280%7C%5B1-9%5D%5B0-9%5D*%29%28%5C.%5B0-9%5D*%29%3F%28%5BeE%5D%5B%2B-%5D%3F%5B0-9%5D%2B%29%3F%29%3Fi%24). |
 
 ## Credits
 
