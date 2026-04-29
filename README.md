@@ -83,7 +83,7 @@ schemer uses type information provided by the schema to encode values. The follo
 | Enum                     | enum           | * `values` - an object mapping strings to integer values     |
 | Fixed-Length String      | string         | * `length` - the length of the string in bytes               |
 | Variable-Length String   | string         | * `length` - must be `null` or omitted                       |
-| Fixed-Length Array       | array          | * `length` - the length of the string in bytes               |
+| Fixed-Length Array       | array          | * `length` - the number of elements in the array             |
 | Variable-Length Array    | array          | * `length` - must be `null` or omitted                       |
 | Object w/fixed fields    | object         | * `fields` - an array of fields. Each field is an type object with keys:<br />`name`[^3], `type`, and any additional options for the `type` |
 | Object w/variable fields | object         | * `fields` - must be `null` or omitted                       |
